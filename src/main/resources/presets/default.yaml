@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../../../config-schema.json
+# Default preset - balanced security and utility
+# Version: 1.0.0
+parent: none
+properties:
+  enabled: true
+  case_sensitive: false
+  patterns:
+    - (pass(word|wort|wd)?|pwd)  # password, passwort, passwd, pwd
+    - secret
+    - token
+    - (api[_-]?)?key       # key, api_key, api-key, apikey
+    - auth
+    - credential
+events:
+  remove_enabled: true
+  removed_types:
+    - jdk.OSInformation
+    - jdk.SystemProcess
+    - jdk.InitialEnvironmentVariable
+    - jdk.ProcessStart
+strings:
+  enabled: true
+  redact_in_method_names: false
+  redact_in_class_names: false
+  redact_in_thread_names: false
+
+  patterns:
+    # Home directory paths
+    home_directories:
+      enabled: true
+      regexes:
+        - '/Users/[^/]+'                    # macOS: /Users/username
+        - 'C:\\Users\\[a-zA-Z0-9_\-]+'     # Windows: C:\Users\username
+        - '/home/[^/]+'                     # Linux: /home/username
+
+    # Email addresses
+    emails:
+      enabled: true
+      regex: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+
+    # UUIDs (often used as identifiers)
+    uuids:
+      enabled: false  # Set to true if UUIDs are sensitive in your context
+      regex: '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+
+    # IP addresses
+    ip_addresses:
+      enabled: true
+      ipv4: '\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+      ipv6: '\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b'
+
+    # SSH host patterns - redact hostnames in SSH connection strings
+    # Matches: user@hostname, ssh://hostname, hostname:port
+    ssh_hosts:
+      enabled: true  # Enabled in default preset
+      patterns:
+        - 'ssh://[a-zA-Z0-9.-]+'                           # ssh://hostname
+        - '(?:ssh|sftp)://(?:[^@]+@)?[a-zA-Z0-9.-]+'      # ssh://user@hostname
+        - '[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+(?::[0-9]+)?'     # user@host or user@host:port
+        - '(?<=ssh\s)[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+'       # after "ssh " command
+network:
+  enabled: true
+  redact_ports: true
+  redact_addresses: true
+  keep_local_addresses: false
+paths:
+  enabled: true
+  mode: keep_filename
+
+general:
+  redaction_text: "***"
+  partial_redaction: false
+  pseudonymization:
+    enabled: false
+    format: "redacted"
+    custom_prefix: "<redacted:"
+    custom_suffix: ">"
+    hash_length: 8
+    hash_algorithm: "SHA-256"
+    scope:
+      properties: true
+      strings: true
+      network: true
+      paths: true

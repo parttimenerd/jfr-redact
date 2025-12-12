@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../config-schema.json
+# Strict preset - maximum redaction for highly sensitive data
+# Version: 1.0.0
+parent: default
+
+# Additional property patterns beyond default
+properties:
+  patterns:
+    - user(name)?          # user, username
+    - login
+
+# Additional events to remove beyond default
+events:
+  removed_types:
+    - jdk.SystemProperty
+    - jdk.NativeLibrary
+
+# Override string patterns to enable UUIDs
+strings:
+  redact_in_thread_names: true  # Stricter than default
+
+  patterns:
+    # Enable UUID redaction in strict mode
+    uuids:
+      enabled: true
+
+# Stricter path redaction
+paths:
+  mode: redact_all  # Redact entire paths instead of keeping filename

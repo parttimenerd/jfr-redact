@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Console appender with simple output format -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- Simple format: LEVEL: message -->
+            <pattern>%-5level: %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Root logger - default to WARN, can be overridden via command line -->
+    <root level="WARN">
+        <appender-ref ref="STDOUT" />
+    </root>
+
+    <!-- Application loggers -->
+    <logger name="me.bechberger.jfrredact" level="WARN"/>
+</configuration>

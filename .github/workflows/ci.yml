@@ -1,0 +1,201 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version: [21, 25]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'sapmachine'
+          cache: maven
+
+      - name: Build package
+        run: mvn package -DskipTests -Pgenerate-schema
+
+      - name: Verify schema was generated
+        if: matrix.java-version == 21
+        run: |
+          if [ ! -f config-schema.json ]; then
+            echo "ERROR: config-schema.json was not generated!"
+            exit 1
+          fi
+          echo "Schema generated successfully"
+
+      - name: Upload schema artifact
+        if: matrix.java-version == 21
+        uses: actions/upload-artifact@v4
+        with:
+          name: config-schema
+          path: config-schema.json
+          retention-days: 30
+
+      - name: Run tests
+        run: mvn clean test
+
+  deploy-snapshot:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'sapmachine'
+          cache: maven
+
+      - name: Import GPG key
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+          gpg --list-secret-keys --keyid-format LONG "${{ secrets.GPG_KEYNAME }}"
+
+      - name: Configure GPG for Maven
+        run: |
+          echo "allow-preset-passphrase" >> ~/.gnupg/gpg-agent.conf
+          gpgconf --kill gpg-agent
+          gpgconf --launch gpg-agent
+
+      - name: Create Maven settings
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>ossrh</id>
+                <username>${env.MAVEN_USERNAME}</username>
+                <password>${env.MAVEN_PASSWORD}</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>gpg</id>
+                <activation>
+                  <activeByDefault>true</activeByDefault>
+                </activation>
+                <properties>
+                  <gpg.executable>gpg</gpg.executable>
+                  <gpg.keyname>${env.GPG_KEYNAME}</gpg.keyname>
+                  <gpg.passphrase>${env.GPG_PASSPHRASE}</gpg.passphrase>
+                </properties>
+              </profile>
+            </profiles>
+          </settings>
+          EOF
+
+      - name: Generate snapshot version
+        id: version
+        run: |
+          # Get current version from Version.java (single source of truth)
+          CURRENT_VERSION=$(grep -oP 'VERSION = "\K[^"]+' src/main/java/me/bechberger/jfrredact/Version.java)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Generate timestamp-based snapshot version
+          TIMESTAMP=$(date -u +"%Y%m%d.%H%M%S")
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          SNAPSHOT_VERSION="${CURRENT_VERSION}-${TIMESTAMP}.${COMMIT_SHA}-SNAPSHOT"
+          
+          echo "snapshot_version=$SNAPSHOT_VERSION" >> $GITHUB_OUTPUT
+          echo "base_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Generated snapshot version: $SNAPSHOT_VERSION"
+
+      - name: Set snapshot version in pom.xml
+        run: |
+          mvn versions:set -DnewVersion=${{ steps.version.outputs.snapshot_version }}
+          mvn versions:commit
+
+      - name: Deploy snapshot to Maven Central
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          GPG_KEYNAME: ${{ secrets.GPG_KEYNAME }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "🚀 Deploying snapshot to Maven Central..."
+          mvn clean deploy -DskipTests -B -P release
+          echo "✅ Snapshot deployed to Maven Central"
+
+      - name: Build standalone JAR
+        run: mvn clean package -DskipTests
+
+      - name: Create GitHub snapshot release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: snapshot-${{ steps.version.outputs.snapshot_version }}
+          name: Snapshot ${{ steps.version.outputs.snapshot_version }}
+          body: |
+            🚀 **Automated Snapshot Build**
+            
+            This is a development snapshot from commit [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}).
+            
+            **⚠️ Warning**: This is a pre-release snapshot and may be unstable.
+            
+            **Install from Maven Central:**
+            ```xml
+            <dependency>
+              <groupId>me.bechberger</groupId>
+              <artifactId>jfr-redact</artifactId>
+              <version>${{ steps.version.outputs.snapshot_version }}</version>
+            </dependency>
+            ```
+            
+            Or with Gradle:
+            ```gradle
+            implementation 'me.bechberger:jfr-redact:${{ steps.version.outputs.snapshot_version }}'
+            ```
+            
+            **Latest commit:**
+            ${{ github.event.head_commit.message }}
+            
+            **CLI Usage:**
+            ```bash
+            java -jar jfr-redact.jar input.jfr output.jfr
+            ```
+          draft: false
+          prerelease: true
+          files: |
+            target/jfr-redact.jar
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create workflow summary
+        if: always()
+        run: |
+          echo "# Snapshot Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: \`${{ steps.version.outputs.snapshot_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Base Version**: \`${{ steps.version.outputs.base_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "## ✅ Snapshot Deployed Successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The snapshot is available at:" >> $GITHUB_STEP_SUMMARY
+            echo "- [Maven Central Snapshots](https://oss.sonatype.org/content/repositories/snapshots/me/bechberger/jfr-redact/)" >> $GITHUB_STEP_SUMMARY
+            echo "- [GitHub Releases](https://github.com/${{ github.repository }}/releases/tag/snapshot-${{ steps.version.outputs.snapshot_version }})" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## �� Snapshot Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Check the job logs for details." >> $GITHUB_STEP_SUMMARY
+          fi

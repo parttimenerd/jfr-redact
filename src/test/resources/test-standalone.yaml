@@ -1,0 +1,14 @@
+# Test config without parent
+parent: none
+
+properties:
+  enabled: true
+  case_sensitive: false
+  patterns:
+    - test_password
+
+events:
+  remove_enabled: false
+
+general:
+  redaction_text: "###"

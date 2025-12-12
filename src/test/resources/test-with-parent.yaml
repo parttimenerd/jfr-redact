@@ -1,0 +1,16 @@
+# Test config with parent = default
+parent: default
+
+properties:
+  patterns:
+    - custom_secret
+    - my_password
+
+events:
+  removed_types:
+    - jdk.CustomEvent
+
+general:
+  pseudonymization:
+    enabled: true
+    hash_length: 12
