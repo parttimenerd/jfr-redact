@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'src/main/java/me/bechberger/jfrredact/Version.java'
+  workflow_dispatch:
 
 # Prevent concurrent releases
 concurrency:

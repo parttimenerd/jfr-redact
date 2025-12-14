@@ -566,7 +566,6 @@ general:
 #
 # Test without creating output:
 #   java -jar jfr-redact.jar input.jfr output.jfr --config my-config.yaml --dry-run --verbose```
-```
 </details>
 
 ### Development
