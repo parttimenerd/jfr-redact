@@ -681,10 +681,7 @@ general:
 #   java -jar jfr-redact.jar input.jfr output.jfr --pseudonymize --pseudonym-format hash
 #
 # Test without creating output:
-#   java -jar jfr-redact.jar input.jfr output.jfr --config my-config.yaml --dry-run --verbose```
-
-To preview changes without modifying files:
-```bash
+#   java -jar jfr-redact.jar input.jfr output.jfr --config my-config.yaml --dry-run --verbose```bash
 ./sync-documentation.py --dry-run
 ```
 
