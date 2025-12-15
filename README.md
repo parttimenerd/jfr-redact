@@ -22,17 +22,15 @@ replacing it with `***`.
 **Redact a JFR file with default settings:**
 ```bash
 # Download the JAR from releases
-java -jar jfr-redact.jar recording.jfr redacted.jfr
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr
 ```
 
 **Redact a Java error log (hs_err_pid*.log):**
 ```bash
-java -jar jfr-redact.jar hs_err_pid12345.log hs_err_redacted.log
-```
+java -jar jfr-redact.jar redact-text hs_err_pid12345.log hs_err_redacted.log
 
-**Use maximum security (strict preset):**
-```bash
-java -jar jfr-redact.jar recording.jfr redacted.jfr --preset strict
+# Use the hserr preset optimized for crash reports:
+java -jar jfr-redact.jar redact-text hs_err_pid12345.log --preset hserr
 ```
 
 That's it! The tool will automatically redact:
@@ -102,13 +100,12 @@ implementation 'me.bechberger:jfr-redact:0.1.0'
 
 ### JFR File Redaction
 
-
 ```bash
 # Use default preset (recommended for most cases)
-java -jar jfr-redact.jar recording.jfr redacted.jfr
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr
 
 # Use strict preset (maximum redaction)
-java -jar jfr-redact.jar recording.jfr redacted.jfr --preset strict
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --preset strict
 
 # Use custom configuration file
 java -jar jfr-redact.jar recording.jfr redacted.jfr --config my-config.yaml
@@ -163,64 +160,183 @@ This is particularly useful for Java error logs (hs_err_pid*.log) which often co
 
 ### Command-Line Options
 
+#### Redact Command (Default)
+
 ```
-Usage: jfr-redact [-hV] [--pseudonymize] [--config=<file|url>] [--preset=<preset>]
-                  [--add-redaction-regex=<pattern>]...
-                  [--remove-event=<type>]... <input> [<output>]
-Redact sensitive information from Java Flight Recorder (JFR) recordings and text files
-      <input>             Input file to redact (JFR or text file)
-      [<output>]          Output file with redacted data (default: <input>.
-                            redacted.[jfr|txt])
+Usage: jfr-redact redact [-hqvV] [--debug] [--dry-run] [--pseudonymize] [--stats]
+                         [--config=<file|url>] [--preset=<preset>]
+                         [--add-redaction-regex=<pattern>]...
+                         [--exclude-categories=<filter>]...
+                         [--exclude-events=<filter>]...
+                         [--exclude-threads=<filter>]...
+                         [--include-categories=<filter>]...
+                         [--include-events=<filter>]...
+                         [--include-threads=<filter>]...
+                         [--remove-event=<type>]... <input.jfr> [<output.jfr>]
+
+Redact sensitive information from Java Flight Recorder (JFR) recordings
+
+      <input.jfr>         Input JFR file to redact
+      [<output.jfr>]      Output JFR file with redacted data (default: <input>.redacted.jfr)
       --add-redaction-regex=<pattern>
-                          Add a custom regular expression pattern for string
-                            redaction. This option can be specified multiple
-                            times to add multiple patterns. Patterns are
-                            applied to string fields in events.
+                          Add a custom regular expression pattern for string redaction
       --config=<file|url> Load configuration from a YAML file or URL
-                          Supports: file paths, file:// URLs, http://, https://
-  -h, --help              Show this help message and exit.
+      --debug             Enable debug output (DEBUG level logging)
+      --dry-run           Process the file without writing output, useful for testing
+                            configuration with --stats
+      --exclude-categories=<filter>
+                          Exclude events matching a category name (supports glob patterns)
+      --exclude-events=<filter>
+                          Exclude events matching an event name (supports glob patterns)
+      --exclude-threads=<filter>
+                          Exclude events matching a thread name (supports glob patterns)
+  -h, --help              Show this help message and exit
+      --include-categories=<filter>
+                          Select events matching a category name (supports glob patterns)
+      --include-events=<filter>
+                          Select events matching an event name (supports glob patterns)
+      --include-threads=<filter>
+                          Select events matching a thread name (supports glob patterns)
       --preset=<preset>   Use a predefined configuration preset. Valid values:
                             default, strict (default: default)
       --pseudonymize      Enable pseudonymization mode. When enabled, the same
                             sensitive value always maps to the same pseudonym
-                            (e.g., <redacted:a1b2c3>), preserving relationships
-                            across events. Without this flag, all values are
-                            redacted to ***.
+  -q, --quiet             Minimize output (only show errors and completion message)
       --remove-event=<type>
-                          Remove an additional event type from the output. This
-                            option can be specified multiple times to remove
-                            multiple event types. (Only applicable to JFR files)
-  -V, --version           Print version information and exit.
+                          Remove an additional event type from the output
+      --stats             Show statistics after redaction (events processed, removed,
+                            redactions applied)
+  -v, --verbose           Enable verbose output (INFO level logging)
+  -V, --version           Print version information and exit
+```
+
+#### Config-Gen Command
+
+Generate configuration templates for customizing redaction behavior:
+
+```
+Usage: jfr-redact generate-config [-hV] [--minimal] [--preset=<preset>]
+                             [-o=<file>] [<output.yaml>]
+
+Generate a configuration template for JFR redaction
+
+      [<output.yaml>]     Output file for the configuration (default: stdout)
+  -h, --help              Show this help message and exit
+      --minimal           Generate minimal configuration template
+  -o, --output=<file>     Output file for the configuration
+      --preset=<preset>   Base the configuration on a preset. Valid values:
+                            default, strict
+  -V, --version           Print version information and exit
 
 Examples:
 
-  JFR file redaction:
-    jfr-redact recording.jfr
-    (creates recording.redacted.jfr)
+  Generate default template to stdout:
+    jfr-redact generate-config
 
-  Text file redaction (e.g., hs_err logs):
-    jfr-redact hs_err_pid12345.log
-    (creates hs_err_pid12345.redacted.log)
+  Generate template to file:
+    jfr-redact generate-config -o my-config.yaml
 
-  Specify output file:
-    jfr-redact recording.jfr output.jfr
+  Generate from preset:
+    jfr-redact generate-config --preset strict -o my-config.yaml
 
-  Load configuration from URL:
-    jfr-redact recording.jfr --config https://example.com/configs/redaction.yaml
-    jfr-redact recording.jfr --config file:///path/to/config.yaml
+  Generate minimal config:
+    jfr-redact generate-config --minimal -o minimal-config.yaml
+```
 
-  Strict preset with pseudonymization:
-    jfr-redact recording.jfr --preset strict --pseudonymize
+#### Test/Validate Command
 
-  Custom config with additional event removal:
-    jfr-redact recording.jfr --config my-config.yaml --remove-event jdk.CustomEvent
+Test or validate configuration files:
 
-  Add custom redaction pattern:
-    jfr-redact recording.jfr --add-redaction-regex '\b[A-Z]{3}-\d{6}\b'
-    
-  Redact Java error log with default settings:
-    jfr-redact recording.jfr --config my-config.yaml --remove-event jdk.
-CustomEvent
+```
+Usage: jfr-redact test|validate [-hV] [--pseudonymize] [--config=<file|url>]
+                                [--preset=<preset>] [--event=<type>]
+                                [--property=<name>] [--thread=<name>]
+                                [--value=<value>]
+
+Test configuration by showing how specific values would be redacted
+Also validates configuration when run without test values
+
+      --config=<file|url> Load configuration from a YAML file or URL
+      --event=<type>      Event type to test
+  -h, --help              Show this help message and exit
+      --preset=<preset>   Use a predefined configuration preset (default: default)
+      --property=<name>   Property name to test redaction
+      --pseudonymize      Enable pseudonymization mode
+      --thread=<name>     Thread name to test filtering
+      --value=<value>     Value to test redaction
+  -V, --version           Print version information and exit
+
+Examples:
+
+  Validate a configuration:
+    jfr-redact validate --config my-config.yaml
+    jfr-redact test --config my-config.yaml
+
+  Test a property redaction:
+    jfr-redact test --config my-config.yaml --property password --value secret123
+
+  Test string redaction:
+    jfr-redact test --preset strict --value user@example.com
+```
+
+#### Generate-Schema Command
+
+Generate JSON Schema for configuration file validation and IDE autocompletion:
+
+```
+Usage: jfr-redact generate-schema [-hV] [<output.json>]
+
+Generate JSON Schema for the YAML configuration files
+
+      [<output.json>]     Output file for the JSON schema (default: stdout)
+  -h, --help              Show this help message and exit
+  -V, --version           Print version information and exit
+
+Examples:
+
+  Generate schema to stdout:
+    jfr-redact generate-schema
+
+  Generate schema to a file:
+    jfr-redact generate-schema config-schema.json
+```
+
+#### Examples
+
+```bash
+# JFR file redaction:
+jfr-redact redact recording.jfr
+# (creates recording.redacted.jfr)
+
+# Show statistics about redaction:
+jfr-redact redact recording.jfr --stats
+
+# Dry run to test configuration without creating output:
+jfr-redact redact recording.jfr --dry-run --stats
+
+# Specify output file:
+jfr-redact redact recording.jfr output.jfr
+
+# Load configuration from URL:
+jfr-redact redact recording.jfr --config https://example.com/configs/redaction.yaml
+
+# Strict preset with pseudonymization:
+jfr-redact redact recording.jfr --preset strict --pseudonymize
+
+# Custom config with additional event removal:
+jfr-redact redact recording.jfr --config my-config.yaml --remove-event jdk.CustomEvent
+
+# Add custom redaction pattern:
+jfr-redact redact recording.jfr --add-redaction-regex '\b[A-Z]{3}-\d{6}\b'
+
+# Generate a configuration template:
+jfr-redact generate-config -o my-config.yaml
+
+# Generate JSON schema for IDE autocompletion:
+jfr-redact generate-schema config-schema.json
+
+# Validate a configuration:
+jfr-redact validate --config my-config.yaml
 ```
 
 ## Configuration
@@ -365,13 +481,13 @@ strings:
 
     # Custom patterns - add your own regex patterns here
     custom:
-      # Example: AWS access keys
-      # - name: aws_access_keys
-      #   regex: 'AKIA[0-9A-Z]{16}'
+    # Example: AWS access keys
+    # - name: aws_access_keys
+    #   regex: 'AKIA[0-9A-Z]{16}'
 
-      # Example: JWT tokens
-      # - name: jwt_tokens
-      #   regex: 'eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+'
+    # Example: JWT tokens
+    # - name: jwt_tokens
+    #   regex: 'eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+'
 
 # Network event redaction - redact addresses/ports in socket events
 network:
@@ -445,24 +561,24 @@ general:
       network: true         # Network addresses
       paths: true           # File paths
       ports: true           # Port numbers (always uses counter, mapped to 1000+ range)
-                            # Example: port 8080 -> 1001, port 443 -> 1002
+      # Example: port 8080 -> 1001, port 443 -> 1002
 
     # Custom replacements for specific values (highest priority, overrides all modes)
     # Map exact values to specific replacements
     # Useful for replacing known usernames, email addresses, or paths
     replacements:
-      # Example username replacements:
-      # "johndoe": "alice"
-      # "admin": "user01"
+    # Example username replacements:
+    # "johndoe": "alice"
+    # "admin": "user01"
 
-      # Example email replacements:
-      # "john.doe@company.com": "user@example.com"
-      # "admin@internal.net": "contact@test.org"
+    # Example email replacements:
+    # "john.doe@company.com": "user@example.com"
+    # "admin@internal.net": "contact@test.org"
 
-      # Example path replacements:
-      # "/home/johndoe": "/home/testuser"
-      # "C:\\Users\\JohnDoe": "C:\\Users\\TestUser"
-      # "/Users/johndoe": "/Users/testuser"
+    # Example path replacements:
+    # "/home/johndoe": "/home/testuser"
+    # "C:\\Users\\JohnDoe": "C:\\Users\\TestUser"
+    # "/Users/johndoe": "/Users/testuser"
 
     # Pattern-based replacement generators (using RgxGen)
     # Define regex patterns for generating realistic replacements by pattern type
@@ -522,33 +638,33 @@ general:
     #
     # ============================================================================
     pattern_generators:
-      # SSH host patterns - generates hostnames matching the regex
-      # "ssh_hosts": "host[0-9]{2}\\.example\\.com"
+    # SSH host patterns - generates hostnames matching the regex
+    # "ssh_hosts": "host[0-9]{2}\\.example\\.com"
 
-      # IP address patterns - generates IP addresses in specific ranges
-      # "ip_addresses": "10\\.0\\.[0-9]{1,3}\\.[0-9]{1,3}"
-      # "ipv4_private": "192\\.168\\.[0-9]{1,3}\\.[0-9]{1,3}"
+    # IP address patterns - generates IP addresses in specific ranges
+    # "ip_addresses": "10\\.0\\.[0-9]{1,3}\\.[0-9]{1,3}"
+    # "ipv4_private": "192\\.168\\.[0-9]{1,3}\\.[0-9]{1,3}"
 
-      # Username patterns - generates consistent usernames
-      # "usernames": "user[0-9]{3}"
-      # "service_accounts": "svc_[a-z]{4}[0-9]{2}"
+    # Username patterns - generates consistent usernames
+    # "usernames": "user[0-9]{3}"
+    # "service_accounts": "svc_[a-z]{4}[0-9]{2}"
 
-      # User path patterns with {users} placeholder
-      # "unix_home": "/home/{users}"
-      # "mac_home": "/Users/{users}"
-      # "win_home": "C:\\\\Users\\\\{users}"
+    # User path patterns with {users} placeholder
+    # "unix_home": "/home/{users}"
+    # "mac_home": "/Users/{users}"
+    # "win_home": "C:\\\\Users\\\\{users}"
 
-      # Temporary file patterns
-      # "temp_files": "temp_[a-z0-9]{8}"
-      # "session_ids": "[a-f0-9]{32}"
+    # Temporary file patterns
+    # "temp_files": "temp_[a-z0-9]{8}"
+    # "session_ids": "[a-f0-9]{32}"
 
-      # Email patterns with placeholder
-      # "user_emails": "{emails}"
-      # "internal_emails": "[a-z]{5}\\.[a-z]{5}@internal\\.example\\.com"
+    # Email patterns with placeholder
+    # "user_emails": "{emails}"
+    # "internal_emails": "[a-z]{5}\\.[a-z]{5}@internal\\.example\\.com"
 
-      # Custom application-specific patterns
-      # "app_tokens": "tok_[A-Za-z0-9]{16}"
-      # "customer_ids": "CUST[0-9]{8}"
+    # Custom application-specific patterns
+    # "app_tokens": "tok_[A-Za-z0-9]{16}"
+    # "customer_ids": "CUST[0-9]{8}"
 
 # Usage examples:
 #
@@ -565,9 +681,7 @@ general:
 #   java -jar jfr-redact.jar input.jfr output.jfr --pseudonymize --pseudonym-format hash
 #
 # Test without creating output:
-#   java -jar jfr-redact.jar input.jfr output.jfr --config my-config.yaml --dry-run --verbose```bash
-./sync-documentation.py
-```
+#   java -jar jfr-redact.jar input.jfr output.jfr --config my-config.yaml --dry-run --verbose```
 
 To preview changes without modifying files:
 ```bash
@@ -601,7 +715,7 @@ Requires: [GitHub CLI (gh)](https://cli.github.com/)
 The project automatically generates a JSON Schema (`config-schema.json`) during build, enabling autocomplete and validation for YAML configuration files.
 
 **Getting the Schema:**
-- Build locally: `mvn compile` (generates `config-schema.json` in project root)
+- Build locally: `mvn package && java -jar target/jfr-redact.jar generate-schema config-schema.json`
 - Download from CI: Check the [Actions tab](https://github.com/parttimenerd/jfrredact/actions) and download the `config-schema` artifact from recent builds
 
 **VS Code**: The schema reference is already included in config files:

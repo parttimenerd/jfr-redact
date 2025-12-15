@@ -34,23 +34,4 @@ public class SchemaGenerator {
 
         return generator.generateSchema(RedactionConfig.class);
     }
-
-    /**
-     * Main method to generate and output the schema
-     */
-    public static void main(String[] args) throws IOException {
-        JsonNode schema = generateSchema();
-        String schemaJson = schema.toPrettyString();
-
-        // Output to stdout
-        System.out.println(schemaJson);
-
-        // Optionally write to file if path is provided
-        if (args.length > 0) {
-            Path outputPath = Paths.get(args[0]).toAbsolutePath();
-            Files.createDirectories(outputPath.getParent());
-            Files.writeString(outputPath, schemaJson);
-            System.err.println("Schema written to: " + outputPath.toAbsolutePath());
-        }
-    }
 }

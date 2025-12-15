@@ -1,5 +1,9 @@
 package me.bechberger.jfrredact;
 
+import jdk.jfr.Event;
+import jdk.jfr.Name;
+import me.bechberger.jfrredact.jfr.util.JFRTestHelper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,6 +29,19 @@ public class LoggingTest {
     @TempDir
     Path tempDir;
 
+    JFRTestHelper helper;
+
+    @BeforeEach
+    void setUp() {
+        helper = new JFRTestHelper(tempDir);
+    }
+
+    // Simple test event for creating valid JFR recordings
+    @Name("test.SimpleEvent")
+    static class SimpleEvent extends Event {
+        String message;
+    }
+
     // ========== Test Data Providers ==========
 
     static Stream<Arguments> verbosityFlagTests() {
@@ -44,10 +61,11 @@ public class LoggingTest {
     @ParameterizedTest(name = "[{index}] {1}")
     @MethodSource("verbosityFlagTests")
     public void testVerbosityFlags_AcceptedWithoutError(String flag, String description) throws IOException {
-        Path inputFile = createDummyTextFile();
-        Path outputFile = tempDir.resolve("output.txt");
+        Path inputFile = createDummyJFRFile();
+        Path outputFile = tempDir.resolve("output.jfr");
 
         String[] args = {
+            "redact",
             inputFile.toString(),
             outputFile.toString(),
             flag
@@ -65,10 +83,11 @@ public class LoggingTest {
 
     @Test
     public void testDefaultMode_NoLoggingFlags() throws IOException {
-        Path inputFile = createDummyTextFile();
-        Path outputFile = tempDir.resolve("output.txt");
+        Path inputFile = createDummyJFRFile();
+        Path outputFile = tempDir.resolve("output.jfr");
 
         String[] args = {
+            "redact",
             inputFile.toString(),
             outputFile.toString()
         };
@@ -86,10 +105,11 @@ public class LoggingTest {
 
     @Test
     public void testVerboseFlag_ProducesOutput() throws IOException {
-        Path inputFile = createDummyTextFile();
-        Path outputFile = tempDir.resolve("output.txt");
+        Path inputFile = createDummyJFRFile();
+        Path outputFile = tempDir.resolve("output.jfr");
 
         String[] args = {
+            "redact",
             inputFile.toString(),
             outputFile.toString(),
             "--verbose"
@@ -107,10 +127,11 @@ public class LoggingTest {
 
     @Test
     public void testQuietFlag_MinimizesOutput() throws IOException {
-        Path inputFile = createDummyTextFile();
-        Path outputFile = tempDir.resolve("output.txt");
+        Path inputFile = createDummyJFRFile();
+        Path outputFile = tempDir.resolve("output.jfr");
 
         String[] args = {
+            "redact",
             inputFile.toString(),
             outputFile.toString(),
             "--quiet"
@@ -131,6 +152,7 @@ public class LoggingTest {
     @Test
     public void testLogging_WithInvalidFile() {
         String[] args = {
+            "redact",
             "/nonexistent/file.jfr",
             "output.jfr",
             "--verbose"
@@ -158,10 +180,11 @@ public class LoggingTest {
         Path configFile = tempDir.resolve("test-config.yaml");
         Files.writeString(configFile, configContent);
 
-        Path inputFile = createDummyTextFile();
-        Path outputFile = tempDir.resolve("output.txt");
+        Path inputFile = createDummyJFRFile();
+        Path outputFile = tempDir.resolve("output.jfr");
 
         String[] args = {
+            "redact",
             inputFile.toString(),
             outputFile.toString(),
             "--config", configFile.toString(),
@@ -188,12 +211,13 @@ public class LoggingTest {
         Path configFile = tempDir.resolve("url-config.yaml");
         Files.writeString(configFile, configContent);
 
-        Path inputFile = createDummyTextFile();
-        Path outputFile = tempDir.resolve("output.txt");
+        Path inputFile = createDummyJFRFile();
+        Path outputFile = tempDir.resolve("output.jfr");
 
         String configUrl = configFile.toUri().toString();
 
         String[] args = {
+            "redact",
             inputFile.toString(),
             outputFile.toString(),
             "--config", configUrl,
@@ -277,10 +301,11 @@ public class LoggingTest {
         Path configFile = tempDir.resolve("workflow-config.yaml");
         Files.writeString(configFile, configContent);
 
-        Path inputFile = createDummyTextFile();
-        Path outputFile = tempDir.resolve("output.txt");
+        Path inputFile = createDummyJFRFile();
+        Path outputFile = tempDir.resolve("output.jfr");
 
         String[] args = {
+            "redact",
             inputFile.toString(),
             outputFile.toString(),
             "--config", configFile.toString(),
@@ -298,10 +323,11 @@ public class LoggingTest {
 
     @Test
     public void testCombinedFlags_WithPseudonymization() throws IOException {
-        Path inputFile = createDummyTextFile();
-        Path outputFile = tempDir.resolve("output.txt");
+        Path inputFile = createDummyJFRFile();
+        Path outputFile = tempDir.resolve("output.jfr");
 
         String[] args = {
+            "redact",
             inputFile.toString(),
             outputFile.toString(),
             "--pseudonymize",
@@ -319,11 +345,12 @@ public class LoggingTest {
 
     @Test
     public void testMultipleLoggingFlags_LastWins() throws IOException {
-        Path inputFile = createDummyTextFile();
-        Path outputFile = tempDir.resolve("output.txt");
+        Path inputFile = createDummyJFRFile();
+        Path outputFile = tempDir.resolve("output.jfr");
 
         // Multiple logging flags - implementation should handle gracefully
         String[] args = {
+            "redact",
             inputFile.toString(),
             outputFile.toString(),
             "--verbose",
@@ -341,16 +368,19 @@ public class LoggingTest {
 
     // ========== Helper Methods ==========
 
-    private Path createDummyTextFile() throws IOException {
-        String content = """
-            This is a test file.
-            Email: user@example.com
-            IP: 192.168.1.100
-            Normal text here.
-            """;
+    private Path createDummyJFRFile() throws IOException {
+        return helper.createTestRecording(() -> {
+            SimpleEvent event1 = new SimpleEvent();
+            event1.message = "Test event with email: user@example.com";
+            event1.commit();
 
-        Path file = tempDir.resolve("test-input.txt");
-        Files.writeString(file, content);
-        return file;
+            SimpleEvent event2 = new SimpleEvent();
+            event2.message = "Test event with IP: 192.168.1.100";
+            event2.commit();
+
+            SimpleEvent event3 = new SimpleEvent();
+            event3.message = "Normal text here.";
+            event3.commit();
+        }, SimpleEvent.class);
     }
 }

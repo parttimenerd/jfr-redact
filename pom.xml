@@ -187,6 +187,35 @@
                     <autoReleaseAfterClose>true</autoReleaseAfterClose>
                 </configuration>
             </plugin>
+
+            <!-- Maven Resources Plugin - Copy config-template.yaml to resources -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-config-template</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}</directory>
+                                    <includes>
+                                        <include>config-template.yaml</include>
+                                    </includes>
+                                    <filtering>false</filtering>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -247,41 +276,12 @@
             <artifactId>jsonschema-module-jackson</artifactId>
             <version>4.37.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>26.0.2</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
-
-    <profiles>
-        <!-- Optional profile to generate JSON schema: mvn -Pgenerate-schema -->
-        <profile>
-            <id>generate-schema</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <version>3.1.0</version>
-                        <executions>
-                            <execution>
-                                <id>generate-json-schema</id>
-                                <phase>process-classes</phase>
-                                <goals>
-                                    <goal>java</goal>
-                                </goals>
-                                <configuration>
-                                    <mainClass>me.bechberger.jfrredact.config.SchemaGenerator</mainClass>
-                                    <arguments>
-                                        <argument>${project.basedir}/config-schema.json</argument>
-                                    </arguments>
-                                    <additionalClasspathElements>
-                                        <additionalClasspathElement>${project.build.outputDirectory}</additionalClasspathElement>
-                                    </additionalClasspathElements>
-                                    <commandlineArgs>--add-modules jdk.jfr</commandlineArgs>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 
 </project>

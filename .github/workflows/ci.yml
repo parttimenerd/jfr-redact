@@ -27,6 +27,10 @@ jobs:
       - name: Build package
         run: mvn package -DskipTests -Pgenerate-schema
 
+      - name: Generate config schema
+        if: matrix.java-version == 21
+        run: java -jar target/jfr-redact.jar generate-schema schema.json
+
       - name: Verify schema was generated
         if: matrix.java-version == 21
         run: |

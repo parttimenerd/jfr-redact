@@ -93,9 +93,13 @@ public class JFRProcessor {
             var event = input.readEvent();
             totalEvents++;
 
+            String eventTypeName = event.getEventType().getName();
+            redactionEngine.getStats().recordEvent(eventTypeName);
+
             if (redactionEngine.shouldRemoveEvent(event)) {
                 removedEvents++;
-                logger.debug("Removed event #{}: {}", removedEvents, event.getEventType().getName());
+                redactionEngine.getStats().recordRemovedEvent(eventTypeName);
+                logger.debug("Removed event #{}: {}", removedEvents, eventTypeName);
                 continue; // Skip this event
             }
 

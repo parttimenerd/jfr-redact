@@ -15,7 +15,7 @@ import java.util.Map;
  * When enabled, the same input value always maps to the same output pseudonym,
  * preserving relationships while protecting sensitive data.
  *
- * Example: "user@example.com" -> "<redacted:a1b2c3>" (consistently)
+ls      * Example: "user@example.com" -> "&lt;redacted:a1b2c3&gt;" (consistently)
  */
 public class Pseudonymizer {
 

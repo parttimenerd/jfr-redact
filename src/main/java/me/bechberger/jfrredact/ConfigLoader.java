@@ -335,4 +335,34 @@ public class ConfigLoader {
         loadedConfigs.clear();
         loadingStack.clear();
     }
+
+    /**
+     * Load raw YAML string from a preset or file.
+     * Useful for generating configuration templates.
+     *
+     * @param source Preset name or file path
+     * @return Raw YAML string
+     */
+    public String loadRawYaml(String source) throws IOException {
+        // Check if it's a preset
+        Preset preset = Preset.fromName(source);
+        if (preset != null) {
+            String presetPath = String.format("/presets/%s.yaml", preset.getName());
+            try (InputStream is = getClass().getResourceAsStream(presetPath)) {
+                if (is == null) {
+                    throw new ConfigurationException(
+                        "Preset not found: " + preset.getName()
+                    );
+                }
+                return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        }
+
+        // Otherwise, treat as file path
+        File file = new File(source);
+        if (!file.exists()) {
+            throw new ConfigurationException("File not found: " + file.getAbsolutePath());
+        }
+        return java.nio.file.Files.readString(file.toPath());
+    }
 }

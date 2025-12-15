@@ -44,6 +44,12 @@ public class StringConfig {
         @JsonProperty("ssh_hosts")
         private SshHostsConfig sshHosts = new SshHostsConfig();
 
+        @JsonProperty("hostnames")
+        private HostnamesConfig hostnames = new HostnamesConfig();
+
+        @JsonProperty("internal_urls")
+        private InternalUrlsConfig internalUrls = new InternalUrlsConfig();
+
         @JsonProperty("custom")
         private List<CustomPatternConfig> custom = new ArrayList<>();
 
@@ -64,6 +70,12 @@ public class StringConfig {
 
         public SshHostsConfig getSshHosts() { return sshHosts; }
         public void setSshHosts(SshHostsConfig sshHosts) { this.sshHosts = sshHosts; }
+
+        public HostnamesConfig getHostnames() { return hostnames; }
+        public void setHostnames(HostnamesConfig hostnames) { this.hostnames = hostnames; }
+
+        public InternalUrlsConfig getInternalUrls() { return internalUrls; }
+        public void setInternalUrls(InternalUrlsConfig internalUrls) { this.internalUrls = internalUrls; }
 
         public List<CustomPatternConfig> getCustom() { return custom; }
         public void setCustom(List<CustomPatternConfig> custom) { this.custom = custom; }
@@ -218,6 +230,92 @@ public class StringConfig {
     }
 
     /**
+     * Hostname pattern configuration for corporate/internal hostnames.
+     * Useful for hs_err files which contain "Host: hostname" lines.
+     */
+    public static class HostnamesConfig {
+        @JsonProperty("enabled")
+        private boolean enabled = false;
+
+        /**
+         * Patterns to match hostnames. These are applied to strings that look like
+         * hostnames (FQDN format). The default patterns cover common corporate naming.
+         */
+        @JsonProperty("patterns")
+        private List<String> patterns = new ArrayList<>(List.of(
+            // hs_err "Host:" line pattern
+            "(?<=Host:\\s)[a-zA-Z0-9][a-zA-Z0-9._-]*",
+            // FQDN with multiple domain parts (e.g., dev-jsmith.corp.example.com)
+            "\\b[a-zA-Z0-9][a-zA-Z0-9-]*(?:\\.[a-zA-Z0-9][a-zA-Z0-9-]*){2,}\\b",
+            // uname -a hostname (appears after Linux/Darwin and version info)
+            "(?<=Linux\\s|Darwin\\s)[a-zA-Z0-9][a-zA-Z0-9._-]*(?=\\s)"
+        ));
+
+        /**
+         * Known safe hostnames that should NOT be redacted (e.g., localhost, common domains)
+         */
+        @JsonProperty("safe_hostnames")
+        private List<String> safeHostnames = new ArrayList<>(List.of(
+            "localhost",
+            "localhost.localdomain",
+            "127.0.0.1"
+        ));
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public List<String> getPatterns() { return patterns; }
+        public void setPatterns(List<String> patterns) { this.patterns = patterns; }
+
+        public List<String> getSafeHostnames() { return safeHostnames; }
+        public void setSafeHostnames(List<String> safeHostnames) { this.safeHostnames = safeHostnames; }
+    }
+
+    /**
+     * Internal/corporate URL pattern configuration.
+     * Redacts URLs pointing to internal resources like Artifactory, Nexus, internal Git, etc.
+     */
+    public static class InternalUrlsConfig {
+        @JsonProperty("enabled")
+        private boolean enabled = false;
+
+        /**
+         * Patterns to match internal URLs. These target common internal infrastructure.
+         */
+        @JsonProperty("patterns")
+        private List<String> patterns = new ArrayList<>(List.of(
+            // Artifactory/Nexus URLs
+            "https?://[a-zA-Z0-9.-]*(?:artifactory|nexus|repo|repository)[a-zA-Z0-9.-]*/[^\\s\"']*",
+            // Internal Git URLs (git.company.com, gitlab.internal, etc.)
+            "https?://[a-zA-Z0-9.-]*(?:git|gitlab|github|bitbucket)[a-zA-Z0-9.-]*/[^\\s\"']*",
+            // Generic internal URLs (intranet, internal, corp, etc.)
+            "https?://[a-zA-Z0-9.-]*(?:intranet|internal|corp|private)[a-zA-Z0-9.-]*/[^\\s\"']*",
+            // Jenkins/CI URLs
+            "https?://[a-zA-Z0-9.-]*(?:jenkins|ci|build|bamboo)[a-zA-Z0-9.-]*/[^\\s\"']*"
+        ));
+
+        /**
+         * Domain suffixes that are considered internal (e.g., .corp.example.com, .internal)
+         */
+        @JsonProperty("internal_domains")
+        private List<String> internalDomains = new ArrayList<>(List.of(
+            ".internal",
+            ".corp",
+            ".local",
+            ".intranet"
+        ));
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public List<String> getPatterns() { return patterns; }
+        public void setPatterns(List<String> patterns) { this.patterns = patterns; }
+
+        public List<String> getInternalDomains() { return internalDomains; }
+        public void setInternalDomains(List<String> internalDomains) { this.internalDomains = internalDomains; }
+    }
+
+    /**
      * Custom pattern configuration
      */
     public static class CustomPatternConfig {
@@ -273,6 +371,34 @@ public class StringConfig {
         for (String pattern : parent.getPatterns().getSshHosts().getPatterns()) {
             if (!patterns.getSshHosts().getPatterns().contains(pattern)) {
                 patterns.getSshHosts().getPatterns().add(pattern);
+            }
+        }
+
+        // Merge hostname patterns
+        for (String pattern : parent.getPatterns().getHostnames().getPatterns()) {
+            if (!patterns.getHostnames().getPatterns().contains(pattern)) {
+                patterns.getHostnames().getPatterns().add(pattern);
+            }
+        }
+
+        // Merge hostname safe list
+        for (String safe : parent.getPatterns().getHostnames().getSafeHostnames()) {
+            if (!patterns.getHostnames().getSafeHostnames().contains(safe)) {
+                patterns.getHostnames().getSafeHostnames().add(safe);
+            }
+        }
+
+        // Merge internal URL patterns
+        for (String pattern : parent.getPatterns().getInternalUrls().getPatterns()) {
+            if (!patterns.getInternalUrls().getPatterns().contains(pattern)) {
+                patterns.getInternalUrls().getPatterns().add(pattern);
+            }
+        }
+
+        // Merge internal domains
+        for (String domain : parent.getPatterns().getInternalUrls().getInternalDomains()) {
+            if (!patterns.getInternalUrls().getInternalDomains().contains(domain)) {
+                patterns.getInternalUrls().getInternalDomains().add(domain);
             }
         }
 

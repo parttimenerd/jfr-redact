@@ -48,30 +48,56 @@ public class TextFileRedactor {
         logger.debug("Input:  {}", inputPath);
         logger.debug("Output: {}", outputPath);
 
+        try (BufferedReader reader = Files.newBufferedReader(inputPath, StandardCharsets.UTF_8);
+             BufferedWriter writer = Files.newBufferedWriter(outputPath, StandardCharsets.UTF_8)) {
+            redactStream(reader, writer);
+        }
+    }
+
+    /**
+     * Redact text from an input stream and write to an output stream.
+     * Useful for stdin/stdout processing.
+     *
+     * @param input  The input stream to read from
+     * @param output The output stream to write to
+     * @throws IOException If I/O operations fail
+     */
+    public void redactStream(InputStream input, OutputStream output) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
+             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8))) {
+            redactStream(reader, writer);
+        }
+    }
+
+    /**
+     * Redact text from a reader and write to a writer.
+     *
+     * @param reader The reader to read from
+     * @param writer The writer to write to
+     * @throws IOException If I/O operations fail
+     */
+    public void redactStream(BufferedReader reader, BufferedWriter writer) throws IOException {
         int linesProcessed = 0;
         int linesRedacted = 0;
 
-        try (BufferedReader reader = Files.newBufferedReader(inputPath, StandardCharsets.UTF_8);
-             BufferedWriter writer = Files.newBufferedWriter(outputPath, StandardCharsets.UTF_8)) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+            String redactedLine = redactLine(line);
+            writer.write(redactedLine);
+            writer.newLine();
 
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String redactedLine = redactLine(line);
-                writer.write(redactedLine);
-                writer.newLine();
+            linesProcessed++;
+            if (!line.equals(redactedLine)) {
+                linesRedacted++;
+                logger.debug("Redacted line {}", linesProcessed);
+            }
 
-                linesProcessed++;
-                if (!line.equals(redactedLine)) {
-                    linesRedacted++;
-                    logger.debug("Redacted line {}", linesProcessed);
-                }
-
-                if (linesProcessed % 1000 == 0) {
-                    logger.info("Processed {} lines ({} redacted)", linesProcessed, linesRedacted);
-                }
+            if (linesProcessed % 1000 == 0) {
+                logger.info("Processed {} lines ({} redacted)", linesProcessed, linesRedacted);
             }
         }
 
+        writer.flush();
         logger.info("Text file redaction complete: {} lines processed, {} lines contained redactions",
                     linesProcessed, linesRedacted);
     }

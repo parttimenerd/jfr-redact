@@ -6,6 +6,7 @@ import me.bechberger.jfrredact.config.EventConfig;
 import me.bechberger.jfrredact.config.RedactionConfig;
 import me.bechberger.jfrredact.pseudonimyzer.Pseudonymizer;
 import me.bechberger.jfrredact.util.GlobMatcher;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +43,7 @@ public class RedactionEngine {
 
     private final RedactionConfig config;
     private final Pseudonymizer pseudonymizer;
+    private final RedactionStats stats;
 
     // Compiled patterns cache for performance
     private final Map<String, Pattern> patternCache = new HashMap<>();
@@ -50,6 +52,11 @@ public class RedactionEngine {
     public static final RedactionEngine NONE = new RedactionEngine(createDisabledConfig()) {
         @Override
         public boolean shouldRemoveEvent(String eventType) {
+            return false;
+        }
+
+        @Override
+        public boolean shouldRemoveThread(String threadName) {
             return false;
         }
 
@@ -82,7 +89,12 @@ public class RedactionEngine {
     }
 
     public RedactionEngine(RedactionConfig config) {
+        this(config, new RedactionStats());
+    }
+
+    public RedactionEngine(RedactionConfig config, RedactionStats stats) {
         this.config = config;
+        this.stats = stats;
         this.pseudonymizer = config.createPseudonymizer();
         compilePatterns();
 
@@ -134,6 +146,22 @@ public class RedactionEngine {
             }
         }
 
+        // Hostname patterns (for hs_err files)
+        if (patterns.getHostnames().isEnabled()) {
+            for (int i = 0; i < patterns.getHostnames().getPatterns().size(); i++) {
+                String regex = patterns.getHostnames().getPatterns().get(i);
+                patternCache.put("hostname_" + i, Pattern.compile(regex));
+            }
+        }
+
+        // Internal URL patterns
+        if (patterns.getInternalUrls().isEnabled()) {
+            for (int i = 0; i < patterns.getInternalUrls().getPatterns().size(); i++) {
+                String regex = patterns.getInternalUrls().getPatterns().get(i);
+                patternCache.put("internal_url_" + i, Pattern.compile(regex));
+            }
+        }
+
         // Custom patterns
         for (int i = 0; i < patterns.getCustom().size(); i++) {
             var customPattern = patterns.getCustom().get(i);
@@ -181,12 +209,24 @@ public class RedactionEngine {
         List<String> categories = event.getEventType().getCategoryNames();
         String threadName = getThreadName(event);
 
+        // Check thread filtering first using the dedicated method
+        if (shouldRemoveThread(threadName)) {
+            logger.debug("Removing event (thread filtered): {} ({})", eventName, threadName);
+            return true;
+        }
+
+        String sampledThreadName = getSampledThreadName(event);
+        if (shouldRemoveThread(sampledThreadName)) {
+            logger.debug("Removing event (sampled thread filtered): {} ({})", eventName, sampledThreadName);
+            return true;
+        }
+
         // Apply filters in order: include, then exclude
         // If any include filter is specified, event must match at least one to be kept
+        // Note: Thread includes are handled separately above, so we don't count them here
 
         boolean hasIncludeFilters = !filtering.getIncludeEvents().isEmpty() ||
-                                   !filtering.getIncludeCategories().isEmpty() ||
-                                   !filtering.getIncludeThreads().isEmpty();
+                                   !filtering.getIncludeCategories().isEmpty();
 
         if (hasIncludeFilters) {
             boolean included = false;
@@ -208,12 +248,6 @@ public class RedactionEngine {
                 }
             }
 
-            // Check thread includes
-            if (!included && !filtering.getIncludeThreads().isEmpty() && threadName != null) {
-                if (GlobMatcher.matches(threadName, filtering.getIncludeThreads())) {
-                    included = true;
-                }
-            }
 
             if (!included) {
                 logger.debug("Removing event (not included): {}", eventName);
@@ -238,12 +272,7 @@ public class RedactionEngine {
             }
         }
 
-        if (!filtering.getExcludeThreads().isEmpty() && threadName != null) {
-            if (GlobMatcher.matches(threadName, filtering.getExcludeThreads())) {
-                logger.debug("Removing event (excluded by thread): {} ({})", eventName, threadName);
-                return true;
-            }
-        }
+        // Note: Thread excludes are now handled by shouldFilterThread() above
 
         return false; // Event passes all filters
     }
@@ -251,7 +280,7 @@ public class RedactionEngine {
     /**
      * Extract thread name from event, handling null safely.
      */
-    private String getThreadName(RecordedEvent event) {
+    private @Nullable String getThreadName(RecordedEvent event) {
         try {
             RecordedThread thread = event.getThread();
             return thread != null ? thread.getJavaName() : null;
@@ -259,6 +288,50 @@ public class RedactionEngine {
             // Some events might not have a thread field
             return null;
         }
+    }
+
+    private @Nullable String getSampledThreadName(RecordedEvent event) {
+        try {
+            RecordedThread thread = event.getThread("sampledThread");
+            return thread != null ? thread.getJavaName() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Check if events from a given thread should be filtered out.
+     *
+     * @param threadName The thread name to check
+     * @return true if events from this thread should be filtered out (removed), false otherwise
+     */
+    public boolean shouldRemoveThread(String threadName) {
+        if (threadName == null) {
+            return false;
+        }
+
+        EventConfig.FilteringConfig filtering = config.getEvents().getFiltering();
+        if (!filtering.hasAnyFilters()) {
+            return false; // No filters configured
+        }
+
+        // If include filters are specified, thread must match at least one to be kept
+        if (!filtering.getIncludeThreads().isEmpty()) {
+            if (!GlobMatcher.matches(threadName, filtering.getIncludeThreads())) {
+                // Thread doesn't match any include filter - should be filtered
+                return true;
+            }
+        }
+
+        // Check exclude filters
+        if (!filtering.getExcludeThreads().isEmpty()) {
+            if (GlobMatcher.matches(threadName, filtering.getExcludeThreads())) {
+                // Thread matches exclude filter - should be filtered
+                return true;
+            }
+        }
+
+        return false; // Thread should not be filtered
     }
 
     // ========== Redaction methods for all supported types ==========
@@ -277,6 +350,7 @@ public class RedactionEngine {
             config.getProperties().matches(fieldName)) {
             String redacted = applyRedaction(value, "property");
             logger.debug("Redacted property '{}': {} -> {}", fieldName, value, redacted);
+            stats.recordRedactedField(fieldName);
             return redacted;
         }
 
@@ -285,6 +359,7 @@ public class RedactionEngine {
             String redacted = checkStringPatterns(value);
             if (!redacted.equals(value)) {
                 logger.debug("Redacted string in '{}': pattern matched", fieldName);
+                stats.recordRedactedField(fieldName);
                 return redacted;  // Pattern matched, value was redacted
             }
         }
@@ -301,6 +376,7 @@ public class RedactionEngine {
             int redacted = pseudonymizer.pseudonymizePort(value);
             if (redacted != value) {
                 logger.debug("Redacted port '{}': {} -> {}", fieldName, value, redacted);
+                stats.recordRedactedField(fieldName);
             }
             return redacted;
         }
@@ -477,5 +553,12 @@ public class RedactionEngine {
      */
     public Pseudonymizer getPseudonymizer() {
         return pseudonymizer;
+    }
+
+    /**
+     * Get the statistics tracker.
+     */
+    public RedactionStats getStats() {
+        return stats;
     }
 }

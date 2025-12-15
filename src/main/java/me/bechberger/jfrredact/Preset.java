@@ -12,7 +12,12 @@ public enum Preset {
     /**
      * Strict preset - maximum redaction for highly sensitive data
      */
-    STRICT("strict", "Maximum redaction for highly sensitive data");
+    STRICT("strict", "Maximum redaction for highly sensitive data"),
+
+    /**
+     * hs_err preset - optimized for Java crash reports (hs_err_pid*.log)
+     */
+    HSERR("hserr", "Optimized for Java crash reports (hs_err_pid*.log)");
 
     private final String name;
     private final String description;
