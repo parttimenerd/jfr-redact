@@ -1,9 +1,7 @@
-name: Publish to Maven Central
+name: Publish to Maven Central (not working)
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
