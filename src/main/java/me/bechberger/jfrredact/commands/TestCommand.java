@@ -102,6 +102,41 @@ public class TestCommand implements Callable<Integer> {
     )
     private boolean pseudonymize;
 
+    @Option(
+        names = {"--pseudonymize-mode"},
+        description = "Pseudonymization mode (requires --pseudonymize). Valid values: " +
+                     "hash (default, stateless deterministic), " +
+                     "counter (sequential numbers), " +
+                     "realistic (plausible alternatives like alice@example.com)",
+        paramLabel = "<mode>"
+    )
+    private String pseudonymizeMode;
+
+    @Option(
+        names = {"--seed"},
+        description = "Seed for reproducible pseudonymization (only with --pseudonymize)",
+        paramLabel = "<seed>"
+    )
+    private Long seed;
+
+    @Option(
+        names = {"-v", "--verbose"},
+        description = "Enable verbose output (INFO level logging)"
+    )
+    private boolean verbose;
+
+    @Option(
+        names = {"--debug"},
+        description = "Enable debug output (DEBUG level logging)"
+    )
+    private boolean debug;
+
+    @Option(
+        names = {"-q", "--quiet"},
+        description = "Minimize output (only show errors and completion message)"
+    )
+    private boolean quiet;
+
     @Override
     public Integer call() {
         PrintWriter out = spec.commandLine().getOut();
@@ -229,10 +264,12 @@ public class TestCommand implements Callable<Integer> {
             config = loader.load(preset.getName());
         }
 
-        // Apply pseudonymize option
-        if (pseudonymize) {
+        // Apply pseudonymize options
+        if (pseudonymize || pseudonymizeMode != null || seed != null) {
             RedactionConfig.CliOptions cliOptions = new RedactionConfig.CliOptions();
-            cliOptions.setPseudonymize(true);
+            cliOptions.setPseudonymize(pseudonymize || pseudonymizeMode != null || seed != null);
+            cliOptions.setPseudonymizeMode(pseudonymizeMode);
+            cliOptions.setSeed(seed);
             config.applyCliOptions(cliOptions);
         }
 

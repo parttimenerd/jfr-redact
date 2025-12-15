@@ -48,6 +48,24 @@ public class RedactionEngine {
     // Compiled patterns cache for performance
     private final Map<String, Pattern> patternCache = new HashMap<>();
 
+    // Ignore lists cache - maps pattern key to IgnoreLists object
+    private final Map<String, IgnoreLists> ignoreListCache = new HashMap<>();
+
+    // Helper class to store all three types of ignore lists
+    private static class IgnoreLists {
+        final List<String> ignoreExact;
+        final List<Pattern> ignorePatterns;
+        final List<String> ignoreAfter;
+
+        IgnoreLists(List<String> ignoreExact, List<String> ignoreRegexes, List<String> ignoreAfter) {
+            this.ignoreExact = ignoreExact != null ? ignoreExact : List.of();
+            this.ignorePatterns = ignoreRegexes != null ?
+                ignoreRegexes.stream().map(Pattern::compile).collect(java.util.stream.Collectors.toList()) :
+                List.of();
+            this.ignoreAfter = ignoreAfter != null ? ignoreAfter : List.of();
+        }
+    }
+
     /** No-redaction engine instance for convenience - disables all redactions. */
     public static final RedactionEngine NONE = new RedactionEngine(createDisabledConfig()) {
         @Override
@@ -117,32 +135,61 @@ public class RedactionEngine {
         // Email pattern
         if (patterns.getEmails().isEnabled()) {
             patternCache.put("email", Pattern.compile(patterns.getEmails().getRegex()));
+            ignoreListCache.put("email", new IgnoreLists(
+                patterns.getEmails().getIgnoreExact(),
+                patterns.getEmails().getIgnore(),
+                patterns.getEmails().getIgnoreAfter()
+            ));
         }
 
         // IP patterns
         if (patterns.getIpAddresses().isEnabled()) {
             patternCache.put("ipv4", Pattern.compile(patterns.getIpAddresses().getIpv4()));
             patternCache.put("ipv6", Pattern.compile(patterns.getIpAddresses().getIpv6()));
+            IgnoreLists ipIgnore = new IgnoreLists(
+                patterns.getIpAddresses().getIgnoreExact(),
+                patterns.getIpAddresses().getIgnore(),
+                patterns.getIpAddresses().getIgnoreAfter()
+            );
+            ignoreListCache.put("ipv4", ipIgnore);
+            ignoreListCache.put("ipv6", ipIgnore);
         }
 
         // UUID pattern
         if (patterns.getUuids().isEnabled()) {
             patternCache.put("uuid", Pattern.compile(patterns.getUuids().getRegex()));
+            ignoreListCache.put("uuid", new IgnoreLists(
+                patterns.getUuids().getIgnoreExact(),
+                patterns.getUuids().getIgnore(),
+                patterns.getUuids().getIgnoreAfter()
+            ));
         }
 
         // SSH host patterns
         if (patterns.getSshHosts().isEnabled()) {
+            IgnoreLists sshIgnore = new IgnoreLists(
+                patterns.getSshHosts().getIgnoreExact(),
+                patterns.getSshHosts().getIgnore(),
+                patterns.getSshHosts().getIgnoreAfter()
+            );
             for (int i = 0; i < patterns.getSshHosts().getPatterns().size(); i++) {
                 String regex = patterns.getSshHosts().getPatterns().get(i);
                 patternCache.put("ssh_" + i, Pattern.compile(regex));
+                ignoreListCache.put("ssh_" + i, sshIgnore);
             }
         }
 
         // Home directory patterns
         if (patterns.getHomeDirectories().isEnabled()) {
+            IgnoreLists homeIgnore = new IgnoreLists(
+                patterns.getHomeDirectories().getIgnoreExact(),
+                patterns.getHomeDirectories().getIgnore(),
+                patterns.getHomeDirectories().getIgnoreAfter()
+            );
             for (int i = 0; i < patterns.getHomeDirectories().getRegexes().size(); i++) {
                 String regex = patterns.getHomeDirectories().getRegexes().get(i);
                 patternCache.put("home_" + i, Pattern.compile(regex));
+                ignoreListCache.put("home_" + i, homeIgnore);
             }
         }
 
@@ -152,13 +199,21 @@ public class RedactionEngine {
                 String regex = patterns.getHostnames().getPatterns().get(i);
                 patternCache.put("hostname_" + i, Pattern.compile(regex));
             }
+            // Note: hostnames use getIgnoreExact() for safe hostnames
+            // handled separately in replaceHostnameMatches
         }
 
         // Internal URL patterns
         if (patterns.getInternalUrls().isEnabled()) {
+            IgnoreLists urlIgnore = new IgnoreLists(
+                patterns.getInternalUrls().getIgnoreExact(),
+                patterns.getInternalUrls().getIgnore(),
+                patterns.getInternalUrls().getIgnoreAfter()
+            );
             for (int i = 0; i < patterns.getInternalUrls().getPatterns().size(); i++) {
                 String regex = patterns.getInternalUrls().getPatterns().get(i);
                 patternCache.put("internal_url_" + i, Pattern.compile(regex));
+                ignoreListCache.put("internal_url_" + i, urlIgnore);
             }
         }
 
@@ -166,8 +221,14 @@ public class RedactionEngine {
         for (int i = 0; i < patterns.getCustom().size(); i++) {
             var customPattern = patterns.getCustom().get(i);
             if (customPattern.getRegex() != null && !customPattern.getRegex().isEmpty()) {
-                String key = customPattern.getName() != null ? customPattern.getName() : "custom_" + i;
+                // Always use custom_ prefix to ensure patterns are processed in the custom pattern loop
+                String key = customPattern.getName() != null ? "custom_" + customPattern.getName() : "custom_" + i;
                 patternCache.put(key, Pattern.compile(customPattern.getRegex()));
+                ignoreListCache.put(key, new IgnoreLists(
+                    customPattern.getIgnoreExact(),
+                    customPattern.getIgnore(),
+                    customPattern.getIgnoreAfter()
+                ));
             }
         }
     }
@@ -179,11 +240,7 @@ public class RedactionEngine {
      * @return true if the event should be removed, false otherwise
      */
     public boolean shouldRemoveEvent(String eventType) {
-        boolean shouldRemove = config.getEvents().shouldRemove(eventType);
-        if (shouldRemove) {
-            logger.debug("Removing event: {}", eventType);
-        }
-        return shouldRemove;
+        return config.getEvents().shouldRemove(eventType);
     }
 
     /**
@@ -325,10 +382,8 @@ public class RedactionEngine {
 
         // Check exclude filters
         if (!filtering.getExcludeThreads().isEmpty()) {
-            if (GlobMatcher.matches(threadName, filtering.getExcludeThreads())) {
-                // Thread matches exclude filter - should be filtered
-                return true;
-            }
+            // Thread matches exclude filter - should be filtered
+            return GlobMatcher.matches(threadName, filtering.getExcludeThreads());
         }
 
         return false; // Thread should not be filtered
@@ -349,23 +404,63 @@ public class RedactionEngine {
         if (config.getProperties().isEnabled() &&
             config.getProperties().matches(fieldName)) {
             String redacted = applyRedaction(value, "property");
-            logger.debug("Redacted property '{}': {} -> {}", fieldName, value, redacted);
+            logger.debug("Redacted property '{}': '{}' -> '{}'", fieldName, truncateForLog(value), truncateForLog(redacted));
             stats.recordRedactedField(fieldName);
+            stats.recordRedactionType("property");
             return redacted;
         }
 
         // 2. Check string patterns (email, IP, UUID, etc.)
         if (config.getStrings().isEnabled()) {
-            String redacted = checkStringPatterns(value);
-            if (!redacted.equals(value)) {
-                logger.debug("Redacted string in '{}': pattern matched", fieldName);
+            RedactionResult result = checkStringPatternsWithType(value);
+            if (result.wasRedacted()) {
+                logger.debug("Redacted {} in '{}': '{}' -> '{}'",
+                    result.getRedactionType(), fieldName,
+                    truncateForLog(value), truncateForLog(result.getRedactedValue()));
                 stats.recordRedactedField(fieldName);
-                return redacted;  // Pattern matched, value was redacted
+                stats.recordRedactionType(result.getRedactionType());
+                return result.getRedactedValue();
             }
         }
 
         // 3. No redaction needed
         return value;
+    }
+
+    /**
+     * Truncate a value for logging to avoid excessively long log lines.
+     */
+    private String truncateForLog(String value) {
+        if (value == null) return "null";
+        if (value.length() <= 100) return value;
+        return value.substring(0, 97) + "...";
+    }
+
+    /**
+     * Result of a redaction operation, including the type of redaction applied.
+     */
+    private static class RedactionResult {
+        private final String redactedValue;
+        private final String redactionType;
+        private final boolean wasRedacted;
+
+        RedactionResult(String redactedValue, String redactionType, boolean wasRedacted) {
+            this.redactedValue = redactedValue;
+            this.redactionType = redactionType;
+            this.wasRedacted = wasRedacted;
+        }
+
+        static RedactionResult noChange(String value) {
+            return new RedactionResult(value, null, false);
+        }
+
+        static RedactionResult redacted(String value, String type) {
+            return new RedactionResult(value, type, true);
+        }
+
+        String getRedactedValue() { return redactedValue; }
+        String getRedactionType() { return redactionType; }
+        boolean wasRedacted() { return wasRedacted; }
     }
 
     /**
@@ -377,6 +472,7 @@ public class RedactionEngine {
             if (redacted != value) {
                 logger.debug("Redacted port '{}': {} -> {}", fieldName, value, redacted);
                 stats.recordRedactedField(fieldName);
+                stats.recordRedactionType("port");
             }
             return redacted;
         }
@@ -446,6 +542,116 @@ public class RedactionEngine {
                lower.equals("destinationport");
     }
 
+    /**
+     * Check string patterns and return the redaction result with type information.
+     */
+    private RedactionResult checkStringPatternsWithType(String value) {
+        String result = value;
+        String redactionType = null;
+
+        // Check email pattern - use find() for partial matching
+        Pattern emailPattern = patternCache.get("email");
+        if (emailPattern != null) {
+            Matcher emailMatcher = emailPattern.matcher(result);
+            if (emailMatcher.find()) {
+                result = replaceMatches(emailMatcher, result, "email");
+                if (redactionType == null) redactionType = "email";
+            }
+        }
+
+        // Check IP patterns - use find() for partial matching (changed from matches())
+        Pattern ipv4Pattern = patternCache.get("ipv4");
+        if (ipv4Pattern != null) {
+            Matcher ipv4Matcher = ipv4Pattern.matcher(result);
+            if (ipv4Matcher.find()) {
+                String before = result;
+                result = replaceSafeIpMatches(ipv4Matcher, result);
+                if (!result.equals(before) && redactionType == null) redactionType = "ipv4";
+            }
+        }
+
+        Pattern ipv6Pattern = patternCache.get("ipv6");
+        if (ipv6Pattern != null) {
+            Matcher ipv6Matcher = ipv6Pattern.matcher(result);
+            if (ipv6Matcher.find()) {
+                result = replaceMatches(ipv6Matcher, result, "ipv6");
+                if (redactionType == null) redactionType = "ipv6";
+            }
+        }
+
+        // Check UUID pattern - use find() for partial matching (changed from matches())
+        Pattern uuidPattern = patternCache.get("uuid");
+        if (uuidPattern != null) {
+            Matcher uuidMatcher = uuidPattern.matcher(result);
+            if (uuidMatcher.find()) {
+                result = replaceMatches(uuidMatcher, result, "uuid");
+                if (redactionType == null) redactionType = "uuid";
+            }
+        }
+
+        // Check SSH host patterns
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("ssh_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, "ssh_host");
+                    if (redactionType == null) redactionType = "ssh_host";
+                }
+            }
+        }
+
+        // Check home directory patterns
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("home_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, "home_directory");
+                    if (redactionType == null) redactionType = "home_directory";
+                }
+            }
+        }
+
+        // Check internal URL patterns BEFORE hostnames (URLs may contain hostnames)
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("internal_url_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, "internal_url");
+                    if (redactionType == null) redactionType = "internal_url";
+                }
+            }
+        }
+
+        // Check hostname patterns (with safe hostname filtering)
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("hostname_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    String before = result;
+                    result = replaceHostnameMatches(matcher, result);
+                    if (!result.equals(before) && redactionType == null) redactionType = "hostname";
+                }
+            }
+        }
+
+        // Check custom patterns (including CLI-added patterns)
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            String key = entry.getKey();
+            if (key.startsWith("custom_") || key.startsWith("cli_pattern_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, key);
+                    if (redactionType == null) redactionType = key.startsWith("cli_") ? "custom_cli" : "custom";
+                }
+            }
+        }
+
+        if (!result.equals(value)) {
+            return RedactionResult.redacted(result, redactionType != null ? redactionType : "pattern");
+        }
+        return RedactionResult.noChange(value);
+    }
+
     private String checkStringPatterns(String value) {
         String result = value;
 
@@ -463,7 +669,7 @@ public class RedactionEngine {
         if (ipv4Pattern != null) {
             Matcher ipv4Matcher = ipv4Pattern.matcher(result);
             if (ipv4Matcher.find()) {
-                result = replaceMatches(ipv4Matcher, result, "ipv4");
+                result = replaceSafeIpMatches(ipv4Matcher, result);
             }
         }
 
@@ -504,6 +710,26 @@ public class RedactionEngine {
             }
         }
 
+        // Check internal URL patterns BEFORE hostnames (URLs may contain hostnames)
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("internal_url_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, "internal_url");
+                }
+            }
+        }
+
+        // Check hostname patterns (with safe hostname filtering)
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("hostname_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceHostnameMatches(matcher, result);
+                }
+            }
+        }
+
         // Check custom patterns (including CLI-added patterns)
         for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
             String key = entry.getKey();
@@ -518,24 +744,140 @@ public class RedactionEngine {
         return result;
     }
 
-    private String replaceMatches(Matcher matcher, String value, String context) {
+    private String replaceMatches(Matcher matcher, String value, String patternKey) {
         // Reset matcher to scan from beginning
         matcher.reset();
 
-        if (pseudonymizer.isEnabled()) {
-            // With pseudonymization, each unique match gets its own pseudonym
-            StringBuilder sb = new StringBuilder();
-            while (matcher.find()) {
-                String matched = matcher.group();
+        // Get global no_redact list
+        List<String> noRedact = config.getStrings().getNoRedact();
+
+        // Get pattern-specific ignore lists
+        IgnoreLists ignoreLists = ignoreListCache.getOrDefault(patternKey, new IgnoreLists(null, null, null));
+
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            String matched = matcher.group();
+            int matchStart = matcher.start();
+
+            // Check if this string should not be redacted
+            boolean shouldNotRedact = false;
+
+            // 1. Check global no_redact list (legacy)
+            for (String safe : noRedact) {
+                if (matched.contains(safe)) {
+                    shouldNotRedact = true;
+                    break;
+                }
+            }
+
+            // 2. Check pattern-specific ignore_exact
+            if (!shouldNotRedact) {
+                for (String exact : ignoreLists.ignoreExact) {
+                    if (matched.equalsIgnoreCase(exact)) {
+                        shouldNotRedact = true;
+                        break;
+                    }
+                }
+            }
+
+            // 3. Check pattern-specific ignore (regex patterns)
+            if (!shouldNotRedact) {
+                for (Pattern ignorePattern : ignoreLists.ignorePatterns) {
+                    if (ignorePattern.matcher(matched).matches()) {
+                        shouldNotRedact = true;
+                        break;
+                    }
+                }
+            }
+
+            // 4. Check pattern-specific ignore_after (prefix before the match)
+            if (!shouldNotRedact && matchStart > 0) {
+                for (String prefix : ignoreLists.ignoreAfter) {
+                    // Check if the text before the match ends with this prefix
+                    String before = value.substring(Math.max(0, matchStart - prefix.length()), matchStart);
+                    if (before.equals(prefix) || before.matches(prefix)) {
+                        shouldNotRedact = true;
+                        break;
+                    }
+                }
+            }
+
+            if (shouldNotRedact) {
+                // Don't redact - keep original
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(matched));
+            } else if (pseudonymizer.isEnabled()) {
+                // With pseudonymization, each unique match gets its own pseudonym
                 String replacement = pseudonymizer.pseudonymize(matched, config.getGeneral().getRedactionText());
                 matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+            } else {
+                // Simple redaction
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(config.getGeneral().getRedactionText()));
             }
-            matcher.appendTail(sb);
-            return sb.toString();
-        } else {
-            // Simple redaction - replace all matches with redaction text
-            return matcher.replaceAll(Matcher.quoteReplacement(config.getGeneral().getRedactionText()));
         }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
+    private String replaceHostnameMatches(Matcher matcher, String value) {
+        // Reset matcher to scan from beginning
+        matcher.reset();
+
+        // Get safe hostnames list (using ignore_exact)
+        List<String> safeHostnames = config.getStrings().getPatterns().getHostnames().getIgnoreExact();
+
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            String matched = matcher.group();
+
+            // Check if this is a safe hostname
+            boolean isSafe = false;
+            for (String safe : safeHostnames) {
+                if (matched.equalsIgnoreCase(safe)) {
+                    isSafe = true;
+                    break;
+                }
+            }
+
+            if (isSafe) {
+                // Don't redact safe hostnames - keep original
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(matched));
+            } else {
+                // Redact this hostname
+                String replacement = pseudonymizer.isEnabled()
+                    ? pseudonymizer.pseudonymize(matched, config.getGeneral().getRedactionText())
+                    : config.getGeneral().getRedactionText();
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+            }
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
+    private String replaceSafeIpMatches(Matcher matcher, String value) {
+        // Reset matcher to scan from beginning
+        matcher.reset();
+
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            String matched = matcher.group();
+
+            // Check if this is localhost/loopback IP
+            boolean isSafe = matched.equals("127.0.0.1") || matched.startsWith("127.") ||
+                            matched.equals("::1");
+
+            if (isSafe) {
+                // Don't redact safe IPs - keep original
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(matched));
+            } else {
+                // Redact this IP
+                String replacement = pseudonymizer.isEnabled()
+                    ? pseudonymizer.pseudonymize(matched, config.getGeneral().getRedactionText())
+                    : config.getGeneral().getRedactionText();
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+            }
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
     }
 
     private String applyRedaction(String value, String context) {

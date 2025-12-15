@@ -91,8 +91,6 @@ public class RedactionEngineTest {
         assertFalse(engine.shouldRemoveEvent("jdk.OSInformation"));
     }
 
-    // ...existing code...
-
     @ParameterizedTest
     @CsvSource({
         "password, secret123, true",

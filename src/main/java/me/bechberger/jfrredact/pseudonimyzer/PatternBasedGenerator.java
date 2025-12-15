@@ -138,10 +138,9 @@ public class PatternBasedGenerator {
         }
 
         RgxGen rgxGen = rgxGenCache.get(patternName);
-        String generated = rgxGen.generate();
 
 
-        return generated;
+        return rgxGen.generate();
     }
 
     /**
@@ -215,10 +214,8 @@ public class PatternBasedGenerator {
                     // Generate a regex pattern for realistic emails
                     yield "(alice|bob|charlie|diana|eve|frank|grace|henry|iris|jack|kate|leo|mary|nathan|olivia|peter|quinn|rachel|sam|tina|uma|victor|wendy|xavier|yara|zoe)\\\\.(smith|johnson|williams|brown|jones|garcia|miller|davis)@(example|test|demo|sample)\\\\.(com|org|net|io)";
                 }
-                case "names" -> {
-                    // Generate a regex pattern for realistic names
-                    yield "(alice|bob|charlie|diana|eve|frank|grace|henry|iris|jack|kate|leo|mary|nathan|olivia|peter|quinn|rachel|sam|tina|uma|victor|wendy|xavier|yara|zoe)\\\\.(smith|johnson|williams|brown|jones|garcia|miller|davis)";
-                }
+                case "names" -> // Generate a regex pattern for realistic names
+                        "(alice|bob|charlie|diana|eve|frank|grace|henry|iris|jack|kate|leo|mary|nathan|olivia|peter|quinn|rachel|sam|tina|uma|victor|wendy|xavier|yara|zoe)\\\\.(smith|johnson|williams|brown|jones|garcia|miller|davis)";
                 default -> Matcher.quoteReplacement(matcher.group(0));
             };
 

@@ -3,9 +3,11 @@ package me.bechberger.jfrredact.jfr.util;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.Event;
 import me.bechberger.jfrredact.config.RedactionConfig;
+import org.junit.jupiter.api.function.Executable;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -523,7 +525,7 @@ public class JFRTestHelper {
                     "Event count for " + eventTypeName + " should match");
 
             // Collect all event verification assertions
-            java.util.List<org.junit.jupiter.api.function.Executable> eventAssertions = new java.util.ArrayList<>();
+            java.util.List<Executable> eventAssertions = new ArrayList<>();
             for (int i = 0; i < originalEventsOfType.size(); i++) {
                 final int index = i;
                 final RecordedEvent original = originalEventsOfType.get(i);

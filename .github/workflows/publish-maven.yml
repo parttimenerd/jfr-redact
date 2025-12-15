@@ -76,15 +76,30 @@ jobs:
       - name: Import GPG key
         run: |
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          gpg --list-secret-keys --keyid-format LONG "${{ secrets.GPG_KEYNAME }}"
+          gpg --list-secret-keys --keyid-format LONG
           echo "✅ GPG key imported"
 
       - name: Configure GPG for Maven
         run: |
+          # Configure gpg-agent for non-interactive use
+          mkdir -p ~/.gnupg
           echo "allow-preset-passphrase" >> ~/.gnupg/gpg-agent.conf
-          gpgconf --kill gpg-agent
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          chmod 700 ~/.gnupg
+          chmod 600 ~/.gnupg/*
+          
+          # Restart gpg-agent with new config
+          gpgconf --kill gpg-agent || true
           gpgconf --launch gpg-agent
-          echo "✅ GPG configured"
+          
+          # Get the keygrip for the signing key
+          KEYGRIP=$(gpg --list-secret-keys --with-keygrip "${{ secrets.GPG_KEYNAME }}" | grep Keygrip | head -1 | awk '{print $3}')
+          echo "Key grip: $KEYGRIP"
+          
+          # Preset the passphrase
+          echo "${{ secrets.GPG_PASSPHRASE }}" | /usr/lib/gnupg/gpg-preset-passphrase --preset "$KEYGRIP"
+          
+          echo "✅ GPG configured for non-interactive signing"
 
       - name: Create Maven settings
         run: |

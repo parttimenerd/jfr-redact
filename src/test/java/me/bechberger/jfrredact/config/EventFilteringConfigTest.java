@@ -76,7 +76,7 @@ class EventFilteringConfigTest {
             filtering.mergeWith(null);
 
             assertEquals(1, filtering.getIncludeEvents().size());
-            assertEquals("test.*", filtering.getIncludeEvents().get(0));
+            assertEquals("test.*", filtering.getIncludeEvents().getFirst());
         }
 
         @Test
@@ -410,7 +410,7 @@ class EventFilteringConfigTest {
             EventConfig.FilteringConfig filtering = new EventConfig.FilteringConfig();
             filtering.getIncludeEvents().add(" jdk.ThreadSleep ");
 
-            assertEquals(" jdk.ThreadSleep ", filtering.getIncludeEvents().get(0));
+            assertEquals(" jdk.ThreadSleep ", filtering.getIncludeEvents().getFirst());
             // Note: Whitespace trimming is handled by GlobMatcher, not config
         }
     }

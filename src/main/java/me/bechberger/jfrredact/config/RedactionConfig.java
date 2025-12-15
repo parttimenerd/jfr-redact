@@ -128,9 +128,15 @@ public class RedactionConfig {
     public void applyCliOptions(CliOptions cliOptions) {
         if (cliOptions == null) return;
 
-        // Apply pseudonymize flag
+        // Apply pseudonymize flag and mode
         if (cliOptions.isPseudonymize()) {
             general.getPseudonymization().setEnabled(true);
+        }
+        if (cliOptions.getPseudonymizeMode() != null) {
+            general.getPseudonymization().setMode(cliOptions.getPseudonymizeMode());
+        }
+        if (cliOptions.getSeed() != null) {
+            general.getPseudonymization().setSeed(cliOptions.getSeed());
         }
 
         // Add additional events to remove
@@ -208,6 +214,8 @@ public class RedactionConfig {
      */
     public static class CliOptions {
         private boolean pseudonymize;
+        private String pseudonymizeMode;  // "hash", "counter", or "realistic"
+        private Long seed;  // Seed for reproducible pseudonymization
         private List<String> removeEvents = new ArrayList<>();
         private List<String> redactionRegexes = new ArrayList<>();
 
@@ -221,6 +229,12 @@ public class RedactionConfig {
 
         public boolean isPseudonymize() { return pseudonymize; }
         public void setPseudonymize(boolean pseudonymize) { this.pseudonymize = pseudonymize; }
+
+        public String getPseudonymizeMode() { return pseudonymizeMode; }
+        public void setPseudonymizeMode(String pseudonymizeMode) { this.pseudonymizeMode = pseudonymizeMode; }
+
+        public Long getSeed() { return seed; }
+        public void setSeed(Long seed) { this.seed = seed; }
 
         public List<String> getRemoveEvents() { return removeEvents; }
         public void setRemoveEvents(List<String> removeEvents) { this.removeEvents = removeEvents; }

@@ -5,6 +5,7 @@ import me.bechberger.jfrredact.Version;
 import me.bechberger.jfrredact.config.SchemaGenerator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
@@ -46,6 +47,24 @@ public class GenerateSchemaCommand implements Callable<Integer> {
         arity = "0..1"
     )
     private String outputFile;
+
+    @Option(
+        names = {"-v", "--verbose"},
+        description = "Enable verbose output (INFO level logging)"
+    )
+    private boolean verbose;
+
+    @Option(
+        names = {"--debug"},
+        description = "Enable debug output (DEBUG level logging)"
+    )
+    private boolean debug;
+
+    @Option(
+        names = {"-q", "--quiet"},
+        description = "Minimize output (only show errors and completion message)"
+    )
+    private boolean quiet;
 
     @Override
     public Integer call() {

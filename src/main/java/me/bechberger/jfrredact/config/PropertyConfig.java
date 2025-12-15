@@ -41,7 +41,8 @@ public class PropertyConfig {
         "(pass(word|wort|wd)?|pwd)",  // Matches: password, passwort, passwd, pwd
         "secret",
         "token",
-        "(api[_-]?)?key",       // Matches: key, api_key, api-key, apikey
+        "api[_-]?key",         // Matches: api_key, api-key, apikey (but NOT bare "key")
+        "[a-z._-]key",         // Matches: _key, -key, .key, accesskey, etc. (key as suffix, not standalone)
         "auth",
         "credential"
     ));

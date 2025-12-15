@@ -196,8 +196,6 @@ public class PatternBasedGeneratorPlaceholderTest {
                    "Should match pattern with realistic username: " + result);
     }
 
-    // ...existing code...
-
     @Test
     public void testPlaceholder_ConsistencyAcrossCalls() {
         Map<String, String> patterns = new HashMap<>();

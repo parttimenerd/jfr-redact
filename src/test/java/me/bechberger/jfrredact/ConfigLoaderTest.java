@@ -196,7 +196,8 @@ public class ConfigLoaderTest {
         "default, secret, true",
         "default, token, true",
         "default, api_key, true",
-        "default, key, true",
+        "default, key, false",  // Bare 'key' is NOT redacted (too generic) - use api_key, secret_key, etc.
+        "default, secret_key, true",  // key as suffix IS matched
         "strict, password, true",
         "strict, user, true",
         "strict, username, true"

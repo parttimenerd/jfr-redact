@@ -38,7 +38,7 @@ public class TextFileRedactorTest {
     /**
      * File-based redaction test case
      */
-    record FileRedactionTestCase(String description, String input, String[] shouldNotContain,
+    public record FileRedactionTestCase(String description, String input, String[] shouldNotContain,
                                   String[] shouldContain) {
         @Override
         public String toString() {
@@ -160,7 +160,7 @@ public class TextFileRedactorTest {
                 
                 OS: macOS 14.2 (23C64)
                 uname: Darwin 23.2.0 Darwin Kernel Version 23.2.0
-                rlimit (soft/hard): STACK 8192k/65532k , CORE infinity/infinity , NPROC 2784/4176 
+                rlimit (soft/hard): STACK 8192k/65532k , CORE infinity/infinity , NPROC 2784/4176
                 load average: 2.50 2.25 2.10
                 
                 CPU: total 8 (initial active 8) (4 cores per cpu, 2 threads per core) family 6

@@ -2,6 +2,7 @@ jfr-redact
 ==========
 
 __This is an early prototype of the SapMachine team, use at your own risk.__
+__We don't provide any guarantees regarding functionality.__
 
 A tool to redact sensitive information from Java Flight Recorder (JFR) recordings and text files,
 replacing it with `***`.
@@ -142,29 +143,33 @@ The tool also works with any text file (not just JFR), applying the same redacti
 
 ```bash
 # Redact a Java error log file (hs_err_pid*.log)
-java -jar jfr-redact.jar hs_err_pid12345.log hs_err_pid12345.redacted.log
+java -jar jfr-redact.jar redact-text hs_err_pid12345.log hs_err_pid12345.redacted.log
+
+# Use the hserr preset optimized for crash reports
+java -jar jfr-redact.jar redact-text hs_err_pid12345.log --preset hserr
 
 # Redact an application log file
-java -jar jfr-redact.jar app.log app.redacted.log --preset strict
+java -jar jfr-redact.jar redact-text app.log app.redacted.log --preset strict
 
 # Redact any text file with pseudonymization
-java -jar jfr-redact.jar debug-output.txt debug-output.redacted.txt --pseudonymize
+java -jar jfr-redact.jar redact-text debug-output.txt debug-output.redacted.txt --pseudonymize
 ```
+Supports piping from stdin and writing to stdout:
 
-This is particularly useful for Java error logs (hs_err_pid*.log) which often contain:
-- User home directories and file paths
-- Environment variables (including potentially sensitive values)
-- System properties (user.name, user.home, etc.)
-- Email addresses in configuration or stack traces
-- IP addresses and network information
+```bash
+cat hs_err_pid12345.log | java -jar jfr-redact.jar redact-text - -
+```
 
 ### Command-Line Options
 
-#### Redact Command (Default)
+<details>
+<summary><strong>Redact Command</strong> (default) - Redact JFR recordings</summary>
 
+<!-- BEGIN help_redact -->
 ```
-Usage: jfr-redact redact [-hqvV] [--debug] [--dry-run] [--pseudonymize] [--stats]
-                         [--config=<file|url>] [--preset=<preset>]
+Usage: jfr-redact redact [-hqvV] [--debug] [--dry-run] [--pseudonymize]
+                         [--stats] [--config=<file|url>] [--preset=<preset>]
+                         [--pseudonymize-mode=<mode>] [--seed=<seed>]
                          [--add-redaction-regex=<pattern>]...
                          [--exclude-categories=<filter>]...
                          [--exclude-events=<filter>]...
@@ -173,60 +178,178 @@ Usage: jfr-redact redact [-hqvV] [--debug] [--dry-run] [--pseudonymize] [--stats
                          [--include-events=<filter>]...
                          [--include-threads=<filter>]...
                          [--remove-event=<type>]... <input.jfr> [<output.jfr>]
-
 Redact sensitive information from Java Flight Recorder (JFR) recordings
-
-      <input.jfr>         Input JFR file to redact
-      [<output.jfr>]      Output JFR file with redacted data (default: <input>.redacted.jfr)
+      <input.jfr>           Input JFR file to redact
+      [<output.jfr>]        Output JFR file with redacted data (default:
+                              <input>.redacted.jfr)
       --add-redaction-regex=<pattern>
-                          Add a custom regular expression pattern for string redaction
-      --config=<file|url> Load configuration from a YAML file or URL
-      --debug             Enable debug output (DEBUG level logging)
-      --dry-run           Process the file without writing output, useful for testing
-                            configuration with --stats
+                            Add a custom regular expression pattern for string
+                              redaction. This option can be specified multiple
+                              times to add multiple patterns. Patterns are
+                              applied to string fields in events.
+      --config=<file|url>   Load configuration from a YAML file or URL
+      --debug               Enable debug output (DEBUG level logging)
+      --dry-run             Process the file without writing output, useful for
+                              testing configuration with --stats
       --exclude-categories=<filter>
-                          Exclude events matching a category name (supports glob patterns)
+                            Exclude events matching a category name
+                              (comma-separated list, supports glob patterns).
+                              Similar to jfr scrub --exclude-categories.
       --exclude-events=<filter>
-                          Exclude events matching an event name (supports glob patterns)
+                            Exclude events matching an event name
+                              (comma-separated list, supports glob patterns).
+                              Similar to jfr scrub --exclude-events.
       --exclude-threads=<filter>
-                          Exclude events matching a thread name (supports glob patterns)
-  -h, --help              Show this help message and exit
+                            Exclude events matching a thread name
+                              (comma-separated list, supports glob patterns).
+                              Similar to jfr scrub --exclude-threads.
+  -h, --help                Show this help message and exit.
       --include-categories=<filter>
-                          Select events matching a category name (supports glob patterns)
+                            Select events matching a category name
+                              (comma-separated list, supports glob patterns).
+                              Similar to jfr scrub --include-categories.
       --include-events=<filter>
-                          Select events matching an event name (supports glob patterns)
+                            Select events matching an event name
+                              (comma-separated list, supports glob patterns).
+                              Similar to jfr scrub --include-events.
       --include-threads=<filter>
-                          Select events matching a thread name (supports glob patterns)
-      --preset=<preset>   Use a predefined configuration preset. Valid values:
-                            default, strict (default: default)
-      --pseudonymize      Enable pseudonymization mode. When enabled, the same
-                            sensitive value always maps to the same pseudonym
-  -q, --quiet             Minimize output (only show errors and completion message)
-      --remove-event=<type>
-                          Remove an additional event type from the output
-      --stats             Show statistics after redaction (events processed, removed,
-                            redactions applied)
-  -v, --verbose           Enable verbose output (INFO level logging)
-  -V, --version           Print version information and exit
+                            Select events matching a thread name
+                              (comma-separated list, supports glob patterns).
+                              Similar to jfr scrub --include-threads.
+      --preset=<preset>     Use a predefined configuration preset. Valid
+                              values: default, strict, hserr (default: default)
+      --pseudonymize        Enable pseudonymization mode. When enabled, the
+                              same sensitive value always maps to the same
+                              pseudonym (e.g., &lt;redacted:a1b2c3&gt;),
+                              preserving relationships across events. Without
+                              this flag, all values are redacted to ***.
+      --pseudonymize-mode=<mode>
+                            Pseudonymization mode (requires --pseudonymize).
+                              Valid values: hash (default, stateless
+                              deterministic), counter (sequential numbers),
+                              realistic (plausible alternatives like
+                              alice@example.com)
+  -q, --quiet               Minimize output (only show errors and completion
+                              message)
+      --remove-event=<type> Remove an additional event type from the output.
+                              This option can be specified multiple times to
+                              remove multiple event types.
+      --seed=<seed>         Seed for reproducible pseudonymization (only with
+                              --pseudonymize)
+      --stats               Show statistics after redaction (events processed,
+                              removed, redactions applied)
+  -v, --verbose             Enable verbose output (INFO level logging)
+  -V, --version             Print version information and exit.
+
+Examples:
+
+  Simple redaction with default preset:
+    jfr-redact redact recording.jfr
+    (creates recording.redacted.jfr)
+
+  Specify output file:
+    jfr-redact redact recording.jfr output.jfr
+
+  Strict preset with pseudonymization:
+    jfr-redact redact recording.jfr --preset strict --pseudonymize
+
+  Custom config with additional event removal:
+    jfr-redact redact recording.jfr --config my-config.yaml --remove-event jdk.
+CustomEvent
+
+  Add custom redaction pattern:
+    jfr-redact redact recording.jfr --add-redaction-regex '\b[A-Z]{3}-\d{6}\b'
 ```
+<!-- END help_redact -->
 
-#### Config-Gen Command
+</details>
 
-Generate configuration templates for customizing redaction behavior:
+<details>
+<summary><strong>Redact-Text Command</strong> - Redact text files (logs, hs_err, etc.)</summary>
 
+<!-- BEGIN help_redact_text -->
 ```
-Usage: jfr-redact generate-config [-hV] [--minimal] [--preset=<preset>]
-                             [-o=<file>] [<output.yaml>]
+Usage: jfr-redact redact-text [-hqvV] [--debug] [--pseudonymize] [--stats]
+                              [--config=<file|url>] [--preset=<preset>]
+                              [--pseudonymize-mode=<mode>] [--seed=<seed>]
+                              [--add-redaction-regex=<pattern>]... <input-file>
+                              [<output-file>]
+Redact sensitive information from text files (logs, configuration files, etc.)
+      <input-file>          Input text file to redact
+      [<output-file>]       Output file with redacted data (default: <input>.
+                              redacted.<ext>)
+      --add-redaction-regex=<pattern>
+                            Add a custom regular expression pattern for string
+                              redaction. This option can be specified multiple
+                              times to add multiple patterns.
+      --config=<file|url>   Load configuration from a YAML file or URL
+      --debug               Enable debug output (DEBUG level logging)
+  -h, --help                Show this help message and exit.
+      --preset=<preset>     Use a predefined configuration preset. Valid
+                              values: default, strict, hserr (default: default)
+      --pseudonymize        Enable pseudonymization mode. When enabled, the
+                              same sensitive value always maps to the same
+                              pseudonym (e.g., &lt;redacted:a1b2c3&gt;),
+                              preserving relationships across lines. Without
+                              this flag, all values are redacted to ***.
+      --pseudonymize-mode=<mode>
+                            Pseudonymization mode (requires --pseudonymize).
+                              Valid values: hash (default, stateless
+                              deterministic), counter (sequential numbers),
+                              realistic (plausible alternatives like
+                              alice@example.com)
+  -q, --quiet               Minimize output (only show errors and completion
+                              message)
+      --seed=<seed>         Seed for reproducible pseudonymization (only with
+                              --pseudonymize)
+      --stats               Show statistics after redaction
+  -v, --verbose             Enable verbose output (INFO level logging)
+  -V, --version             Print version information and exit.
 
+Examples:
+
+  Redact a log file with default preset:
+    jfr-redact redact-text application.log
+    (creates application.redacted.log)
+
+  Use hserr preset for Java crash reports:
+    jfr-redact redact-text hs_err_pid12345.log --preset hserr
+
+  Read from stdin, write to stdout:
+    cat hs_err_pid12345.log | jfr-redact redact-text - -
+
+  Use strict preset:
+    jfr-redact redact-text application.log --preset strict
+
+  Custom config with pseudonymization:
+    jfr-redact redact-text app.log --config my-config.yaml --pseudonymize
+
+  Add custom redaction pattern:
+    jfr-redact redact-text app.log --add-redaction-regex '\b[A-Z]{3}-\d{6}\b'
+```
+<!-- END help_redact_text -->
+
+</details>
+
+<details>
+<summary><strong>Generate-Config Command</strong> - Generate configuration templates</summary>
+
+<!-- BEGIN help_generate_config -->
+```
+Usage: jfr-redact generate-config [-hqvV] [--debug] [--minimal] [-o=<file>]
+                                  [--preset=<preset>] [<output.yaml>]
 Generate a configuration template for JFR redaction
-
       [<output.yaml>]     Output file for the configuration (default: stdout)
-  -h, --help              Show this help message and exit
+      --debug             Enable debug output (DEBUG level logging)
+  -h, --help              Show this help message and exit.
       --minimal           Generate minimal configuration template
   -o, --output=<file>     Output file for the configuration
       --preset=<preset>   Base the configuration on a preset. Valid values:
-                            default, strict
-  -V, --version           Print version information and exit
+                            default, strict, hserr
+  -q, --quiet             Minimize output (only show errors and completion
+                            message)
+  -v, --verbose           Enable verbose output (INFO level logging)
+  -V, --version           Print version information and exit.
 
 Examples:
 
@@ -242,55 +365,78 @@ Examples:
   Generate minimal config:
     jfr-redact generate-config --minimal -o minimal-config.yaml
 ```
+<!-- END help_generate_config -->
 
-#### Test/Validate Command
+</details>
 
-Test or validate configuration files:
+<details>
+<summary><strong>Test/Validate Command</strong> - Test or validate configuration</summary>
 
+<!-- BEGIN help_test -->
 ```
-Usage: jfr-redact test|validate [-hV] [--pseudonymize] [--config=<file|url>]
-                                [--preset=<preset>] [--event=<type>]
-                                [--property=<name>] [--thread=<name>]
-                                [--value=<value>]
-
+Usage: jfr-redact test [-hqvV] [--debug] [--pseudonymize] [--config=<file|url>]
+                       [--event=<type>] [--preset=<preset>] [--property=<name>]
+                       [--pseudonymize-mode=<mode>] [--seed=<seed>]
+                       [--thread=<name>] [--value=<value>]
 Test configuration by showing how specific values would be redacted
 Also validates configuration when run without test values
-
-      --config=<file|url> Load configuration from a YAML file or URL
-      --event=<type>      Event type to test
-  -h, --help              Show this help message and exit
-      --preset=<preset>   Use a predefined configuration preset (default: default)
-      --property=<name>   Property name to test redaction
-      --pseudonymize      Enable pseudonymization mode
-      --thread=<name>     Thread name to test filtering
-      --value=<value>     Value to test redaction
-  -V, --version           Print version information and exit
+      --config=<file|url>   Load configuration from a YAML file or URL
+      --debug               Enable debug output (DEBUG level logging)
+      --event=<type>        Event type to test (e.g., jdk.JavaMonitorEnter)
+  -h, --help                Show this help message and exit.
+      --preset=<preset>     Use a predefined configuration preset. Valid
+                              values: default, strict, hserr (default: default)
+      --property=<name>     Property/field name to test (e.g., address, message)
+      --pseudonymize        Enable pseudonymization mode
+      --pseudonymize-mode=<mode>
+                            Pseudonymization mode (requires --pseudonymize).
+                              Valid values: hash (default, stateless
+                              deterministic), counter (sequential numbers),
+                              realistic (plausible alternatives like
+                              alice@example.com)
+  -q, --quiet               Minimize output (only show errors and completion
+                              message)
+      --seed=<seed>         Seed for reproducible pseudonymization (only with
+                              --pseudonymize)
+      --thread=<name>       Thread name to test filtering
+  -v, --verbose             Enable verbose output (INFO level logging)
+  -V, --version             Print version information and exit.
+      --value=<value>       Value to test redaction on
 
 Examples:
 
   Validate a configuration:
-    jfr-redact validate --config my-config.yaml
     jfr-redact test --config my-config.yaml
+    jfr-redact validate --config my-config.yaml
 
   Test a property redaction:
-    jfr-redact test --config my-config.yaml --property password --value secret123
+    jfr-redact test --config my-config.yaml --event jdk.JavaMonitorEnter
+--property address --value '0x7f8a4c001000'
+
+  Test thread name filtering:
+    jfr-redact test --config my-config.yaml --thread 'MyThread-1'
 
   Test string redaction:
-    jfr-redact test --preset strict --value user@example.com
+    jfr-redact test --preset strict --value 'user@example.com'
 ```
+<!-- END help_test -->
 
-#### Generate-Schema Command
+</details>
 
-Generate JSON Schema for configuration file validation and IDE autocompletion:
+<details>
+<summary><strong>Generate-Schema Command</strong> - Generate JSON Schema for IDE support</summary>
 
+<!-- BEGIN help_generate_schema -->
 ```
-Usage: jfr-redact generate-schema [-hV] [<output.json>]
-
+Usage: jfr-redact generate-schema [-hqvV] [--debug] [<output.json>]
 Generate JSON Schema for the YAML configuration files
-
-      [<output.json>]     Output file for the JSON schema (default: stdout)
-  -h, --help              Show this help message and exit
-  -V, --version           Print version information and exit
+      [<output.json>]   Output file for the JSON schema (default: stdout)
+      --debug           Enable debug output (DEBUG level logging)
+  -h, --help            Show this help message and exit.
+  -q, --quiet           Minimize output (only show errors and completion
+                          message)
+  -v, --verbose         Enable verbose output (INFO level logging)
+  -V, --version         Print version information and exit.
 
 Examples:
 
@@ -300,44 +446,9 @@ Examples:
   Generate schema to a file:
     jfr-redact generate-schema config-schema.json
 ```
+<!-- END help_generate_schema -->
 
-#### Examples
-
-```bash
-# JFR file redaction:
-jfr-redact redact recording.jfr
-# (creates recording.redacted.jfr)
-
-# Show statistics about redaction:
-jfr-redact redact recording.jfr --stats
-
-# Dry run to test configuration without creating output:
-jfr-redact redact recording.jfr --dry-run --stats
-
-# Specify output file:
-jfr-redact redact recording.jfr output.jfr
-
-# Load configuration from URL:
-jfr-redact redact recording.jfr --config https://example.com/configs/redaction.yaml
-
-# Strict preset with pseudonymization:
-jfr-redact redact recording.jfr --preset strict --pseudonymize
-
-# Custom config with additional event removal:
-jfr-redact redact recording.jfr --config my-config.yaml --remove-event jdk.CustomEvent
-
-# Add custom redaction pattern:
-jfr-redact redact recording.jfr --add-redaction-regex '\b[A-Z]{3}-\d{6}\b'
-
-# Generate a configuration template:
-jfr-redact generate-config -o my-config.yaml
-
-# Generate JSON schema for IDE autocompletion:
-jfr-redact generate-schema config-schema.json
-
-# Validate a configuration:
-jfr-redact validate --config my-config.yaml
-```
+</details>
 
 ## Configuration
 
@@ -681,7 +792,14 @@ general:
 #   java -jar jfr-redact.jar input.jfr output.jfr --pseudonymize --pseudonym-format hash
 #
 # Test without creating output:
-#   java -jar jfr-redact.jar input.jfr output.jfr --config my-config.yaml --dry-run --verbose```bash
+#   java -jar jfr-redact.jar input.jfr output.jfr --config my-config.yaml --dry-run --verbose
+```
+
+Development
+-----------
+
+To preview changes without modifying files:
+```bash
 ./sync-documentation.py --dry-run
 ```
 
@@ -706,6 +824,40 @@ This script:
   - `GPG_KEYNAME`, `GPG_PASSPHRASE`, and `GPG_PRIVATE_KEY`
 
 Requires: [GitHub CLI (gh)](https://cli.github.com/)
+
+### Git Hooks Setup
+
+The `bin/sync-documentation.py` script keeps documentation in sync and can install a pre-commit hook:
+
+```bash
+# Install pre-commit hook (runs tests and syncs docs on every commit)
+./bin/sync-documentation.py --install
+
+# Manually sync documentation
+./bin/sync-documentation.py
+
+# Preview changes without modifying files
+./bin/sync-documentation.py --dry-run
+```
+
+The pre-commit hook will:
+1. Run `mvn test` to ensure all tests pass
+2. Sync version from `Version.java` to `pom.xml`
+3. Update README.md with latest configuration examples
+
+To skip the hook temporarily: `git commit --no-verify`
+
+### Deployment
+
+To release a new version to Maven Central:
+
+1. Update the version in `src/main/java/me/bechberger/jfrredact/Version.java`
+2. Run `./bin/sync-documentation.py` to sync version to `pom.xml`
+3. Commit the changes
+4. Create and push a tag: `git tag v<version> && git push origin v<version>`
+5. The CI will automatically build, sign, and deploy to Maven Central
+
+The `publish-maven.yml` workflow handles GPG signing and deployment to OSSRH.
 
 ### IDE Support for Configuration Files
 

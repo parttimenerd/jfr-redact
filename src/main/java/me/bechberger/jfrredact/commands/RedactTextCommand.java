@@ -14,6 +14,8 @@ import picocli.CommandLine.Parameters;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -92,6 +94,23 @@ public class RedactTextCommand implements Callable<Integer> {
     private boolean pseudonymize;
 
     @Option(
+        names = {"--pseudonymize-mode"},
+        description = "Pseudonymization mode (requires --pseudonymize). Valid values: " +
+                     "hash (default, stateless deterministic), " +
+                     "counter (sequential numbers), " +
+                     "realistic (plausible alternatives like alice@example.com)",
+        paramLabel = "<mode>"
+    )
+    private String pseudonymizeMode;
+
+    @Option(
+        names = {"--seed"},
+        description = "Seed for reproducible pseudonymization (only with --pseudonymize)",
+        paramLabel = "<seed>"
+    )
+    private Long seed;
+
+    @Option(
         names = {"--add-redaction-regex"},
         description = "Add a custom regular expression pattern for string redaction. " +
                      "This option can be specified multiple times to add multiple patterns.",
@@ -125,14 +144,19 @@ public class RedactTextCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        // Configure logging level based on flags
-        configureLogging();
+        // Note: Logging is configured early in Main.LoggingAwareExecutionStrategy
+        // before this method is called, so all loggers will use the correct level
 
-        // Generate default output filename if not provided
-        setOutputIfNeeded();
+        // If input is "-" treat as stdin; if output is "-" treat as stdout
+        boolean useStdio = "-".equals(inputFile.getName()) || (outputFile != null && "-".equals(outputFile.getName()));
 
-        // Validate input file exists
-        if (!inputFile.exists()) {
+        // Generate default output filename if not provided and not using stdout
+        if (!useStdio) {
+            setOutputIfNeeded();
+        }
+
+        // Validate input file exists (skip when stdin is used)
+        if (!"-".equals(inputFile.getName()) && !inputFile.exists()) {
             logger.error("Input file not found: {}", inputFile.getAbsolutePath());
             return 1;
         }
@@ -140,8 +164,8 @@ public class RedactTextCommand implements Callable<Integer> {
         logger.info("JFR-Redact Text Mode v{}", Version.VERSION);
         logger.info("================");
         logger.info("");
-        logger.info("Input file:  {}", inputFile.getAbsolutePath());
-        logger.info("Output file: {}", outputFile.getAbsolutePath());
+        logger.info("Input file:  {}", "-".equals(inputFile.getName()) ? "<stdin>" : inputFile.getAbsolutePath());
+        logger.info("Output file: {}", (outputFile == null ? "<auto>" : ("-".equals(outputFile.getName()) ? "<stdout>" : outputFile.getAbsolutePath())));
         logger.info("Preset:      {}", preset.getName());
 
         if (configFile != null) {
@@ -165,16 +189,26 @@ public class RedactTextCommand implements Callable<Integer> {
 
             // Process the text file
             TextFileRedactor redactor = new TextFileRedactor(engine);
-            redactor.redactFile(inputFile, outputFile);
 
-            logger.info("✓ Redaction complete!");
-            logger.info("Output written to: {}", outputFile.getAbsolutePath());
+            if (useStdio) {
+                // Use stdin/stdout
+                InputStream in = System.in;
+                OutputStream out = System.out;
 
-            // Show statistics if requested
+                redactor.redactStream(in, out);
+
+            } else {
+                redactor.redactFile(inputFile, outputFile);
+
+                logger.info("✓ Redaction complete!");
+                logger.info("Output written to: {}", outputFile.getAbsolutePath());
+
+                // Show statistics if requested
+
+            }
             if (showStats) {
                 engine.getStats().print();
             }
-
             return 0;
 
         } catch (ConfigLoader.ConfigurationException e) {
@@ -240,6 +274,8 @@ public class RedactTextCommand implements Callable<Integer> {
         // Apply CLI options
         RedactionConfig.CliOptions cliOptions = new RedactionConfig.CliOptions();
         cliOptions.setPseudonymize(pseudonymize);
+        cliOptions.setPseudonymizeMode(pseudonymizeMode);
+        cliOptions.setSeed(seed);
         cliOptions.setRedactionRegexes(redactionRegexes);
 
         config.applyCliOptions(cliOptions);

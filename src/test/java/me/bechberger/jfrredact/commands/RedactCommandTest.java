@@ -1,6 +1,5 @@
 package me.bechberger.jfrredact.commands;
 
-import me.bechberger.jfrredact.Preset;
 import me.bechberger.jfrredact.Version;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,7 +12,6 @@ import picocli.CommandLine;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;

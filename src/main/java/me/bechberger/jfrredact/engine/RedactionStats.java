@@ -15,6 +15,8 @@ public class RedactionStats {
     private final AtomicLong redactedFields = new AtomicLong(0);
     private final Map<String, AtomicLong> eventTypeStats = new HashMap<>();
     private final Map<String, AtomicLong> redactedFieldNames = new HashMap<>();
+    private final Map<String, AtomicLong> redactionTypeStats = new HashMap<>();
+    private final Map<String, AtomicLong> removedEventTypes = new HashMap<>();
 
     public void recordEvent(String eventType) {
         totalEvents.incrementAndGet();
@@ -23,6 +25,7 @@ public class RedactionStats {
 
     public void recordRemovedEvent(String eventType) {
         removedEvents.incrementAndGet();
+        removedEventTypes.computeIfAbsent(eventType, k -> new AtomicLong(0)).incrementAndGet();
     }
 
     public void recordFilteredThreadEvent() {
@@ -32,6 +35,13 @@ public class RedactionStats {
     public void recordRedactedField(String fieldName) {
         redactedFields.incrementAndGet();
         redactedFieldNames.computeIfAbsent(fieldName, k -> new AtomicLong(0)).incrementAndGet();
+    }
+
+    /**
+     * Record a redaction by type (email, ip, property, path, uuid, etc.)
+     */
+    public void recordRedactionType(String redactionType) {
+        redactionTypeStats.computeIfAbsent(redactionType, k -> new AtomicLong(0)).incrementAndGet();
     }
 
     public long getTotalEvents() {
@@ -62,6 +72,14 @@ public class RedactionStats {
         return redactedFieldNames;
     }
 
+    public Map<String, AtomicLong> getRedactionTypeStats() {
+        return redactionTypeStats;
+    }
+
+    public Map<String, AtomicLong> getRemovedEventTypes() {
+        return removedEventTypes;
+    }
+
     /**
      * Print statistics to stdout.
      */
@@ -78,9 +96,30 @@ public class RedactionStats {
         System.out.println("  Thread filtered events:   " + filteredThreadEvents.get());
         System.out.println();
 
+        if (!removedEventTypes.isEmpty() && removedEvents.get() > 0) {
+            System.out.println("Removed event types:");
+            removedEventTypes.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue().get(), a.getValue().get()))
+                .limit(10)
+                .forEach(entry ->
+                    System.out.printf("  %-50s %,d%n", entry.getKey(), entry.getValue().get())
+                );
+            System.out.println();
+        }
+
         System.out.println("Redactions:");
         System.out.println("  Total fields redacted:    " + redactedFields.get());
         System.out.println();
+
+        if (!redactionTypeStats.isEmpty()) {
+            System.out.println("Redaction types:");
+            redactionTypeStats.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue().get(), a.getValue().get()))
+                .forEach(entry ->
+                    System.out.printf("  %-30s %,d%n", entry.getKey(), entry.getValue().get())
+                );
+            System.out.println();
+        }
 
         if (!redactedFieldNames.isEmpty() && redactedFields.get() > 0) {
             System.out.println("Top redacted fields:");

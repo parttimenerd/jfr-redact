@@ -210,4 +210,35 @@ public class PropertyConfigTest {
             () -> "Pattern '" + pattern + "' with key '" + key + "' should " +
                   (shouldMatch ? "" : "NOT ") + "match in full match mode");
     }
+
+    /**
+     * Test that bare "key" property name is NOT matched by default patterns.
+     * Properties named just "key" should not be redacted as they are too generic.
+     * However, values should still undergo normal string pattern redaction (e.g., IP, email detection).
+     */
+    @Test
+    public void testBareKeyNotMatched() {
+        PropertyConfig config = new PropertyConfig();
+        assertFalse(config.matches("key"), "Bare 'key' should NOT match default patterns");
+        assertFalse(config.matches("KEY"), "Bare 'KEY' should NOT match default patterns");
+        assertFalse(config.matches("Key"), "Bare 'Key' should NOT match default patterns");
+    }
+
+    /**
+     * Test that key-related patterns still match when key is part of a compound name.
+     */
+    @Test
+    public void testKeyCompoundNamesMatched() {
+        PropertyConfig config = new PropertyConfig();
+        assertAll("key compound names should match",
+            () -> assertTrue(config.matches("api_key"), "api_key should match"),
+            () -> assertTrue(config.matches("apikey"), "apikey should match"),
+            () -> assertTrue(config.matches("api-key"), "api-key should match"),
+            () -> assertTrue(config.matches("encryption_key"), "encryption_key should match"),
+            () -> assertTrue(config.matches("signing.key"), "signing.key should match"),
+            () -> assertTrue(config.matches("access_key"), "access_key should match"),
+            () -> assertTrue(config.matches("secret_key"), "secret_key should match"),
+            () -> assertTrue(config.matches("privatekey"), "privatekey should match")
+        );
+    }
 }

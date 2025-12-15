@@ -41,6 +41,13 @@ public class PseudonymizationConfig {
     @JsonProperty("hash_algorithm")
     private String hashAlgorithm = "SHA-256";
 
+    /**
+     * Seed for reproducible pseudonymization.
+     * When set, the same input will always produce the same output across runs.
+     */
+    @JsonProperty("seed")
+    private Long seed;
+
     @JsonProperty("scope")
     private ScopeConfig scope = new ScopeConfig();
 
@@ -130,6 +137,9 @@ public class PseudonymizationConfig {
 
     public String getHashAlgorithm() { return hashAlgorithm; }
     public void setHashAlgorithm(String hashAlgorithm) { this.hashAlgorithm = hashAlgorithm; }
+
+    public Long getSeed() { return seed; }
+    public void setSeed(Long seed) { this.seed = seed; }
 
     public ScopeConfig getScope() { return scope; }
     public void setScope(ScopeConfig scope) { this.scope = scope; }

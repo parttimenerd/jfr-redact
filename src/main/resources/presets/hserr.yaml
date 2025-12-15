@@ -48,54 +48,59 @@ strings:
     uuids:
       enabled: true
 
-    # IP addresses
+    # IP addresses - customize IPv4 to avoid matching version numbers like clang-1403.0.22.14.1
     ip_addresses:
       enabled: true
+      # IPv4 - require first octet to be 1-255 (not 0) to avoid matching version numbers
+      ipv4: '\b(?:[1-9][0-9]{0,2}\.(?:[0-9]{1,3}\.){2}[0-9]{1,3})\b'
+      # Only match full IPv6 addresses, not compressed forms like ead:: or ::1
+      # which conflict with C++ method names in stack traces
+      ipv6: '\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b'
+      # Ignore compiler version numbers that look like IPs
+      ignore_after:
+        - 'clang-[0-9]*'      # clang version numbers like clang-1403.0.22.14.1
+        - 'gcc-[0-9]*'        # gcc version numbers
+        - 'g++-[0-9]*'        # g++ version numbers
+        - 'LLVM [0-9]*'       # LLVM version strings
 
-    # SSH hosts (often in stack traces/configs)
+    # SSH hosts - customized for hs_err to avoid matching method references like init@0
     ssh_hosts:
       enabled: true
-
-    # Hostnames - ENABLED for hs_err
-    hostnames:
-      enabled: true
       patterns:
-        # hs_err "Host:" line pattern
-        - '(?<=Host:\s)[a-zA-Z0-9][a-zA-Z0-9._-]*'
-        # FQDN with multiple domain parts
-        - '\b[a-zA-Z0-9][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9][a-zA-Z0-9-]*){2,}\b'
-        # uname -a hostname
-        - '(?<=Linux\s|Darwin\s)[a-zA-Z0-9][a-zA-Z0-9._-]*(?=\s)'
-        # Hostname after "PRETTY_NAME" or similar OS info
-        - '(?<=kernel:\s)[a-zA-Z0-9][a-zA-Z0-9._-]*'
-      safe_hostnames:
+        - 'ssh://[a-zA-Z0-9.-]+'                                          # ssh://hostname
+        - '(?:ssh|sftp)://(?:[^@]+@)?[a-zA-Z0-9.-]+'                      # ssh://user@hostname
+        # Require host part to start with a letter (not digits like init@0 or user@192.168.1.1)
+        - '[a-zA-Z0-9_-]+@[a-zA-Z][a-zA-Z0-9.-]*(?::[0-9]+)?'             # user@host (host must start with letter)
+        - '(?<=ssh\s)[a-zA-Z0-9_-]+@[a-zA-Z][a-zA-Z0-9.-]+'               # after "ssh " command
+
+    # Hostnames - DISABLED by default for hs_err to avoid false positives
+    # Users should specify specific hostnames via command line or config
+    hostnames:
+      enabled: false
+      patterns:
+        # hs_err "Host:" line pattern - handled separately via custom pattern below
+        - '(?<=Host:\s)[a-zA-Z][a-zA-Z0-9._-]*'
+      ignore_exact:
         - localhost
         - localhost.localdomain
         - '127.0.0.1'
 
-    # Internal URLs - ENABLED for hs_err
+    # Internal URLs - DISABLED to avoid false positives on public URLs like bugreport.java.com
+    # Add specific internal URL patterns via custom patterns if needed
     internal_urls:
-      enabled: true
-      patterns:
-        # Artifactory/Nexus/repo URLs
-        - 'https?://[a-zA-Z0-9.-]*(?:artifactory|nexus|repo|repository)[a-zA-Z0-9.-]*/[^\s"'']*'
-        # Internal Git URLs
-        - 'https?://[a-zA-Z0-9.-]*(?:git|gitlab|github|bitbucket)[a-zA-Z0-9.-]*/[^\s"'']*'
-        # Generic internal URLs
-        - 'https?://[a-zA-Z0-9.-]*(?:intranet|internal|corp|private)[a-zA-Z0-9.-]*/[^\s"'']*'
-        # CI/build URLs
-        - 'https?://[a-zA-Z0-9.-]*(?:jenkins|ci|build|bamboo)[a-zA-Z0-9.-]*/[^\s"'']*'
-      internal_domains:
-        - '.internal'
-        - '.corp'
-        - '.local'
-        - '.intranet'
+      enabled: false
 
     # Custom patterns specific to hs_err files
     custom:
+      # hs_err "Host:" line - redact only the hostname at the beginning
+      - name: hs_err_host_line
+        regex: '(?<=Host:\s)[A-Za-z][A-Za-z0-9_-]*(?=,|\s)'
+      # JDK version strings - redact username in adhoc builds like "22-internal-adhoc.username.jdk"
+      - name: jdk_adhoc_username
+        regex: '(?<=adhoc\.)[a-zA-Z][a-zA-Z0-9_-]*(?=\.)'
       # JVM command-line arguments with sensitive values
       - name: jvm_sensitive_args
-        regex: '-D(?:password|secret|token|key|auth|credential)[^=]*=[^\s]+'
+        regex: '-D(?:password|secret|token|auth|credential)[^=]*=[^\s]+'
       # Oracle/database connection strings
       - name: db_connection
         regex: 'jdbc:[a-zA-Z0-9]+://[^\s"'']+'
@@ -105,6 +110,18 @@ strings:
       # JAVA_HOME and similar paths that might reveal structure
       - name: java_paths
         regex: '(?:JAVA_HOME|JRE_HOME|JDK_HOME)=[^\s]+'
+      # OS uptime - reveals how long the machine has been running
+      - name: os_uptime
+        regex: '(?<=OS uptime:\s)[^\n]+'
+      # User/group IDs that may be sensitive
+      - name: user_ids
+        regex: '(?<=uid\s*:\s)\d+|(?<=euid\s*:\s)\d+|(?<=gid\s*:\s)\d+|(?<=egid\s*:\s)\d+'
+      # uname hostname - redact hostname after "Darwin " or "Linux " in uname line
+      - name: uname_hostname
+        regex: '(?<=uname:\s(?:Darwin|Linux)\s)[A-Za-z][A-Za-z0-9_-]*(?=\s)'
+      # Builder username in vm_info line - redact username in 'built ... by "username"'
+      - name: vm_info_builder
+        regex: '(?<=by\s")[a-zA-Z][a-zA-Z0-9_-]*(?=")'
 
 # Path redaction - aggressive for hs_err
 paths:

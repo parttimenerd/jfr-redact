@@ -2,7 +2,6 @@ package me.bechberger.jfrredact.jfr;
 
 import jdk.jfr.*;
 import jdk.jfr.consumer.RecordedEvent;
-import jdk.jfr.consumer.RecordedObject;
 import jdk.jfr.consumer.RecordingFile;
 import me.bechberger.jfrredact.engine.RedactionEngine;
 import org.openjdk.jmc.flightrecorder.writer.RecordingImpl;
@@ -60,9 +59,6 @@ public class JFRProcessor {
                         Recordings.newRecording(
                                 outputStream,
                                 r -> {
-                                    //r.withStartTicks(1);
-                                    //r.withTimestamp(1);
-                                    //r.withJdkTypeInitialization();
                                 });
 
     }
@@ -128,10 +124,6 @@ public class JFRProcessor {
         for (RecordedEvent event : eventsToWrite) {
             writeEvent(event);
             written++;
-
-            if (written % 1000 == 0) {
-                logger.info("Written {} events", written);
-            }
         }
 
         logger.info("JFR processing complete: {} total events, {} processed, {} removed",
@@ -348,17 +340,6 @@ public class JFRProcessor {
                     // Process annotations from the original field descriptor
                     processFieldAnnotations(field, startTimeDescriptor.getAnnotationElements());
                 });
-            } else {
-                // Fallback: create a basic startTime field with Timestamp annotation
-                /*builder.addField("startTime", Types.Builtin.LONG, field -> {
-                    // Create a minimal Timestamp annotation type and add it
-                    Type timestampType = output.getTypes().getOrAdd(
-                        "jdk.jfr.Timestamp",
-                        Annotation.ANNOTATION_SUPER_TYPE_NAME,
-                        timestampBuilder -> timestampBuilder.addField("value", Types.Builtin.STRING)
-                    );
-                    field.addAnnotation(timestampType, "NANOSECONDS_SINCE_EPOCH");
-                });*/
             }
         }
 
@@ -585,7 +566,7 @@ public class JFRProcessor {
         }
 
         // Add annotation with only non-null fields
-        if (nonNullFields.size() == 1 && nonNullFields.get(0).getName().equals("value")) {
+        if (nonNullFields.size() == 1 && nonNullFields.getFirst().getName().equals("value")) {
             // Single "value" field - use simplified syntax
             Object value = annotation.getValue("value");
             if (value.getClass().isArray()) {
@@ -645,7 +626,7 @@ public class JFRProcessor {
         }
 
         // Add annotation with only non-null fields
-        if (nonNullFields.size() == 1 && nonNullFields.get(0).getName().equals("value")) {
+        if (nonNullFields.size() == 1 && nonNullFields.getFirst().getName().equals("value")) {
             // Single "value" field - use simplified syntax
             Object value = annotation.getValue("value");
             if (value.getClass().isArray()) {

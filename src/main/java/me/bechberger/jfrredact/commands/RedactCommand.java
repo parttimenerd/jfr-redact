@@ -92,6 +92,23 @@ public class RedactCommand implements Callable<Integer> {
     private boolean pseudonymize;
 
     @Option(
+        names = {"--pseudonymize-mode"},
+        description = "Pseudonymization mode (requires --pseudonymize). Valid values: " +
+                     "hash (default, stateless deterministic), " +
+                     "counter (sequential numbers), " +
+                     "realistic (plausible alternatives like alice@example.com)",
+        paramLabel = "<mode>"
+    )
+    private String pseudonymizeMode;
+
+    @Option(
+        names = {"--seed"},
+        description = "Seed for reproducible pseudonymization (only with --pseudonymize)",
+        paramLabel = "<seed>"
+    )
+    private Long seed;
+
+    @Option(
         names = {"--remove-event"},
         description = "Remove an additional event type from the output. " +
                      "This option can be specified multiple times to remove multiple event types.",
@@ -191,8 +208,8 @@ public class RedactCommand implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        // Configure logging level based on flags
-        configureLogging();
+        // Note: Logging is configured early in Main.LoggingAwareExecutionStrategy
+        // before this method is called, so all loggers will use the correct level
 
         // Generate default output filename if not provided
         setOutputIfNeeded();
@@ -321,6 +338,8 @@ public class RedactCommand implements Callable<Integer> {
         // Apply CLI options
         RedactionConfig.CliOptions cliOptions = new RedactionConfig.CliOptions();
         cliOptions.setPseudonymize(pseudonymize);
+        cliOptions.setPseudonymizeMode(pseudonymizeMode);
+        cliOptions.setSeed(seed);
         cliOptions.setRemoveEvents(removeEvents);
         cliOptions.setRedactionRegexes(redactionRegexes);
         cliOptions.setIncludeEvents(includeEvents);

@@ -25,6 +25,47 @@ public class StringConfig {
     @JsonProperty("patterns")
     private PatternsConfig patterns = new PatternsConfig();
 
+    @JsonProperty("no_redact")
+    private List<String> noRedact = new ArrayList<>();
+
+    /**
+     * Base class for pattern configurations with ignore capabilities
+     */
+    public static abstract class BasePatternConfig {
+        @JsonProperty("enabled")
+        private boolean enabled = true;
+
+        /**
+         * Specific verbatim values that should not be redacted
+         */
+        @JsonProperty("ignore_exact")
+        private List<String> ignoreExact = new ArrayList<>();
+
+        /**
+         * Patterns that match values that should not be redacted
+         */
+        @JsonProperty("ignore")
+        private List<String> ignore = new ArrayList<>();
+
+        /**
+         * Prefix expressions that come directly before - if matched, don't redact
+         */
+        @JsonProperty("ignore_after")
+        private List<String> ignoreAfter = new ArrayList<>();
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public List<String> getIgnoreExact() { return ignoreExact; }
+        public void setIgnoreExact(List<String> ignoreExact) { this.ignoreExact = ignoreExact; }
+
+        public List<String> getIgnore() { return ignore; }
+        public void setIgnore(List<String> ignore) { this.ignore = ignore; }
+
+        public List<String> getIgnoreAfter() { return ignoreAfter; }
+        public void setIgnoreAfter(List<String> ignoreAfter) { this.ignoreAfter = ignoreAfter; }
+    }
+
     /**
      * Configuration for various string patterns to redact
      */
@@ -84,19 +125,13 @@ public class StringConfig {
     /**
      * Home directory pattern configuration
      */
-    public static class HomeDirectoriesConfig {
-        @JsonProperty("enabled")
-        private boolean enabled = true;
-
+    public static class HomeDirectoriesConfig extends BasePatternConfig {
         @JsonProperty("regexes")
         private List<String> regexes = new ArrayList<>(List.of(
             "/Users/[^/]+",
             "C:\\\\Users\\\\[a-zA-Z0-9_\\-]+",
             "/home/[^/]+"
         ));
-
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
         public List<String> getRegexes() { return regexes; }
         public void setRegexes(List<String> regexes) { this.regexes = regexes; }
@@ -105,15 +140,9 @@ public class StringConfig {
     /**
      * Email pattern configuration
      */
-    public static class EmailsConfig {
-        @JsonProperty("enabled")
-        private boolean enabled = true;
-
+    public static class EmailsConfig extends BasePatternConfig {
         @JsonProperty("regex")
         private String regex = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}";
-
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
         public String getRegex() { return regex; }
         public void setRegex(String regex) { this.regex = regex; }
@@ -122,15 +151,13 @@ public class StringConfig {
     /**
      * UUID pattern configuration
      */
-    public static class UuidsConfig {
-        @JsonProperty("enabled")
-        private boolean enabled = false;
-
+    public static class UuidsConfig extends BasePatternConfig {
         @JsonProperty("regex")
         private String regex = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public UuidsConfig() {
+            setEnabled(false);
+        }
 
         public String getRegex() { return regex; }
         public void setRegex(String regex) { this.regex = regex; }
@@ -139,12 +166,9 @@ public class StringConfig {
     /**
      * IP address pattern configuration
      */
-    public static class IpAddressesConfig {
+    public static class IpAddressesConfig extends BasePatternConfig {
         // IPv6 hex group pattern: 1-4 hexadecimal digits
         private static final String H = "[0-9a-fA-F]{1,4}";
-
-        @JsonProperty("enabled")
-        private boolean enabled = true;
 
         @JsonProperty("ipv4")
         private String ipv4 = "\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b";
@@ -197,9 +221,6 @@ public class StringConfig {
             ")";
         }
 
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
-
         public String getIpv4() { return ipv4; }
         public void setIpv4(String ipv4) { this.ipv4 = ipv4; }
 
@@ -210,10 +231,7 @@ public class StringConfig {
     /**
      * SSH host pattern configuration
      */
-    public static class SshHostsConfig {
-        @JsonProperty("enabled")
-        private boolean enabled = false;
-
+    public static class SshHostsConfig extends BasePatternConfig {
         @JsonProperty("patterns")
         private List<String> patterns = new ArrayList<>(List.of(
             "ssh://[a-zA-Z0-9.-]+",
@@ -222,8 +240,9 @@ public class StringConfig {
             "(?<=ssh\\s)[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+"
         ));
 
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public SshHostsConfig() {
+            setEnabled(false);
+        }
 
         public List<String> getPatterns() { return patterns; }
         public void setPatterns(List<String> patterns) { this.patterns = patterns; }
@@ -233,52 +252,42 @@ public class StringConfig {
      * Hostname pattern configuration for corporate/internal hostnames.
      * Useful for hs_err files which contain "Host: hostname" lines.
      */
-    public static class HostnamesConfig {
-        @JsonProperty("enabled")
-        private boolean enabled = false;
-
+    public static class HostnamesConfig extends BasePatternConfig {
         /**
          * Patterns to match hostnames. These are applied to strings that look like
          * hostnames (FQDN format). The default patterns cover common corporate naming.
          */
         @JsonProperty("patterns")
         private List<String> patterns = new ArrayList<>(List.of(
-            // hs_err "Host:" line pattern
-            "(?<=Host:\\s)[a-zA-Z0-9][a-zA-Z0-9._-]*",
+            // hs_err "Host:" line pattern - requires FQDN format (at least one dot)
+            "(?<=Host:\\s)[a-zA-Z][a-zA-Z0-9-]*(?:\\.[a-zA-Z0-9][a-zA-Z0-9.-]*)+",
             // FQDN with multiple domain parts (e.g., dev-jsmith.corp.example.com)
-            "\\b[a-zA-Z0-9][a-zA-Z0-9-]*(?:\\.[a-zA-Z0-9][a-zA-Z0-9-]*){2,}\\b",
-            // uname -a hostname (appears after Linux/Darwin and version info)
-            "(?<=Linux\\s|Darwin\\s)[a-zA-Z0-9][a-zA-Z0-9._-]*(?=\\s)"
+            // Must start with letter, contain only letters/digits in each segment, and have 2+ dots
+            // Excludes version numbers like 5.15.0 by requiring letters in first segment
+            "\\b[a-zA-Z][a-zA-Z0-9-]*(?:\\.[a-zA-Z][a-zA-Z0-9-]*){2,}\\b",
+            // uname -a hostname (appears after Linux/Darwin, must start with letter, be a single word)
+            "(?<=Linux\\s|Darwin\\s)[a-zA-Z][a-zA-Z0-9._-]*?(?=\\s+\\d)"
         ));
 
-        /**
-         * Known safe hostnames that should NOT be redacted (e.g., localhost, common domains)
-         */
-        @JsonProperty("safe_hostnames")
-        private List<String> safeHostnames = new ArrayList<>(List.of(
-            "localhost",
-            "localhost.localdomain",
-            "127.0.0.1"
-        ));
-
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public HostnamesConfig() {
+            setEnabled(false);
+            // Set default ignore_exact values
+            getIgnoreExact().addAll(List.of(
+                "localhost",
+                "localhost.localdomain",
+                "127.0.0.1"
+            ));
+        }
 
         public List<String> getPatterns() { return patterns; }
         public void setPatterns(List<String> patterns) { this.patterns = patterns; }
-
-        public List<String> getSafeHostnames() { return safeHostnames; }
-        public void setSafeHostnames(List<String> safeHostnames) { this.safeHostnames = safeHostnames; }
     }
 
     /**
      * Internal/corporate URL pattern configuration.
      * Redacts URLs pointing to internal resources like Artifactory, Nexus, internal Git, etc.
      */
-    public static class InternalUrlsConfig {
-        @JsonProperty("enabled")
-        private boolean enabled = false;
-
+    public static class InternalUrlsConfig extends BasePatternConfig {
         /**
          * Patterns to match internal URLs. These target common internal infrastructure.
          */
@@ -305,8 +314,9 @@ public class StringConfig {
             ".intranet"
         ));
 
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public InternalUrlsConfig() {
+            setEnabled(false);
+        }
 
         public List<String> getPatterns() { return patterns; }
         public void setPatterns(List<String> patterns) { this.patterns = patterns; }
@@ -325,11 +335,38 @@ public class StringConfig {
         @JsonProperty("regex")
         private String regex;
 
+        /**
+         * Specific verbatim values that should not be redacted
+         */
+        @JsonProperty("ignore_exact")
+        private List<String> ignoreExact = new ArrayList<>();
+
+        /**
+         * Patterns that match values that should not be redacted
+         */
+        @JsonProperty("ignore")
+        private List<String> ignore = new ArrayList<>();
+
+        /**
+         * Prefix expressions that come directly before - if matched, don't redact
+         */
+        @JsonProperty("ignore_after")
+        private List<String> ignoreAfter = new ArrayList<>();
+
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }
 
         public String getRegex() { return regex; }
         public void setRegex(String regex) { this.regex = regex; }
+
+        public List<String> getIgnoreExact() { return ignoreExact; }
+        public void setIgnoreExact(List<String> ignoreExact) { this.ignoreExact = ignoreExact; }
+
+        public List<String> getIgnore() { return ignore; }
+        public void setIgnore(List<String> ignore) { this.ignore = ignore; }
+
+        public List<String> getIgnoreAfter() { return ignoreAfter; }
+        public void setIgnoreAfter(List<String> ignoreAfter) { this.ignoreAfter = ignoreAfter; }
     }
 
     // Getters and setters
@@ -354,11 +391,21 @@ public class StringConfig {
     public PatternsConfig getPatterns() { return patterns; }
     public void setPatterns(PatternsConfig patterns) { this.patterns = patterns; }
 
+    public List<String> getNoRedact() { return noRedact; }
+    public void setNoRedact(List<String> noRedact) { this.noRedact = noRedact; }
+
     /**
      * Merge with parent configuration
      */
     public void mergeWith(StringConfig parent) {
         if (parent == null) return;
+
+        // Merge no_redact list
+        for (String str : parent.getNoRedact()) {
+            if (!noRedact.contains(str)) {
+                noRedact.add(str);
+            }
+        }
 
         // Merge home directory regexes
         for (String regex : parent.getPatterns().getHomeDirectories().getRegexes()) {
@@ -378,13 +425,6 @@ public class StringConfig {
         for (String pattern : parent.getPatterns().getHostnames().getPatterns()) {
             if (!patterns.getHostnames().getPatterns().contains(pattern)) {
                 patterns.getHostnames().getPatterns().add(pattern);
-            }
-        }
-
-        // Merge hostname safe list
-        for (String safe : parent.getPatterns().getHostnames().getSafeHostnames()) {
-            if (!patterns.getHostnames().getSafeHostnames().contains(safe)) {
-                patterns.getHostnames().getSafeHostnames().add(safe);
             }
         }
 

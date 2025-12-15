@@ -4,7 +4,6 @@ import jdk.jfr.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.opentest4j.AssertionFailedError;
 
 import java.io.IOException;
 import java.nio.file.Path;

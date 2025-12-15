@@ -1,7 +1,6 @@
 package me.bechberger.jfrredact.engine;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonValue;
 
 /**
  * Action to take for a JFR event.

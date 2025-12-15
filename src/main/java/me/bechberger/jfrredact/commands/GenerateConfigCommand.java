@@ -75,6 +75,24 @@ public class GenerateConfigCommand implements Callable<Integer> {
     )
     private boolean minimal;
 
+    @Option(
+        names = {"-v", "--verbose"},
+        description = "Enable verbose output (INFO level logging)"
+    )
+    private boolean verbose;
+
+    @Option(
+        names = {"--debug"},
+        description = "Enable debug output (DEBUG level logging)"
+    )
+    private boolean debug;
+
+    @Option(
+        names = {"-q", "--quiet"},
+        description = "Minimize output (only show errors and completion message)"
+    )
+    private boolean quiet;
+
     @Override
     public Integer call() {
         PrintWriter out = spec.commandLine().getOut();

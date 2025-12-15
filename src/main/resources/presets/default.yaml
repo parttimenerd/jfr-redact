@@ -9,7 +9,8 @@ properties:
     - (pass(word|wort|wd)?|pwd)  # password, passwort, passwd, pwd
     - secret
     - token
-    - (api[_-]?)?key       # key, api_key, api-key, apikey
+    - api[_-]?key          # api_key, api-key, apikey (but NOT bare "key")
+    - '[a-z._-]key'        # _key, -key, .key, accesskey, etc. (key as suffix, not standalone)
     - auth
     - credential
 events:
@@ -59,6 +60,33 @@ strings:
         - '(?:ssh|sftp)://(?:[^@]+@)?[a-zA-Z0-9.-]+'      # ssh://user@hostname
         - '[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+(?::[0-9]+)?'     # user@host or user@host:port
         - '(?<=ssh\s)[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+'       # after "ssh " command
+
+    # Hostnames (for hs_err files and bug reports)
+    hostnames:
+      enabled: true  # Enabled for default preset
+      patterns:
+        - '(?<=Host:\s)[a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9][a-zA-Z0-9.-]*)+'
+        - '\b[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z0-9-]*\b'
+        - '(?<=Linux\s|Darwin\s)[a-zA-Z][a-zA-Z0-9._-]*?(?=\s+\d)'
+      ignore:
+        - localhost
+        - localhost.localdomain
+        - '127.0.0.1'
+
+    # Internal URLs
+    internal_urls:
+      enabled: false  # Disabled by default, enable with hserr preset
+      patterns:
+        - 'https?://[a-zA-Z0-9.-]*(?:artifactory|nexus|repo|repository)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'
+        - 'https?://[a-zA-Z0-9.-]*(?:git|gitlab|github|bitbucket)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'
+        - 'https?://[a-zA-Z0-9.-]*(?:intranet|internal|corp|private)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'
+        - 'https?://[a-zA-Z0-9.-]*(?:jenkins|ci|build|bamboo)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'
+      internal_domains:
+        - '.internal'
+        - '.corp'
+        - '.local'
+        - '.intranet'
+
 network:
   enabled: true
   redact_ports: true
