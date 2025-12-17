@@ -5,16 +5,50 @@ import me.bechberger.jfrredact.pseudonimyzer.Pseudonymizer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Main redaction configuration with parent inheritance support.
+ *
+ * <p>List Inheritance Control:</p>
+ * <p>By default, when a child config defines a list, it completely overrides the parent's list.
+ * However, you can use the special marker <code>$PARENT</code> to include the parent's list items:</p>
+ *
+ * <pre>
+ * # parent.yaml
+ * properties:
+ *   patterns:
+ *     - password
+ *     - secret
+ *
+ * # child.yaml (override - replaces parent completely)
+ * properties:
+ *   patterns:
+ *     - apikey  # Only apikey, no password/secret
+ *
+ * # child.yaml (append - adds to parent)
+ * properties:
+ *   patterns:
+ *     - $PARENT  # Expands to: password, secret
+ *     - apikey   # Result: password, secret, apikey
+ *
+ * # child.yaml (prepend and append)
+ * properties:
+ *   patterns:
+ *     - customkey
+ *     - $PARENT  # Expands to: password, secret
+ *     - apikey   # Result: customkey, password, secret, apikey
+ * </pre>
  */
 public class RedactionConfig {
+
+    /** Marker for list inheritance - replaced with parent's list items */
+    public static final String PARENT_MARKER = "$PARENT";
 
     @JsonProperty("parent")
     private String parent = "none";
 
-    @JsonProperty("properties")
+    // ...existing code...
     private PropertyConfig properties = new PropertyConfig();
 
     @JsonProperty("events")
@@ -31,6 +65,9 @@ public class RedactionConfig {
 
     @JsonProperty("general")
     private GeneralConfig general = new GeneralConfig();
+
+    @JsonProperty("discovery")
+    private DiscoveryConfig discovery = new DiscoveryConfig();
 
     /**
      * General configuration options
@@ -102,6 +139,9 @@ public class RedactionConfig {
     public GeneralConfig getGeneral() { return general; }
     public void setGeneral(GeneralConfig general) { this.general = general; }
 
+    public DiscoveryConfig getDiscovery() { return discovery; }
+    public void setDiscovery(DiscoveryConfig discovery) { this.discovery = discovery; }
+
     /**
      * Merge this configuration with a parent configuration.
      * Child values override parent values. Lists are combined.
@@ -171,9 +211,14 @@ public class RedactionConfig {
             for (String regex : cliOptions.getRedactionRegexes()) {
                 StringConfig.CustomPatternConfig customPattern = new StringConfig.CustomPatternConfig();
                 customPattern.setName("cli_pattern_" + customPatterns.size());
-                customPattern.setRegex(regex);
+                customPattern.setPatterns(List.of(regex));
                 customPatterns.add(customPattern);
             }
+        }
+
+        // Apply discovery options
+        if (cliOptions.getDiscoveryMode() != null) {
+            discovery.setMode(cliOptions.getDiscoveryMode());
         }
     }
 
@@ -219,6 +264,9 @@ public class RedactionConfig {
         private List<String> removeEvents = new ArrayList<>();
         private List<String> redactionRegexes = new ArrayList<>();
 
+        // Discovery options
+        private DiscoveryConfig.DiscoveryMode discoveryMode;
+
         // jfr scrub-style filtering options
         private List<String> includeEvents = new ArrayList<>();
         private List<String> excludeEvents = new ArrayList<>();
@@ -244,6 +292,9 @@ public class RedactionConfig {
             this.redactionRegexes = redactionRegexes;
         }
 
+        public DiscoveryConfig.DiscoveryMode getDiscoveryMode() { return discoveryMode; }
+        public void setDiscoveryMode(DiscoveryConfig.DiscoveryMode discoveryMode) { this.discoveryMode = discoveryMode; }
+
         public List<String> getIncludeEvents() { return includeEvents; }
         public void setIncludeEvents(List<String> includeEvents) { this.includeEvents = includeEvents; }
 
@@ -261,5 +312,42 @@ public class RedactionConfig {
 
         public List<String> getExcludeThreads() { return excludeThreads; }
         public void setExcludeThreads(List<String> excludeThreads) { this.excludeThreads = excludeThreads; }
+    }
+
+    /**
+     * Expand $PARENT markers in a child list with items from the parent list.
+     *
+     * <p>If the child list contains "$PARENT", each occurrence is replaced with all items
+     * from the parent list (in order). This allows fine-grained control over list inheritance:</p>
+     *
+     * <pre>
+     * parent: [A, B, C]
+     * child: [X, $PARENT, Y] -> result: [X, A, B, C, Y]
+     * child: [$PARENT]       -> result: [A, B, C] (same as default merge)
+     * child: [X, Y]          -> result: [X, Y] (override, no parent items)
+     * child: [$PARENT, $PARENT] -> result: [A, B, C, A, B, C] (duplicate parent items)
+     * </pre>
+     *
+     * @param childList  The child list that may contain $PARENT markers
+     * @param parentList The parent list whose items will replace $PARENT
+     * @return A new list with $PARENT markers expanded, or the original childList if no markers found
+     */
+    public static List<String> expandParentMarkers(List<String> childList, List<String> parentList) {
+        if (childList == null || !childList.contains(PARENT_MARKER)) {
+            return childList;
+        }
+
+        List<String> result = new ArrayList<>();
+        for (String item : childList) {
+            if (PARENT_MARKER.equals(item)) {
+                // Replace $PARENT with all parent items
+                if (parentList != null) {
+                    result.addAll(parentList);
+                }
+            } else {
+                result.add(item);
+            }
+        }
+        return result;
     }
 }

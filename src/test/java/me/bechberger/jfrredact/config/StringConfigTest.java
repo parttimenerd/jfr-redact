@@ -3,8 +3,10 @@ package me.bechberger.jfrredact.config;
 import me.bechberger.jfrredact.ConfigLoader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.BeforeEach;
 
 import java.io.IOException;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,9 +15,17 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class StringConfigTest {
 
+    private RedactionConfig defaultConfig;
+
+    @BeforeEach
+    void setUp() throws IOException {
+        // Load default preset for tests that need default patterns
+        defaultConfig = new ConfigLoader().load("default");
+    }
+
     @Test
     public void testDefaultStringConfig() {
-        StringConfig config = new StringConfig();
+        StringConfig config = defaultConfig.getStrings();
 
         assertTrue(config.isEnabled());
         assertFalse(config.isRedactInMethodNames());
@@ -24,73 +34,71 @@ public class StringConfigTest {
 
         // Verify default patterns
         assertNotNull(config.getPatterns());
-        assertTrue(config.getPatterns().getHomeDirectories().isEnabled());
+        assertTrue(config.getPatterns().getUser().isEnabled());
         assertTrue(config.getPatterns().getEmails().isEnabled());
         assertTrue(config.getPatterns().getIpAddresses().isEnabled());
         assertFalse(config.getPatterns().getUuids().isEnabled());  // Disabled by default
-        assertFalse(config.getPatterns().getSshHosts().isEnabled());  // Disabled by default
+        assertTrue(config.getPatterns().getSshHosts().isEnabled());  // Enabled in default preset
     }
 
     @Test
     public void testSshHostPatternsDefault() {
-        StringConfig config = new StringConfig();
+        StringConfig config = defaultConfig.getStrings();
         var sshConfig = config.getPatterns().getSshHosts();
 
-        assertFalse(sshConfig.isEnabled());  // Disabled by default
+        assertTrue(sshConfig.isEnabled());  // Enabled in default preset
         assertEquals(4, sshConfig.getPatterns().size());
 
-        // Verify default patterns are present
-        assertTrue(sshConfig.getPatterns().contains("ssh://[a-zA-Z0-9.-]+"));
-        assertTrue(sshConfig.getPatterns().contains("(?:ssh|sftp)://(?:[^@]+@)?[a-zA-Z0-9.-]+"));
+        // Verify default patterns are present (patterns have capture groups for hostname extraction)
+        assertTrue(sshConfig.getPatterns().stream().anyMatch(p -> p.contains("ssh://")));
     }
 
     @Test
     public void testHomeDirectoryPatternsDefault() {
-        StringConfig config = new StringConfig();
-        var homeConfig = config.getPatterns().getHomeDirectories();
+        StringConfig config = defaultConfig.getStrings();
+        var homeConfig = config.getPatterns().getUser();
 
         assertTrue(homeConfig.isEnabled());
-        assertEquals(3, homeConfig.getRegexes().size());
+        assertEquals(3, homeConfig.getPatterns().size());
 
         // Verify macOS, Windows, and Linux patterns
-        assertTrue(homeConfig.getRegexes().stream().anyMatch(r -> r.contains("/Users/")));
-        assertTrue(homeConfig.getRegexes().stream().anyMatch(r -> r.contains("C:")));
-        assertTrue(homeConfig.getRegexes().stream().anyMatch(r -> r.contains("/home/")));
+        assertTrue(homeConfig.getPatterns().stream().anyMatch(r -> r.contains("/Users/")));
+        assertTrue(homeConfig.getPatterns().stream().anyMatch(r -> r.contains("C:")));
+        assertTrue(homeConfig.getPatterns().stream().anyMatch(r -> r.contains("/home/")));
     }
 
     @Test
     public void testEmailPattern() {
-        StringConfig config = new StringConfig();
+        StringConfig config = defaultConfig.getStrings();
         var emailConfig = config.getPatterns().getEmails();
 
         assertTrue(emailConfig.isEnabled());
-        assertNotNull(emailConfig.getRegex());
-        assertTrue(emailConfig.getRegex().contains("@"));
+        assertFalse(emailConfig.getPatterns().isEmpty());
+        assertTrue(emailConfig.getPatterns().get(0).contains("@"));
     }
 
     @Test
     public void testIpAddressPatterns() {
-        StringConfig config = new StringConfig();
+        StringConfig config = defaultConfig.getStrings();
         var ipConfig = config.getPatterns().getIpAddresses();
 
         assertTrue(ipConfig.isEnabled());
-        assertNotNull(ipConfig.getIpv4());
-        assertNotNull(ipConfig.getIpv6());
+        assertFalse(ipConfig.getPatterns().isEmpty());
     }
 
     @Test
     public void testUuidPattern() {
-        StringConfig config = new StringConfig();
+        StringConfig config = defaultConfig.getStrings();
         var uuidConfig = config.getPatterns().getUuids();
 
         assertFalse(uuidConfig.isEnabled());  // Disabled by default
-        assertNotNull(uuidConfig.getRegex());
-        assertTrue(uuidConfig.getRegex().contains("-"));
+        assertFalse(uuidConfig.getPatterns().isEmpty());
+        assertTrue(uuidConfig.getPatterns().get(0).contains("-"));
     }
 
     @Test
     public void testCustomPatterns() {
-        StringConfig config = new StringConfig();
+        StringConfig config = defaultConfig.getStrings();
         var customPatterns = config.getPatterns().getCustom();
 
         assertNotNull(customPatterns);
@@ -103,7 +111,7 @@ public class StringConfigTest {
 
         StringConfig.CustomPatternConfig customPattern = new StringConfig.CustomPatternConfig();
         customPattern.setName("aws_keys");
-        customPattern.setRegex("AKIA[0-9A-Z]{16}");
+        customPattern.setPatterns(List.of("AKIA[0-9A-Z]{16}"));
 
         config.getPatterns().getCustom().add(customPattern);
 
@@ -158,10 +166,10 @@ public class StringConfigTest {
         assertEquals(2, customPatterns.size());
 
         assertEquals("cli_pattern_0", customPatterns.get(0).getName());
-        assertEquals("\\b[A-Z]{3}-\\d{6}\\b", customPatterns.get(0).getRegex());
+        assertEquals("\\b[A-Z]{3}-\\d{6}\\b", customPatterns.get(0).getPatterns().get(0));
 
         assertEquals("cli_pattern_1", customPatterns.get(1).getName());
-        assertEquals("AKIA[0-9A-Z]{16}", customPatterns.get(1).getRegex());
+        assertEquals("AKIA[0-9A-Z]{16}", customPatterns.get(1).getPatterns().get(0));
     }
 
     @Test
@@ -172,7 +180,7 @@ public class StringConfigTest {
         // Add a custom pattern via config
         StringConfig.CustomPatternConfig existingPattern = new StringConfig.CustomPatternConfig();
         existingPattern.setName("jwt_tokens");
-        existingPattern.setRegex("eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+");
+        existingPattern.setPatterns(List.of("eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+"));
         config.getStrings().getPatterns().getCustom().add(existingPattern);
 
         // Now add CLI patterns
@@ -187,11 +195,11 @@ public class StringConfigTest {
 
         // Existing pattern still there
         assertEquals("jwt_tokens", customPatterns.get(0).getName());
-        assertEquals("eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+", customPatterns.get(0).getRegex());
+        assertEquals("eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+", customPatterns.get(0).getPatterns().get(0));
 
         // CLI pattern added with correct name (size was 1 when added)
         assertEquals("cli_pattern_1", customPatterns.get(1).getName());
-        assertEquals("\\b[A-Z]{3}-\\d{6}\\b", customPatterns.get(1).getRegex());
+        assertEquals("\\b[A-Z]{3}-\\d{6}\\b", customPatterns.get(1).getPatterns().get(0));
     }
 
     // ========== Ignore Feature Tests ==========
@@ -225,10 +233,12 @@ public class StringConfigTest {
         }
 
         @Test
-        public void testHostnameIgnoreExactDefaults() {
-            var config = new StringConfig.HostnamesConfig();
+        public void testHostnameIgnoreExactDefaults() throws IOException {
+            // Load from default preset since defaults are in YAML
+            var defaultConfig = new ConfigLoader().load("default");
+            var config = defaultConfig.getStrings().getPatterns().getHostnames();
 
-            // Check default values
+            // Check default values from default.yaml - should be in ignore_exact for literal values
             var ignoreExact = config.getIgnoreExact();
             assertTrue(ignoreExact.contains("localhost"));
             assertTrue(ignoreExact.contains("localhost.localdomain"));
@@ -237,7 +247,7 @@ public class StringConfigTest {
 
         @Test
         public void testHomeDirectoryIgnoreExact() {
-            var config = new StringConfig.HomeDirectoriesConfig();
+            var config = new StringConfig.UserConfig();
 
             config.getIgnoreExact().add("/Users/Public");
             config.getIgnoreExact().add("C:\\Users\\Public");
@@ -250,7 +260,7 @@ public class StringConfigTest {
         public void testCustomPatternIgnoreExact() {
             var config = new StringConfig.CustomPatternConfig();
             config.setName("api_keys");
-            config.setRegex("sk_[a-zA-Z0-9]{32}");
+            config.setPatterns(List.of("sk_[a-zA-Z0-9]{32}"));
 
             config.getIgnoreExact().add("sk_test_12345678901234567890123456789012");
             config.getIgnoreExact().add("sk_example_value_do_not_redact");
@@ -317,7 +327,7 @@ public class StringConfigTest {
         public void testCustomPatternIgnorePattern() {
             var config = new StringConfig.CustomPatternConfig();
             config.setName("aws_keys");
-            config.setRegex("AKIA[0-9A-Z]{16}");
+            config.setPatterns(List.of("AKIA[0-9A-Z]{16}"));
 
             // Ignore test/example keys
             config.getIgnore().add("AKIA.*EXAMPLE.*");
@@ -367,7 +377,7 @@ public class StringConfigTest {
 
         @Test
         public void testHomeDirectoryIgnoreAfter() {
-            var config = new StringConfig.HomeDirectoriesConfig();
+            var config = new StringConfig.UserConfig();
 
             // Don't redact after installation prefix flags
             config.getIgnoreAfter().add("--prefix=");
@@ -381,7 +391,7 @@ public class StringConfigTest {
         public void testCustomPatternIgnoreAfter() {
             var config = new StringConfig.CustomPatternConfig();
             config.setName("jwt_tokens");
-            config.setRegex("eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+");
+            config.setPatterns(List.of("eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+"));
 
             // Don't redact JWTs in example/documentation contexts
             config.getIgnoreAfter().add("Example:\\s*");
@@ -418,7 +428,7 @@ public class StringConfigTest {
         public void testCustomPatternWithAllIgnoreTypes() {
             var config = new StringConfig.CustomPatternConfig();
             config.setName("ticket_ids");
-            config.setRegex("TICKET-\\d{6}");
+            config.setPatterns(List.of("TICKET-\\d{6}"));
 
             config.getIgnoreExact().add("TICKET-000000");
             config.getIgnore().add("TICKET-999.*");
@@ -436,7 +446,7 @@ public class StringConfigTest {
             // Configure ignore fields for each pattern type
             config.getPatterns().getEmails().getIgnoreExact().add("noreply@example.com");
             config.getPatterns().getIpAddresses().getIgnoreExact().add("127.0.0.1");
-            config.getPatterns().getHomeDirectories().getIgnoreExact().add("/usr/local");
+            config.getPatterns().getUser().getIgnoreExact().add("/usr/local");
             config.getPatterns().getHostnames().getIgnoreExact().add("example.com");
             config.getPatterns().getSshHosts().getIgnoreExact().add("git@github.com");
             config.getPatterns().getInternalUrls().getIgnoreExact().add("https://docs.oracle.com");
@@ -445,7 +455,7 @@ public class StringConfigTest {
             // Verify all were set
             assertTrue(config.getPatterns().getEmails().getIgnoreExact().contains("noreply@example.com"));
             assertTrue(config.getPatterns().getIpAddresses().getIgnoreExact().contains("127.0.0.1"));
-            assertTrue(config.getPatterns().getHomeDirectories().getIgnoreExact().contains("/usr/local"));
+            assertTrue(config.getPatterns().getUser().getIgnoreExact().contains("/usr/local"));
             assertTrue(config.getPatterns().getHostnames().getIgnoreExact().contains("example.com"));
             assertTrue(config.getPatterns().getSshHosts().getIgnoreExact().contains("git@github.com"));
             assertTrue(config.getPatterns().getInternalUrls().getIgnoreExact().contains("https://docs.oracle.com"));
@@ -460,7 +470,7 @@ public class StringConfigTest {
             // Verify all configs have ignore methods
             var email = new StringConfig.EmailsConfig();
             var ip = new StringConfig.IpAddressesConfig();
-            var home = new StringConfig.HomeDirectoriesConfig();
+            var home = new StringConfig.UserConfig();
             var hostname = new StringConfig.HostnamesConfig();
             var ssh = new StringConfig.SshHostsConfig();
             var internalUrl = new StringConfig.InternalUrlsConfig();
@@ -481,7 +491,7 @@ public class StringConfigTest {
             // Test that enabled defaults are preserved
             assertTrue(new StringConfig.EmailsConfig().isEnabled());
             assertTrue(new StringConfig.IpAddressesConfig().isEnabled());
-            assertTrue(new StringConfig.HomeDirectoriesConfig().isEnabled());
+            assertTrue(new StringConfig.UserConfig().isEnabled());
 
             assertFalse(new StringConfig.UuidsConfig().isEnabled());
             assertFalse(new StringConfig.SshHostsConfig().isEnabled());

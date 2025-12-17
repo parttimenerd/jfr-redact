@@ -1,9 +1,9 @@
 package me.bechberger.jfrredact.commands;
 
-import jdk.jfr.consumer.RecordingFile;
 import me.bechberger.jfrredact.ConfigLoader;
 import me.bechberger.jfrredact.Preset;
 import me.bechberger.jfrredact.Version;
+import me.bechberger.jfrredact.config.DiscoveryConfig;
 import me.bechberger.jfrredact.config.RedactionConfig;
 import me.bechberger.jfrredact.engine.RedactionEngine;
 import me.bechberger.jfrredact.jfr.JFRProcessor;
@@ -109,6 +109,41 @@ public class RedactCommand implements Callable<Integer> {
     private Long seed;
 
     @Option(
+        names = {"--discovery-mode"},
+        description = "Pattern discovery mode. Valid values: " +
+                     "none (no discovery, single-pass), " +
+                     "fast (on-the-fly discovery), " +
+                     "default (two-pass, reads file twice for complete discovery). " +
+                     "Default: default (two-pass). " +
+                     "Note: Per-pattern discovery is configured in the config file via enable_discovery.",
+        paramLabel = "<mode>"
+    )
+    private String discoveryMode;
+
+    @Option(
+        names = {"--discover-usernames"},
+        description = "DEPRECATED: Discovery is now controlled per-pattern in the config file. " +
+                     "Use strings.patterns.home_directories.enable_discovery instead.",
+        hidden = true
+    )
+    private Boolean discoverUsernames;
+
+    @Option(
+        names = {"--discover-hostnames"},
+        description = "DEPRECATED: Discovery is now controlled per-pattern in the config file. " +
+                     "Use strings.patterns.ssh_hosts.enable_discovery or strings.patterns.hostnames.enable_discovery instead.",
+        hidden = true
+    )
+    private Boolean discoverHostnames;
+
+    @Option(
+        names = {"--min-occurrences"},
+        description = "Minimum occurrences required to redact a discovered value (prevents false positives, default: 1)",
+        paramLabel = "<count>"
+    )
+    private Integer minOccurrences;
+
+    @Option(
         names = {"--remove-event"},
         description = "Remove an additional event type from the output. " +
                      "This option can be specified multiple times to remove multiple event types.",
@@ -206,6 +241,21 @@ public class RedactCommand implements Callable<Integer> {
     )
     private boolean dryRun;
 
+    @Option(
+        names = {"-i", "--interactive"},
+        description = "Enable interactive mode. Prompts for decisions about discovered usernames, hostnames, " +
+                     "folders, and custom patterns. Decisions are saved to a file for future automatic use. " +
+                     "Note: Ignores the 'ignore' list from config in interactive mode."
+    )
+    private boolean interactive;
+
+    @Option(
+        names = {"--decisions-file"},
+        description = "Path to file for storing interactive decisions (default: <input>.decisions.yaml)",
+        paramLabel = "<file>"
+    )
+    private File decisionsFile;
+
     @Override
     public Integer call() {
         // Note: Logging is configured early in Main.LoggingAwareExecutionStrategy
@@ -256,9 +306,9 @@ public class RedactCommand implements Callable<Integer> {
 
             // Determine file type and process accordingly
             if (isJfrFile(inputFile)) {
-                processJfrFile(engine);
+                processJfrFile(engine, config);
             } else {
-                processTextFile(engine);
+                processTextFile(engine, config);
             }
 
             if (!dryRun) {
@@ -349,6 +399,18 @@ public class RedactCommand implements Callable<Integer> {
         cliOptions.setIncludeThreads(includeThreads);
         cliOptions.setExcludeThreads(excludeThreads);
 
+        // Discovery options
+        if (discoveryMode != null) {
+            try {
+                cliOptions.setDiscoveryMode(
+                    DiscoveryConfig.DiscoveryMode.valueOf(discoveryMode.toUpperCase())
+                );
+            } catch (IllegalArgumentException e) {
+                System.err.println("Warning: Invalid discovery mode '" + discoveryMode +
+                                 "'. Valid values: none, fast, default");
+            }
+        }
+
         config.applyCliOptions(cliOptions);
 
         return config;
@@ -365,22 +427,20 @@ public class RedactCommand implements Callable<Integer> {
     /**
      * Process a JFR file using JFRProcessor.
      */
-    private void processJfrFile(RedactionEngine engine) throws IOException {
+    private void processJfrFile(RedactionEngine engine, RedactionConfig config) throws IOException {
         logger.info("Processing JFR file...");
 
-        try (RecordingFile recordingFile = new RecordingFile(inputFile.toPath())) {
-            JFRProcessor processor = new JFRProcessor(engine, recordingFile);
+        JFRProcessor processor = new JFRProcessor(engine, config, inputFile.toPath());
 
-            if (!dryRun) {
-                try (FileOutputStream fos = new FileOutputStream(outputFile)) {
-                    processor.process(fos);
-                }
-            } else {
-                // In dry-run mode, process to /dev/null equivalent
-                try (FileOutputStream fos = new FileOutputStream(
-                    System.getProperty("os.name").toLowerCase().contains("win") ? "NUL" : "/dev/null")) {
-                    processor.process(fos);
-                }
+        if (!dryRun) {
+            try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+                processor.process(fos);
+            }
+        } else {
+            // In dry-run mode, process to /dev/null equivalent
+            try (FileOutputStream fos = new FileOutputStream(
+                System.getProperty("os.name").toLowerCase().contains("win") ? "NUL" : "/dev/null")) {
+                processor.process(fos);
             }
         }
     }
@@ -388,11 +448,11 @@ public class RedactCommand implements Callable<Integer> {
     /**
      * Process a text file using TextFileRedactor.
      */
-    private void processTextFile(RedactionEngine engine) throws IOException {
+    private void processTextFile(RedactionEngine engine, RedactionConfig config) throws IOException {
         logger.info("Processing text file...");
 
-        TextFileRedactor redactor = new TextFileRedactor(engine);
-        redactor.redactFile(inputFile, outputFile);
+        TextFileRedactor redactor = new TextFileRedactor(engine, config);
+        redactor.redactFile(inputFile.toPath(), outputFile.toPath());
     }
 
     private void setOutputIfNeeded() {
@@ -411,6 +471,50 @@ public class RedactCommand implements Callable<Integer> {
             }
 
             outputFile = new File(outputPath);
+        }
+
+        // Set default decisions file if interactive mode is enabled and not specified
+        if (interactive && decisionsFile == null) {
+            String inputPath = inputFile.getAbsolutePath();
+            String decisionsPath;
+
+            // Find the last dot for extension
+            int lastDot = inputPath.lastIndexOf('.');
+            if (lastDot > 0) {
+                // Insert .decisions before the extension
+                decisionsPath = inputPath.substring(0, lastDot) + ".decisions.yaml";
+            } else {
+                // No extension, just append .decisions.yaml
+                decisionsPath = inputPath + ".decisions.yaml";
+            }
+
+            decisionsFile = new File(decisionsPath);
+        }
+    }
+
+    /**
+     * Set up interactive mode for a processor
+     */
+    private void setupInteractiveMode(Object processor) {
+        if (decisionsFile == null) {
+            logger.warn("Interactive mode enabled but no decisions file set");
+            return;
+        }
+
+        logger.info("Interactive mode enabled");
+        logger.info("Decisions file: {}", decisionsFile.getAbsolutePath());
+
+        me.bechberger.jfrredact.engine.InteractiveDecisionManager manager =
+            new me.bechberger.jfrredact.engine.InteractiveDecisionManager(
+                decisionsFile.toPath(),
+                true
+            );
+
+        // Set the interactive manager on the processor
+        if (processor instanceof JFRProcessor) {
+            ((JFRProcessor) processor).setInteractiveDecisionManager(manager);
+        } else if (processor instanceof TextFileRedactor) {
+            ((TextFileRedactor) processor).setInteractiveDecisionManager(manager);
         }
     }
 }

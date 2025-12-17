@@ -1,10 +1,13 @@
 package me.bechberger.jfrredact.engine;
 
+import me.bechberger.jfrredact.ConfigLoader;
 import me.bechberger.jfrredact.config.RedactionConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -17,12 +20,24 @@ class HostnameRedactionTest {
 
     @BeforeEach
     void setUp() {
-        // Create config with hostname redaction enabled
-        RedactionConfig config = new RedactionConfig();
-        config.getStrings().setEnabled(true);
-        config.getStrings().getPatterns().getHostnames().setEnabled(true);
+        try {
+            // Load default config and enable hostname redaction
+            RedactionConfig config = new ConfigLoader().load("default");
+            config.getStrings().setEnabled(true);
 
-        engine = new RedactionEngine(config);
+            // Enable only hostname redaction, disable all others
+            config.getStrings().getPatterns().getHostnames().setEnabled(true);
+            config.getStrings().getPatterns().getIpAddresses().setEnabled(false);
+            config.getStrings().getPatterns().getEmails().setEnabled(false);
+            config.getStrings().getPatterns().getUser().setEnabled(false);
+            config.getStrings().getPatterns().getSshHosts().setEnabled(false);
+            config.getStrings().getPatterns().getUuids().setEnabled(false);
+            config.getStrings().getPatterns().getInternalUrls().setEnabled(false);
+
+            engine = new RedactionEngine(config);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load default config", e);
+        }
     }
 
     @ParameterizedTest
@@ -110,17 +125,21 @@ class HostnameRedactionTest {
         "http://build.internal.company.net/artifacts, ***"
     })
     void testInternalUrlRedaction(String input, String expected) {
-        // Create new config with internal URL redaction enabled
-        RedactionConfig config = new RedactionConfig();
-        config.getStrings().setEnabled(true);
-        config.getStrings().getPatterns().getHostnames().setEnabled(true);
-        config.getStrings().getPatterns().getInternalUrls().setEnabled(true);
+        try {
+            // Create new config with internal URL redaction enabled
+            RedactionConfig config = new ConfigLoader().load("default");
+            config.getStrings().setEnabled(true);
+            config.getStrings().getPatterns().getHostnames().setEnabled(true);
+            config.getStrings().getPatterns().getInternalUrls().setEnabled(true);
 
-        RedactionEngine urlEngine = new RedactionEngine(config);
+            RedactionEngine urlEngine = new RedactionEngine(config);
 
-        String result = urlEngine.redact("text", input);
-        assertEquals(expected, result,
-            "Internal URL should be redacted. Input: " + input + ", Result: " + result);
+            String result = urlEngine.redact("text", input);
+            assertEquals(expected, result,
+                "Internal URL should be redacted. Input: " + input + ", Result: " + result);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load default config", e);
+        }
     }
 
     @ParameterizedTest
@@ -131,7 +150,7 @@ class HostnameRedactionTest {
         "db-primary.internal.company.net, true",
         "localhost, false",
         "127.0.0.1, false",
-        "singlename, false"
+        "singlename, false"  // Single word hostnames are NOT FQDNs, should not be redacted
     })
     void testFqdnDetection(String hostname, boolean shouldRedact) {
         String input = "Host: " + hostname;
@@ -160,8 +179,7 @@ class HostnameRedactionTest {
         assertFalse(result.contains(".corp."), "Corporate hostname should be redacted");
         assertFalse(result.contains(".internal."), "Internal hostname should be redacted");
 
-        // Should also redact emails (email pattern is enabled by default)
-        assertFalse(result.contains("@example.com"), "Email should be redacted");
+        // Email patterns are disabled in setUp, so emails won't be redacted in this test
 
         // Should contain redaction markers
         assertTrue(result.contains("***"), "Should contain redaction markers");

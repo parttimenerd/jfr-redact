@@ -29,11 +29,76 @@ public class StringConfig {
     private List<String> noRedact = new ArrayList<>();
 
     /**
+     * Discovery settings for a pattern type.
+     * Controls how values are extracted and redacted everywhere they appear.
+     */
+    public static class DiscoverySettings {
+        /**
+         * Enable pattern discovery for this pattern type.
+         * When true, values matching this pattern will be discovered and then redacted everywhere.
+         */
+        @JsonProperty("enabled")
+        private boolean enabled = true;
+
+        /**
+         * Which capture group to extract for pattern discovery.
+         * 0 = entire match, 1 = first capture group, 2 = second capture group, etc.
+         */
+        @JsonProperty("capture_group")
+        private int captureGroup = 1;
+
+        /**
+         * Minimum occurrences required before a discovered value is redacted.
+         * Helps prevent false positives from generic/common values.
+         */
+        @JsonProperty("min_occurrences")
+        private int minOccurrences = 1;
+
+        /**
+         * Case sensitivity for discovered value matching.
+         * If false, "Bob", "bob", and "BOB" are treated as the same value.
+         */
+        @JsonProperty("case_sensitive")
+        private boolean caseSensitive = false;
+
+        /**
+         * Whitelist of values that should never be discovered/redacted by this pattern.
+         * Useful for common/generic values like "root", "admin", "test".
+         */
+        @JsonProperty("whitelist")
+        private List<String> whitelist = new ArrayList<>();
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+        public int getCaptureGroup() { return captureGroup; }
+        public void setCaptureGroup(int captureGroup) { this.captureGroup = captureGroup; }
+
+        public int getMinOccurrences() { return minOccurrences; }
+        public void setMinOccurrences(int minOccurrences) {
+            this.minOccurrences = Math.max(1, minOccurrences);
+        }
+
+        public boolean isCaseSensitive() { return caseSensitive; }
+        public void setCaseSensitive(boolean caseSensitive) { this.caseSensitive = caseSensitive; }
+
+        public List<String> getWhitelist() { return whitelist; }
+        public void setWhitelist(List<String> whitelist) { this.whitelist = whitelist; }
+    }
+
+    /**
      * Base class for pattern configurations with ignore capabilities
      */
     public static abstract class BasePatternConfig {
         @JsonProperty("enabled")
         private boolean enabled = true;
+
+        /**
+         * Discovery settings block. Presence enables discovery.
+         */
+        @JsonProperty("discovery")
+        private DiscoverySettings discovery = new DiscoverySettings();
+
 
         /**
          * Specific verbatim values that should not be redacted
@@ -56,6 +121,25 @@ public class StringConfig {
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
+        public DiscoverySettings getDiscovery() { return discovery; }
+        public void setDiscovery(DiscoverySettings discovery) { this.discovery = discovery; }
+
+        // Convenience methods that delegate to discovery block
+        public boolean isEnableDiscovery() { return discovery.isEnabled(); }
+        public void setEnableDiscovery(boolean enableDiscovery) { discovery.setEnabled(enableDiscovery); }
+
+        public int getDiscoveryCaptureGroup() { return discovery.getCaptureGroup(); }
+        public void setDiscoveryCaptureGroup(int captureGroup) { discovery.setCaptureGroup(captureGroup); }
+
+        public int getDiscoveryMinOccurrences() { return discovery.getMinOccurrences(); }
+        public void setDiscoveryMinOccurrences(int minOccurrences) { discovery.setMinOccurrences(minOccurrences); }
+
+        public boolean isDiscoveryCaseSensitive() { return discovery.isCaseSensitive(); }
+        public void setDiscoveryCaseSensitive(boolean caseSensitive) { discovery.setCaseSensitive(caseSensitive); }
+
+        public List<String> getDiscoveryWhitelist() { return discovery.getWhitelist(); }
+        public void setDiscoveryWhitelist(List<String> whitelist) { discovery.setWhitelist(whitelist); }
+
         public List<String> getIgnoreExact() { return ignoreExact; }
         public void setIgnoreExact(List<String> ignoreExact) { this.ignoreExact = ignoreExact; }
 
@@ -70,8 +154,8 @@ public class StringConfig {
      * Configuration for various string patterns to redact
      */
     public static class PatternsConfig {
-        @JsonProperty("home_directories")
-        private HomeDirectoriesConfig homeDirectories = new HomeDirectoriesConfig();
+        @JsonProperty("user")
+        private UserConfig user = new UserConfig();
 
         @JsonProperty("emails")
         private EmailsConfig emails = new EmailsConfig();
@@ -95,9 +179,12 @@ public class StringConfig {
         private List<CustomPatternConfig> custom = new ArrayList<>();
 
         // Getters and setters
-        public HomeDirectoriesConfig getHomeDirectories() { return homeDirectories; }
-        public void setHomeDirectories(HomeDirectoriesConfig homeDirectories) {
-            this.homeDirectories = homeDirectories;
+        public UserConfig getUser() {
+            return user;
+        }
+
+        public void setUser(UserConfig user) {
+            this.user = user;
         }
 
         public EmailsConfig getEmails() { return emails; }
@@ -123,122 +210,64 @@ public class StringConfig {
     }
 
     /**
-     * Home directory pattern configuration
+     * User name pattern configuration (from user directories).
+     * Default patterns are defined in default.yaml preset.
      */
-    public static class HomeDirectoriesConfig extends BasePatternConfig {
-        @JsonProperty("regexes")
-        private List<String> regexes = new ArrayList<>(List.of(
-            "/Users/[^/]+",
-            "C:\\\\Users\\\\[a-zA-Z0-9_\\-]+",
-            "/home/[^/]+"
-        ));
+    public static class UserConfig extends BasePatternConfig {
+        @JsonProperty("patterns")
+        private List<String> patterns = new ArrayList<>();
 
-        public List<String> getRegexes() { return regexes; }
-        public void setRegexes(List<String> regexes) { this.regexes = regexes; }
+        public List<String> getPatterns() { return patterns; }
+        public void setPatterns(List<String> patterns) { this.patterns = patterns; }
     }
 
     /**
-     * Email pattern configuration
+     * Email pattern configuration.
+     * Default patterns are defined in default.yaml preset.
      */
     public static class EmailsConfig extends BasePatternConfig {
-        @JsonProperty("regex")
-        private String regex = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}";
+        @JsonProperty("patterns")
+        private List<String> patterns = new ArrayList<>();
 
-        public String getRegex() { return regex; }
-        public void setRegex(String regex) { this.regex = regex; }
+        public List<String> getPatterns() { return patterns; }
+        public void setPatterns(List<String> patterns) { this.patterns = patterns; }
     }
 
     /**
-     * UUID pattern configuration
+     * UUID pattern configuration.
+     * Default patterns are defined in default.yaml preset.
      */
     public static class UuidsConfig extends BasePatternConfig {
-        @JsonProperty("regex")
-        private String regex = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
+        @JsonProperty("patterns")
+        private List<String> patterns = new ArrayList<>();
 
         public UuidsConfig() {
             setEnabled(false);
         }
 
-        public String getRegex() { return regex; }
-        public void setRegex(String regex) { this.regex = regex; }
+        public List<String> getPatterns() { return patterns; }
+        public void setPatterns(List<String> patterns) { this.patterns = patterns; }
     }
 
     /**
-     * IP address pattern configuration
+     * IP address pattern configuration.
+     * Default patterns are defined in default.yaml preset.
      */
     public static class IpAddressesConfig extends BasePatternConfig {
-        // IPv6 hex group pattern: 1-4 hexadecimal digits
-        private static final String H = "[0-9a-fA-F]{1,4}";
+        @JsonProperty("patterns")
+        private List<String> patterns = new ArrayList<>();
 
-        @JsonProperty("ipv4")
-        private String ipv4 = "\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b";
-
-        /**
-         * IPv6 address regex pattern with full RFC 4291 support.
-         *
-         * <p>Supports all valid IPv6 formats including:
-         * <ul>
-         *   <li><b>Full format:</b> {@code 2001:0db8:85a3:0000:0000:8a2e:0370:7334}</li>
-         *   <li><b>Compressed zeros:</b> {@code 2001:db8:85a3::8a2e:370:7334}</li>
-         *   <li><b>Leading compression:</b> {@code ::8a2e:370:7334}</li>
-         *   <li><b>Trailing compression:</b> {@code 2001:db8::}</li>
-         *   <li><b>Loopback:</b> {@code ::1}</li>
-         *   <li><b>Unspecified:</b> {@code ::}</li>
-         *   <li><b>Link-local:</b> {@code fe80::1}</li>
-         * </ul>
-         *
-         * <p>The regex handles the double-colon (::) notation which represents one or more
-         * consecutive groups of zeros. This notation can appear at most once in an address.
-         *
-         * <p>Pattern breakdown:
-         * <ul>
-         *   <li>{@code (H:){7}H} - Full format with 8 groups</li>
-         *   <li>{@code (H:){1,7}:} - 1-7 groups followed by ::</li>
-         *   <li>{@code (H:){1,6}:H} - 1-6 groups, ::, then 1 group</li>
-         *   <li>{@code (H:){1,5}(:H){1,2}} - Various compressed formats</li>
-         *   <li>{@code :(((:H){1,7})|:)} - Leading :: formats</li>
-         * </ul>
-         * where H = [0-9a-fA-F]{1,4} (one to four hex digits)
-         */
-        @JsonProperty("ipv6")
-        private String ipv6 = buildIpv6Regex();
-
-        private static String buildIpv6Regex() {
-            // Use negative lookahead/lookbehind to ensure we don't match partial addresses
-            // that are part of a longer hex string
-            String boundary = "(?![0-9a-fA-F:])";
-
-            return "(?:" +
-                "(?:" + H + ":){7}" + H + boundary + "|" +              // Full format: 1:2:3:4:5:6:7:8
-                "(?:" + H + ":){1,7}:" + boundary + "|" +                // Trailing :: - 1:2:3:4:5:6:7::
-                "(?:" + H + ":){1,6}:" + H + boundary + "|" +            // Mid compression - 1::8
-                "(?:" + H + ":){1,5}(?::" + H + "){1,2}" + boundary + "|" +   // 1::7:8, 1:2::7:8, etc.
-                "(?:" + H + ":){1,4}(?::" + H + "){1,3}" + boundary + "|" +   // 1::6:7:8, 1:2::6:7:8, etc.
-                "(?:" + H + ":){1,3}(?::" + H + "){1,4}" + boundary + "|" +   // 1::5:6:7:8, etc.
-                "(?:" + H + ":){1,2}(?::" + H + "){1,5}" + boundary + "|" +   // 1::4:5:6:7:8, etc.
-                H + ":(?:(?::" + H + "){1,6})" + boundary + "|" +             // 1::3:4:5:6:7:8
-                ":(?:(?::" + H + "){1,7}|:)" + boundary +                      // ::2:3:4:5:6:7:8, ::1, ::
-            ")";
-        }
-
-        public String getIpv4() { return ipv4; }
-        public void setIpv4(String ipv4) { this.ipv4 = ipv4; }
-
-        public String getIpv6() { return ipv6; }
-        public void setIpv6(String ipv6) { this.ipv6 = ipv6; }
+        public List<String> getPatterns() { return patterns; }
+        public void setPatterns(List<String> patterns) { this.patterns = patterns; }
     }
 
     /**
-     * SSH host pattern configuration
+     * SSH host pattern configuration.
+     * Default patterns are defined in default.yaml preset.
      */
     public static class SshHostsConfig extends BasePatternConfig {
         @JsonProperty("patterns")
-        private List<String> patterns = new ArrayList<>(List.of(
-            "ssh://[a-zA-Z0-9.-]+",
-            "(?:ssh|sftp)://(?:[^@]+@)?[a-zA-Z0-9.-]+",
-            "[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+(?::[0-9]+)?",
-            "(?<=ssh\\s)[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+"
-        ));
+        private List<String> patterns = new ArrayList<>();
 
         public SshHostsConfig() {
             setEnabled(false);
@@ -249,34 +278,16 @@ public class StringConfig {
     }
 
     /**
-     * Hostname pattern configuration for corporate/internal hostnames.
-     * Useful for hs_err files which contain "Host: hostname" lines.
+     * Hostname pattern configuration.
+     * Default patterns are defined in default.yaml preset.
      */
     public static class HostnamesConfig extends BasePatternConfig {
-        /**
-         * Patterns to match hostnames. These are applied to strings that look like
-         * hostnames (FQDN format). The default patterns cover common corporate naming.
-         */
         @JsonProperty("patterns")
-        private List<String> patterns = new ArrayList<>(List.of(
-            // hs_err "Host:" line pattern - requires FQDN format (at least one dot)
-            "(?<=Host:\\s)[a-zA-Z][a-zA-Z0-9-]*(?:\\.[a-zA-Z0-9][a-zA-Z0-9.-]*)+",
-            // FQDN with multiple domain parts (e.g., dev-jsmith.corp.example.com)
-            // Must start with letter, contain only letters/digits in each segment, and have 2+ dots
-            // Excludes version numbers like 5.15.0 by requiring letters in first segment
-            "\\b[a-zA-Z][a-zA-Z0-9-]*(?:\\.[a-zA-Z][a-zA-Z0-9-]*){2,}\\b",
-            // uname -a hostname (appears after Linux/Darwin, must start with letter, be a single word)
-            "(?<=Linux\\s|Darwin\\s)[a-zA-Z][a-zA-Z0-9._-]*?(?=\\s+\\d)"
-        ));
+        private List<String> patterns = new ArrayList<>();
 
         public HostnamesConfig() {
             setEnabled(false);
-            // Set default ignore_exact values
-            getIgnoreExact().addAll(List.of(
-                "localhost",
-                "localhost.localdomain",
-                "127.0.0.1"
-            ));
+            getDiscovery().setCaptureGroup(0);  // Use entire match
         }
 
         public List<String> getPatterns() { return patterns; }
@@ -285,34 +296,14 @@ public class StringConfig {
 
     /**
      * Internal/corporate URL pattern configuration.
-     * Redacts URLs pointing to internal resources like Artifactory, Nexus, internal Git, etc.
+     * Default patterns are defined in default.yaml preset.
      */
     public static class InternalUrlsConfig extends BasePatternConfig {
-        /**
-         * Patterns to match internal URLs. These target common internal infrastructure.
-         */
         @JsonProperty("patterns")
-        private List<String> patterns = new ArrayList<>(List.of(
-            // Artifactory/Nexus URLs
-            "https?://[a-zA-Z0-9.-]*(?:artifactory|nexus|repo|repository)[a-zA-Z0-9.-]*/[^\\s\"']*",
-            // Internal Git URLs (git.company.com, gitlab.internal, etc.)
-            "https?://[a-zA-Z0-9.-]*(?:git|gitlab|github|bitbucket)[a-zA-Z0-9.-]*/[^\\s\"']*",
-            // Generic internal URLs (intranet, internal, corp, etc.)
-            "https?://[a-zA-Z0-9.-]*(?:intranet|internal|corp|private)[a-zA-Z0-9.-]*/[^\\s\"']*",
-            // Jenkins/CI URLs
-            "https?://[a-zA-Z0-9.-]*(?:jenkins|ci|build|bamboo)[a-zA-Z0-9.-]*/[^\\s\"']*"
-        ));
+        private List<String> patterns = new ArrayList<>();
 
-        /**
-         * Domain suffixes that are considered internal (e.g., .corp.example.com, .internal)
-         */
         @JsonProperty("internal_domains")
-        private List<String> internalDomains = new ArrayList<>(List.of(
-            ".internal",
-            ".corp",
-            ".local",
-            ".intranet"
-        ));
+        private List<String> internalDomains = new ArrayList<>();
 
         public InternalUrlsConfig() {
             setEnabled(false);
@@ -328,45 +319,18 @@ public class StringConfig {
     /**
      * Custom pattern configuration
      */
-    public static class CustomPatternConfig {
+    public static class CustomPatternConfig extends BasePatternConfig {
         @JsonProperty("name")
         private String name;
 
-        @JsonProperty("regex")
-        private String regex;
-
-        /**
-         * Specific verbatim values that should not be redacted
-         */
-        @JsonProperty("ignore_exact")
-        private List<String> ignoreExact = new ArrayList<>();
-
-        /**
-         * Patterns that match values that should not be redacted
-         */
-        @JsonProperty("ignore")
-        private List<String> ignore = new ArrayList<>();
-
-        /**
-         * Prefix expressions that come directly before - if matched, don't redact
-         */
-        @JsonProperty("ignore_after")
-        private List<String> ignoreAfter = new ArrayList<>();
+        @JsonProperty("patterns")
+        private List<String> patterns = new ArrayList<>();
 
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }
 
-        public String getRegex() { return regex; }
-        public void setRegex(String regex) { this.regex = regex; }
-
-        public List<String> getIgnoreExact() { return ignoreExact; }
-        public void setIgnoreExact(List<String> ignoreExact) { this.ignoreExact = ignoreExact; }
-
-        public List<String> getIgnore() { return ignore; }
-        public void setIgnore(List<String> ignore) { this.ignore = ignore; }
-
-        public List<String> getIgnoreAfter() { return ignoreAfter; }
-        public void setIgnoreAfter(List<String> ignoreAfter) { this.ignoreAfter = ignoreAfter; }
+        public List<String> getPatterns() { return patterns; }
+        public void setPatterns(List<String> patterns) { this.patterns = patterns; }
     }
 
     // Getters and setters
@@ -407,10 +371,31 @@ public class StringConfig {
             }
         }
 
-        // Merge home directory regexes
-        for (String regex : parent.getPatterns().getHomeDirectories().getRegexes()) {
-            if (!patterns.getHomeDirectories().getRegexes().contains(regex)) {
-                patterns.getHomeDirectories().getRegexes().add(regex);
+        // Merge user patterns
+        for (String regex : parent.getPatterns().getUser().getPatterns()) {
+            if (!patterns.getUser().getPatterns().contains(regex)) {
+                patterns.getUser().getPatterns().add(regex);
+            }
+        }
+
+        // Merge email patterns
+        for (String pattern : parent.getPatterns().getEmails().getPatterns()) {
+            if (!patterns.getEmails().getPatterns().contains(pattern)) {
+                patterns.getEmails().getPatterns().add(pattern);
+            }
+        }
+
+        // Merge UUID patterns
+        for (String pattern : parent.getPatterns().getUuids().getPatterns()) {
+            if (!patterns.getUuids().getPatterns().contains(pattern)) {
+                patterns.getUuids().getPatterns().add(pattern);
+            }
+        }
+
+        // Merge IP address patterns
+        for (String pattern : parent.getPatterns().getIpAddresses().getPatterns()) {
+            if (!patterns.getIpAddresses().getPatterns().contains(pattern)) {
+                patterns.getIpAddresses().getPatterns().add(pattern);
             }
         }
 

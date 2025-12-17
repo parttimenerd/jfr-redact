@@ -4,6 +4,7 @@ import me.bechberger.jfrredact.commands.GenerateConfigCommand;
 import me.bechberger.jfrredact.commands.GenerateSchemaCommand;
 import me.bechberger.jfrredact.commands.RedactCommand;
 import me.bechberger.jfrredact.commands.RedactTextCommand;
+import me.bechberger.jfrredact.commands.WordsCommand;
 import me.bechberger.jfrredact.commands.TestCommand;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -23,7 +24,8 @@ import picocli.CommandLine.ParseResult;
         RedactTextCommand.class,
         GenerateConfigCommand.class,
         TestCommand.class,
-        GenerateSchemaCommand.class
+        GenerateSchemaCommand.class,
+        WordsCommand.class
     },
     commandListHeading = "%nCommands:%n",
     footerHeading = "%nExamples:%n",

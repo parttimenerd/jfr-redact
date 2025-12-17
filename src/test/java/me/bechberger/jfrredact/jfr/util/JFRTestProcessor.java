@@ -1,6 +1,7 @@
 package me.bechberger.jfrredact.jfr.util;
 
 import jdk.jfr.consumer.RecordingFile;
+import me.bechberger.jfrredact.ConfigLoader;
 import me.bechberger.jfrredact.config.RedactionConfig;
 import me.bechberger.jfrredact.engine.RedactionEngine;
 import me.bechberger.jfrredact.jfr.JFRProcessor;
@@ -50,10 +51,14 @@ public class JFRTestProcessor {
     }
 
     public JFRTestProcessor withPseudonymization() {
-        RedactionConfig config = new RedactionConfig();
-        config.getGeneral().getPseudonymization().setEnabled(true);
-        this.engine = new RedactionEngine(config);
-        return this;
+        try {
+            RedactionConfig config = new ConfigLoader().load("default");
+            config.getGeneral().getPseudonymization().setEnabled(true);
+            this.engine = new RedactionEngine(config);
+            return this;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load default config", e);
+        }
     }
 
     /**
@@ -71,10 +76,9 @@ public class JFRTestProcessor {
 
     public Path process() throws IOException {
         Path outputPath = tempDir.resolve(outputName + ".jfr");
-        try (RecordingFile input = new RecordingFile(inputPath);
-             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
 
-            JFRProcessor processor = new JFRProcessor(engine, input);
+            JFRProcessor processor = new JFRProcessor(engine, engine.getConfig(), inputPath);
             var recording = processor.process(output);
             recording.close(); // Must close to flush data to output stream
             Files.write(outputPath, output.toByteArray());
@@ -87,7 +91,11 @@ public class JFRTestProcessor {
     }
 
     private static RedactionEngine createDefaultEngine() {
-        return new RedactionEngine(new RedactionConfig());
+        try {
+            return new RedactionEngine(new me.bechberger.jfrredact.ConfigLoader().load("default"));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load default config", e);
+        }
     }
 
     private static RedactionEngine createStrictEngine() throws IOException {

@@ -3,7 +3,11 @@ package me.bechberger.jfrredact.jfr;
 import jdk.jfr.*;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordingFile;
+import me.bechberger.jfrredact.config.DiscoveryConfig;
+import me.bechberger.jfrredact.config.RedactionConfig;
+import me.bechberger.jfrredact.engine.DiscoveredPatterns;
 import me.bechberger.jfrredact.engine.RedactionEngine;
+import me.bechberger.jfrredact.engine.PatternDiscoveryEngine;
 import org.openjdk.jmc.flightrecorder.writer.RecordingImpl;
 import org.openjdk.jmc.flightrecorder.writer.api.*;
 import org.slf4j.Logger;
@@ -11,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,15 +47,32 @@ public class JFRProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(JFRProcessor.class);
 
-
     private final RedactionEngine redactionEngine;
-    private final RecordingFile input;
+    private final RedactionConfig config;
+    private final Path inputPath;
     private RecordingImpl output;
+    private me.bechberger.jfrredact.engine.InteractiveDecisionManager interactiveDecisionManager;
 
-    public JFRProcessor(RedactionEngine redactionEngine, RecordingFile input) {
+    /**
+     * Create a JFR processor with file-based input (supports discovery).
+     *
+     * @param redactionEngine The redaction engine to use
+     * @param config The redaction configuration
+     * @param inputPath Path to the input JFR file (needed for re-reading during discovery)
+     */
+    public JFRProcessor(RedactionEngine redactionEngine, RedactionConfig config, Path inputPath) {
         this.redactionEngine = redactionEngine;
-        this.input = input;
+        this.config = config;
+        this.inputPath = inputPath;
     }
+
+    /**
+     * Set the interactive decision manager for interactive mode
+     */
+    public void setInteractiveDecisionManager(me.bechberger.jfrredact.engine.InteractiveDecisionManager manager) {
+        this.interactiveDecisionManager = manager;
+    }
+
 
     private void initRecording(OutputStream outputStream) {
         // Initialize JDK types for content type annotations (Timestamp, etc.) to work properly
@@ -76,7 +98,113 @@ public class JFRProcessor {
     }
 
     public RecordingImpl process(OutputStream outputStream) throws IOException {
-        logger.info("Starting JFR event processing with two-pass approach");
+        if (config == null || inputPath == null) {
+            logger.warn("Discovery disabled - processing without discovery phase");
+            return processWithoutDiscovery(outputStream);
+        }
+
+        DiscoveryConfig.DiscoveryMode mode = config.getDiscovery().getMode();
+
+        switch (mode) {
+            case NONE:
+                logger.info("Discovery mode: NONE - single-pass processing");
+                return processWithoutDiscovery(outputStream);
+
+            case FAST:
+                logger.info("Discovery mode: FAST - on-the-fly discovery");
+                return processWithFastDiscovery(outputStream);
+
+            case TWO_PASS:
+            default:
+                logger.info("Discovery mode: TWO_PASS - file will be read twice");
+                return processWithTwoPassDiscovery(outputStream);
+        }
+    }
+
+    /**
+     * Process without discovery - standard single-pass processing.
+     */
+    private RecordingImpl processWithoutDiscovery(OutputStream outputStream) throws IOException {
+        logger.info("Starting JFR event processing (no discovery)");
+
+        try (RecordingFile input = new RecordingFile(inputPath)) {
+            return processRecordingFile(input, outputStream, null);
+        }
+    }
+
+    /**
+     * Process with on-the-fly discovery - discover patterns during processing.
+     * Only occurrences AFTER discovery are redacted.
+     */
+    private RecordingImpl processWithFastDiscovery(OutputStream outputStream) throws IOException {
+        logger.info("Starting JFR event processing with fast discovery");
+
+        PatternDiscoveryEngine discoveryEngine = new PatternDiscoveryEngine(
+            config.getDiscovery(),
+            config.getStrings()
+        );
+
+        try (RecordingFile input = new RecordingFile(inputPath)) {
+            return processRecordingFile(input, outputStream, discoveryEngine);
+        }
+    }
+
+    /**
+     * Process with two-pass discovery - read file twice for complete discovery.
+     */
+    private RecordingImpl processWithTwoPassDiscovery(OutputStream outputStream) throws IOException {
+        logger.info("Starting JFR event processing with two-pass discovery");
+
+        // DISCOVERY PASS: Read file to discover patterns
+        logger.info("Discovery Pass: Analyzing events for sensitive patterns...");
+        PatternDiscoveryEngine discoveryEngine = new PatternDiscoveryEngine(
+            config.getDiscovery(),
+            config.getStrings()
+        );
+
+        // Set interactive decision manager if available
+        if (interactiveDecisionManager != null) {
+            discoveryEngine.setInteractiveDecisionManager(interactiveDecisionManager);
+        }
+
+        int discoveryEventCount = 0;
+        try (RecordingFile discoveryInput = new RecordingFile(inputPath)) {
+            while (discoveryInput.hasMoreEvents()) {
+                RecordedEvent event = discoveryInput.readEvent();
+                discoveryEngine.analyzeEvent(event);
+                discoveryEventCount++;
+
+                if (discoveryEventCount % 10000 == 0) {
+                    logger.info("Discovery: analyzed {} events", discoveryEventCount);
+                }
+            }
+        }
+
+        DiscoveredPatterns patterns = discoveryEngine.getDiscoveredPatterns();
+        logger.info("Discovery Pass complete: analyzed {} events", discoveryEventCount);
+        logger.info(discoveryEngine.getStatistics());
+
+        // Apply interactive decisions and save them
+        if (interactiveDecisionManager != null) {
+            patterns = discoveryEngine.applyInteractiveDecisions(patterns);
+            interactiveDecisionManager.saveDecisions();
+        }
+
+        // Set discovered patterns in the redaction engine
+        redactionEngine.setDiscoveredPatterns(patterns);
+
+        // REDACTION PASS: Read file again to redact
+        logger.info("Redaction Pass: Processing events with discovered patterns...");
+        try (RecordingFile redactionInput = new RecordingFile(inputPath)) {
+            return processRecordingFile(redactionInput, outputStream, null);
+        }
+    }
+
+    /**
+     * Core processing logic - processes a RecordingFile with optional on-the-fly discovery.
+     */
+    private RecordingImpl processRecordingFile(RecordingFile input, OutputStream outputStream,
+                                               PatternDiscoveryEngine onTheFlyDiscovery) throws IOException {
         initRecording(outputStream);
 
         // PHASE 1: Collect events and register all types
@@ -99,6 +227,16 @@ public class JFRProcessor {
                 continue; // Skip this event
             }
 
+            // On-the-fly discovery (FAST mode)
+            if (onTheFlyDiscovery != null) {
+                onTheFlyDiscovery.analyzeEvent(event);
+
+                // Update discovered patterns periodically for fast mode
+                if (totalEvents % 1000 == 0) {
+                    redactionEngine.setDiscoveredPatterns(onTheFlyDiscovery.getDiscoveredPatterns());
+                }
+            }
+
             // Collect event for later writing
             eventsToWrite.add(event);
 
@@ -108,6 +246,12 @@ public class JFRProcessor {
             if (eventsToWrite.size() % 1000 == 0) {
                 logger.info("Collected {} events ({} removed)", eventsToWrite.size(), removedEvents);
             }
+        }
+
+        // Final update for fast discovery
+        if (onTheFlyDiscovery != null) {
+            redactionEngine.setDiscoveredPatterns(onTheFlyDiscovery.getDiscoveredPatterns());
+            logger.info(onTheFlyDiscovery.getStatistics());
         }
 
         logger.info("Phase 1 complete: {} total events read, {} to process, {} removed",

@@ -70,6 +70,7 @@ public class ConfigLoaderUrlTest {
             parent: %s
             properties:
               patterns:
+                - $PARENT
                 - child_property
             """.formatted(parentFile.toUri().toString());
 
@@ -92,6 +93,7 @@ public class ConfigLoaderUrlTest {
             parent: default
             properties:
               patterns:
+                - $PARENT
                 - custom_property
             """;
 
@@ -252,6 +254,7 @@ public class ConfigLoaderUrlTest {
             parent: default
             properties:
               patterns:
+                - $PARENT
                 - parent_pattern
             """;
         Path parentFile = tempDir.resolve("parent.yaml");
@@ -262,6 +265,7 @@ public class ConfigLoaderUrlTest {
             parent: %s
             properties:
               patterns:
+                - $PARENT
                 - child_pattern
             """.formatted(parentFile.toUri().toString());
         Path childFile = tempDir.resolve("child.yaml");
@@ -297,6 +301,7 @@ public class ConfigLoaderUrlTest {
             parent: %s
             properties:
               patterns:
+                - $PARENT
                 - from_child
             """.formatted(parentFile.toString());
         Path childFile = tempDir.resolve("child-mixed.yaml");

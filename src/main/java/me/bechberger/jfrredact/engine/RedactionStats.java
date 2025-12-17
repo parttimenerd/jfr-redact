@@ -1,7 +1,7 @@
 package me.bechberger.jfrredact.engine;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -13,10 +13,10 @@ public class RedactionStats {
     private final AtomicLong removedEvents = new AtomicLong(0);
     private final AtomicLong filteredThreadEvents = new AtomicLong(0);
     private final AtomicLong redactedFields = new AtomicLong(0);
-    private final Map<String, AtomicLong> eventTypeStats = new HashMap<>();
-    private final Map<String, AtomicLong> redactedFieldNames = new HashMap<>();
-    private final Map<String, AtomicLong> redactionTypeStats = new HashMap<>();
-    private final Map<String, AtomicLong> removedEventTypes = new HashMap<>();
+    private final Map<String, AtomicLong> eventTypeStats = new ConcurrentHashMap<>();
+    private final Map<String, AtomicLong> redactedFieldNames = new ConcurrentHashMap<>();
+    private final Map<String, AtomicLong> redactionTypeStats = new ConcurrentHashMap<>();
+    private final Map<String, AtomicLong> removedEventTypes = new ConcurrentHashMap<>();
 
     public void recordEvent(String eventType) {
         totalEvents.incrementAndGet();

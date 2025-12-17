@@ -222,9 +222,9 @@ public class ConfigLoaderTest {
         assertTrue(config.getStrings().getPatterns().getEmails().isEnabled(),
                 "Email redaction should be enabled in default preset");
 
-        // Verify email regex is configured
-        assertNotNull(config.getStrings().getPatterns().getEmails().getRegex(),
-                "Email regex should be configured");
+        // Verify email patterns are configured
+        assertFalse(config.getStrings().getPatterns().getEmails().getPatterns().isEmpty(),
+                "Email patterns should be configured");
     }
 
     @Test
@@ -251,11 +251,11 @@ public class ConfigLoaderTest {
         assertTrue(config.getStrings().getPatterns().getUuids().isEnabled(),
                 "UUID redaction should be enabled in strict preset");
 
-        // Verify regexes are configured
-        assertNotNull(config.getStrings().getPatterns().getEmails().getRegex(),
-                "Email regex should be configured");
-        assertNotNull(config.getStrings().getPatterns().getUuids().getRegex(),
-                "UUID regex should be configured");
+        // Verify patterns are configured
+        assertFalse(config.getStrings().getPatterns().getEmails().getPatterns().isEmpty(),
+                "Email patterns should be configured");
+        assertFalse(config.getStrings().getPatterns().getUuids().getPatterns().isEmpty(),
+                "UUID patterns should be configured");
     }
 
     @Test
@@ -284,7 +284,7 @@ public class ConfigLoaderTest {
                 "Should inherit email redaction from default");
         assertTrue(config.getStrings().getPatterns().getIpAddresses().isEnabled(),
                 "Should inherit IP redaction from default");
-        assertTrue(config.getStrings().getPatterns().getHomeDirectories().isEnabled(),
+        assertTrue(config.getStrings().getPatterns().getUser().isEnabled(),
                 "Should inherit home directory redaction from default");
 
         // Should override UUID setting
@@ -298,7 +298,7 @@ public class ConfigLoaderTest {
         RedactionConfig config = loader.load("default");
 
         // Verify all pattern categories exist
-        assertNotNull(config.getStrings().getPatterns().getHomeDirectories(),
+        assertNotNull(config.getStrings().getPatterns().getUser(),
                 "Home directory patterns should exist");
         assertNotNull(config.getStrings().getPatterns().getEmails(),
                 "Email patterns should exist");
@@ -310,7 +310,7 @@ public class ConfigLoaderTest {
                 "SSH host patterns should exist");
 
         // Verify enabled states
-        assertTrue(config.getStrings().getPatterns().getHomeDirectories().isEnabled());
+        assertTrue(config.getStrings().getPatterns().getUser().isEnabled());
         assertTrue(config.getStrings().getPatterns().getEmails().isEnabled());
         assertFalse(config.getStrings().getPatterns().getUuids().isEnabled());
         assertTrue(config.getStrings().getPatterns().getIpAddresses().isEnabled());

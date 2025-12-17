@@ -84,7 +84,8 @@ public class EventConfig {
         public void mergeWith(FilteringConfig parent) {
             if (parent == null) return;
 
-            // Combine all filter lists
+            // Filtering lists always append (no $PARENT marker needed)
+            // This is different from other configs - filters are meant to be additive
             includeEvents.addAll(parent.getIncludeEvents());
             excludeEvents.addAll(parent.getExcludeEvents());
             includeCategories.addAll(parent.getIncludeCategories());
@@ -112,19 +113,22 @@ public class EventConfig {
     }
 
     /**
-     * Merge with parent configuration
+     * Merge with parent configuration.
+     * Uses $PARENT marker to control list inheritance.
      */
     public void mergeWith(EventConfig parent) {
         if (parent == null) return;
 
-        // Add parent removed types that we don't have
-        for (String type : parent.getRemovedTypes()) {
-            if (!removedTypes.contains(type)) {
-                removedTypes.add(type);
-            }
+        // Expand $PARENT markers if present in removed_types
+        List<String> expandedTypes = RedactionConfig.expandParentMarkers(removedTypes, parent.getRemovedTypes());
+        if (expandedTypes != removedTypes) {
+            // $PARENT was found and expanded
+            removedTypes.clear();
+            removedTypes.addAll(expandedTypes);
         }
+        // If no $PARENT marker, child list overrides parent (no merge)
 
-        // Merge filtering configuration
+        // Merge filtering configuration (always additive)
         filtering.mergeWith(parent.getFiltering());
     }
 }

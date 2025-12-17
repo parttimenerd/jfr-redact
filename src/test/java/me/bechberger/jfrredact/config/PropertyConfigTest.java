@@ -118,6 +118,7 @@ public class PropertyConfigTest {
         parent.getPatterns().add("secret");
         PropertyConfig child = new PropertyConfig();
         child.getPatterns().clear();
+        child.getPatterns().add(RedactionConfig.PARENT_MARKER); // Use $PARENT to include parent patterns
         child.getPatterns().add("token");
         child.getPatterns().add("password"); // Duplicate
         child.mergeWith(parent);

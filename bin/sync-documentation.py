@@ -120,11 +120,14 @@ def build_project_and_get_help() -> dict[str, str]:
         return {}
 
     help_outputs = {}
-    commands = ["redact", "redact-text", "generate-config", "test", "generate-schema"]
+    commands = ["redact", "redact-text", "generate-config", "test", "generate-schema",
+                "words", "words discover", "words redact"]
 
     for cmd in commands:
+        # Split command for subcommands like "words discover"
+        cmd_parts = cmd.split()
         result = subprocess.run(
-            ["java", "-jar", str(jar_path), cmd, "--help"],
+            ["java", "-jar", str(jar_path)] + cmd_parts + ["--help"],
             cwd=repo_root,
             capture_output=True,
             text=True
@@ -179,7 +182,8 @@ def update_readme_help_section(content: str, command: str, help_text: str) -> st
     ```
     <!-- END help_command -->
     """
-    section_marker = f"help_{command.replace('-', '_')}"
+    # Convert "words discover" to "words_discover" and "redact-text" to "redact_text"
+    section_marker = f"help_{command.replace('-', '_').replace(' ', '_')}"
     # Match the markers, capturing the opening and closing without their internal whitespace
     pattern = rf'(<!-- BEGIN {section_marker} -->\s*```)\s*(.*?)\s*(```\s*<!-- END {section_marker} -->)'
 

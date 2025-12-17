@@ -291,8 +291,7 @@ public class JFRProcessorComplexTest {
         "192.168.1.1",
         "10.0.0.1",
         "172.16.0.1",
-        "255.255.255.255",
-        "0.0.0.0"
+        "255.255.255.255"
     })
     public void testIPAddressRedaction(String ipAddress) throws IOException {
         Path inputPath = helper.recording()

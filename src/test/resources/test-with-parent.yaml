@@ -3,11 +3,13 @@ parent: default
 
 properties:
   patterns:
+    - $PARENT
     - custom_secret
     - my_password
 
 events:
   removed_types:
+    - $PARENT
     - jdk.CustomEvent
 
 general:

@@ -188,6 +188,7 @@ class EventFilteringConfigTest {
         void testEventConfigMerge() {
             EventConfig child = new EventConfig();
             child.getRemovedTypes().clear();
+            child.getRemovedTypes().add(RedactionConfig.PARENT_MARKER);  // Use $PARENT to include parent types
             child.getRemovedTypes().add("child.Event");
             child.getFiltering().getIncludeEvents().add("child.*");
 
@@ -198,12 +199,12 @@ class EventFilteringConfigTest {
 
             child.mergeWith(parent);
 
-            // Check removed types are merged
+            // Check removed types are merged (parent.Event from $PARENT expansion + child.Event)
             assertEquals(2, child.getRemovedTypes().size());
             assertTrue(child.getRemovedTypes().contains("child.Event"));
             assertTrue(child.getRemovedTypes().contains("parent.Event"));
 
-            // Check filtering is merged
+            // Check filtering is merged (always additive)
             assertEquals(1, child.getFiltering().getIncludeEvents().size());
             assertEquals(1, child.getFiltering().getExcludeEvents().size());
         }

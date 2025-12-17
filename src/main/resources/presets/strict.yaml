@@ -1,29 +1,67 @@
 # yaml-language-server: $schema=../../../config-schema.json
 # Strict preset - maximum redaction for highly sensitive data
 # Version: 1.0.0
+#
+# Inherits all settings from default and enhances them for maximum security.
+# Uses $PARENT marker to avoid duplicating default configuration.
+#
 parent: default
 
-# Additional property patterns beyond default
-properties:
-  patterns:
-    - user(name)?          # user, username
-    - login
+# Discovery - extends default property extractions with more aggressive patterns
+discovery:
+  # Note: mode inherits 'default' (two-pass) from parent
 
-# Additional events to remove beyond default
-events:
-  removed_types:
-    - jdk.SystemProperty
-    - jdk.NativeLibrary
-
-# Override string patterns to enable UUIDs
-strings:
-  redact_in_thread_names: true  # Stricter than default
-
-  patterns:
-    # Enable UUID redaction in strict mode
-    uuids:
+  property_extractions:
+    # Enhanced user_name - adds: owner, creator, author
+    # (extends default's: user, username, user_name)
+    - name: "user_name_property"
+      key_pattern: "(?i)(user\\.name|username|user_name|user|owner|creator|author)"
+      type: USERNAME
+      min_occurrences: 1
       enabled: true
 
-# Stricter path redaction
+    # Enhanced hostname - adds: server, node
+    # (extends default's: hostname, host.name, host_name)
+    - name: "hostname_property"
+      key_pattern: "(?i)(hostname|host\\.name|host_name|host|server|node)"
+      type: HOSTNAME
+      min_occurrences: 1
+      enabled: true
+
+    # Email extraction (not in default)
+    - name: "email_property"
+      key_pattern: "(?i)(email|e-mail|mail)"
+      type: EMAIL_LOCAL_PART
+      min_occurrences: 1
+      enabled: true
+
+# Property patterns - using $PARENT to avoid duplication
+properties:
+  patterns:
+    - $PARENT        # Inherit all from default: password, secret, token, api_key, auth, credential
+    - user(name)?    # Add: user, username
+    - login          # Add: login
+
+# Event removal - using $PARENT to avoid duplication
+events:
+  removed_types:
+    - $PARENT                   # Inherit all from default: jdk.OSInformation, jdk.SystemProcess, etc.
+    - jdk.SystemProperty        # Add: system properties
+    - jdk.NativeLibrary         # Add: native library info
+
+# String patterns - more aggressive than default
+strings:
+  redact_in_thread_names: true  # Override default (false)
+
+  patterns:
+    # UUID redaction (disabled in default, enabled in strict)
+    uuids:
+      enabled: true
+      discovery:
+        enabled: true
+        capture_group: 0
+        min_occurrences: 1
+
+# Path redaction - more aggressive than default
 paths:
-  mode: redact_all  # Redact entire paths instead of keeping filename
+  mode: redact_all  # Override default (keep_filename) - redact entire paths

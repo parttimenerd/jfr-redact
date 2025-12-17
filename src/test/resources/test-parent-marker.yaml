@@ -1,0 +1,21 @@
+# Test configuration to verify $PARENT marker functionality
+# This config inherits from default and uses $PARENT in various ways
+parent: default
+
+properties:
+  patterns:
+    - custom_before    # Add before parent
+    - $PARENT          # Include all parent patterns
+    - custom_after     # Add after parent
+
+events:
+  removed_types:
+    - $PARENT          # Include all parent removed types
+    - jdk.TestEvent1
+    - jdk.TestEvent2
+
+  filtering:
+    include_events:
+      - test.Event1
+      - $PARENT        # Include any parent include_events
+      - test.Event2

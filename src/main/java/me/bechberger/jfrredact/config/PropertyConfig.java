@@ -3,7 +3,9 @@ package me.bechberger.jfrredact.config;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -109,16 +111,26 @@ public class PropertyConfig {
     }
 
     /**
-     * Merge with parent configuration
+     * Merge with parent configuration.
+     *
+     * <p>List inheritance behavior:</p>
+     * <ul>
+     *   <li>If child patterns contain "$PARENT", it's expanded with parent patterns</li>
+     *   <li>Otherwise, child patterns completely override parent patterns</li>
+     * </ul>
      */
     public void mergeWith(PropertyConfig parent) {
         if (parent == null) return;
 
-        // Add parent patterns that we don't have
-        for (String pattern : parent.getPatterns()) {
-            if (!patterns.contains(pattern)) {
-                patterns.add(pattern);
-            }
+        // Expand $PARENT markers if present, otherwise keep child list as-is (override behavior)
+        List<String> expandedPatterns = RedactionConfig.expandParentMarkers(patterns, parent.getPatterns());
+        if (expandedPatterns != patterns) {
+            // $PARENT was found and expanded - deduplicate the results
+            patterns.clear();
+            // Use LinkedHashSet to maintain order while removing duplicates
+            Set<String> uniquePatterns = new LinkedHashSet<>(expandedPatterns);
+            patterns.addAll(uniquePatterns);
         }
+        // If no $PARENT marker, child patterns override parent (no merge needed)
     }
 }

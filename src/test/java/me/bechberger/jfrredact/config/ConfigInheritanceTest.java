@@ -27,11 +27,13 @@ public class ConfigInheritanceTest {
                 
                 properties:
                   patterns:
+                    - $PARENT
                     - custom_secret
                     - my_api_key
                 
                 events:
                   removed_types:
+                    - $PARENT
                     - jdk.CustomEvent
                 """;
 
@@ -64,6 +66,7 @@ public class ConfigInheritanceTest {
                 
                 properties:
                   patterns:
+                    - $PARENT
                     - middle_secret
                 """;
 
@@ -74,6 +77,7 @@ public class ConfigInheritanceTest {
         String childYaml = "parent: " + parentFile.getAbsolutePath() + "\n\n" +
             "properties:\n" +
             "  patterns:\n" +
+            "    - $PARENT\n" +
             "    - child_secret\n";
 
         File childFile = tempDir.resolve("child.yaml").toFile();
@@ -130,6 +134,7 @@ public class ConfigInheritanceTest {
         String childYaml = "parent: " + parentFile.getAbsolutePath() + "\n\n" +
             "properties:\n" +
             "  patterns:\n" +
+            "    - $PARENT\n" +
             "    - child1\n" +
             "    - child2\n";
 

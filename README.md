@@ -56,6 +56,15 @@ That's it! The tool will automatically redact:
   - Home folders: `/Users/[^/]+`, `C:\Users\[a-zA-Z0-9_\-]+`, `/home/[^/]+`
   - Email addresses, UUIDs, IP addresses
   - Configurable to exclude method names, class names, or thread names
+- **Two-Pass Discovery**: Automatically discover sensitive values and redact them everywhere
+  - First pass: Extract usernames, hostnames, and other values from patterns (e.g., extract `johndoe` from `/Users/johndoe`)
+  - Second pass: Redact discovered values wherever they appear in the file
+  - Configurable minimum occurrences and whitelists to reduce false positives
+  - Use `--discovery-mode=fast` for single-pass (faster), `--discovery-mode=default` for two-pass (more thorough)
+- **Words Mode**: Discover and redact specific words/identifiers ([docs](WORDS_MODE.md))
+  - Discover all distinct words in a file: `jfr-redact words discover recording.jfr`
+  - Create rules to keep or redact specific words
+  - Apply rules: `jfr-redact words redact app.log redacted.log -r rules.txt`
 - **Network Redaction**: Redact ports and addresses from SocketRead/SocketWrite events
 - **Path Redaction**: Redact directory paths while keeping filenames (configurable)
 - **Pseudonymization**: Preserve relationships between values while protecting data
@@ -137,6 +146,16 @@ java -jar jfr-redact.jar recording.jfr redacted.jfr \
   --include-events "jdk.*" \
   --exclude-categories "Flight Recorder" \
   --exclude-threads "Service Thread"
+
+# Control discovery mode for pattern extraction
+# Two-pass (default): reads file twice, discovers values then redacts everywhere
+java -jar jfr-redact.jar recording.jfr redacted.jfr --discovery-mode=default
+
+# Fast mode: single-pass, discovers and redacts on-the-fly
+java -jar jfr-redact.jar recording.jfr redacted.jfr --discovery-mode=fast
+
+# No discovery: only direct pattern matching, faster but less thorough
+java -jar jfr-redact.jar recording.jfr redacted.jfr --discovery-mode=none
 ```
 
 ### Text File Redaction
@@ -162,6 +181,23 @@ Supports piping from stdin and writing to stdout:
 cat hs_err_pid12345.log | java -jar jfr-redact.jar redact-text - -
 ```
 
+### Words Mode
+
+Discover and redact specific words/identifiers manually. See [WORDS_MODE.md](WORDS_MODE.md) for full documentation.
+
+```bash
+# Discover all distinct words in a file
+java -jar jfr-redact.jar words discover recording.jfr -o words.txt
+
+# Review words.txt and mark sensitive words with '-' prefix:
+#   - secretpassword
+#   - internalhost
+#   + safe-to-keep
+
+# Apply redaction rules
+java -jar jfr-redact.jar words redact app.log redacted.log -r rules.txt
+```
+
 ### Command-Line Options
 
 <details>
@@ -169,8 +205,10 @@ cat hs_err_pid12345.log | java -jar jfr-redact.jar redact-text - -
 
 <!-- BEGIN help_redact -->
 ```
-Usage: jfr-redact redact [-hqvV] [--debug] [--dry-run] [--pseudonymize]
-                         [--stats] [--config=<file|url>] [--preset=<preset>]
+Usage: jfr-redact redact [-hiqvV] [--debug] [--dry-run] [--pseudonymize]
+                         [--stats] [--config=<file|url>]
+                         [--decisions-file=<file>] [--discovery-mode=<mode>]
+                         [--min-occurrences=<count>] [--preset=<preset>]
                          [--pseudonymize-mode=<mode>] [--seed=<seed>]
                          [--add-redaction-regex=<pattern>]...
                          [--exclude-categories=<filter>]...
@@ -191,6 +229,17 @@ Redact sensitive information from Java Flight Recorder (JFR) recordings
                               applied to string fields in events.
       --config=<file|url>   Load configuration from a YAML file or URL
       --debug               Enable debug output (DEBUG level logging)
+      --decisions-file=<file>
+                            Path to file for storing interactive decisions
+                              (default: <input>.decisions.yaml)
+      --discovery-mode=<mode>
+                            Pattern discovery mode. Valid values: none (no
+                              discovery, single-pass), fast (on-the-fly
+                              discovery), default (two-pass, reads file twice
+                              for complete discovery). Default: default
+                              (two-pass). Note: Per-pattern discovery is
+                              configured in the config file via
+                              enable_discovery.
       --dry-run             Process the file without writing output, useful for
                               testing configuration with --stats
       --exclude-categories=<filter>
@@ -206,6 +255,11 @@ Redact sensitive information from Java Flight Recorder (JFR) recordings
                               (comma-separated list, supports glob patterns).
                               Similar to jfr scrub --exclude-threads.
   -h, --help                Show this help message and exit.
+  -i, --interactive         Enable interactive mode. Prompts for decisions
+                              about discovered usernames, hostnames, folders,
+                              and custom patterns. Decisions are saved to a
+                              file for future automatic use. Note: Ignores the
+                              'ignore' list from config in interactive mode.
       --include-categories=<filter>
                             Select events matching a category name
                               (comma-separated list, supports glob patterns).
@@ -218,6 +272,9 @@ Redact sensitive information from Java Flight Recorder (JFR) recordings
                             Select events matching a thread name
                               (comma-separated list, supports glob patterns).
                               Similar to jfr scrub --include-threads.
+      --min-occurrences=<count>
+                            Minimum occurrences required to redact a discovered
+                              value (prevents false positives, default: 1)
       --preset=<preset>     Use a predefined configuration preset. Valid
                               values: default, strict, hserr (default: default)
       --pseudonymize        Enable pseudonymization mode. When enabled, the
@@ -449,6 +506,102 @@ Examples:
     jfr-redact generate-schema config-schema.json
 ```
 <!-- END help_generate_schema -->
+
+</details>
+
+<details>
+<summary><strong>Words Command</strong> - Discover and redact words/identifiers</summary>
+
+<!-- BEGIN help_words -->
+```
+Usage: jfr-redact words [-hV] [COMMAND]
+Discover and redact words/strings in JFR events or text files
+  -h, --help      Show this help message and exit.
+  -V, --version   Print version information and exit.
+Commands:
+  discover  Discover all distinct strings in JFR events or text files
+  redact    Apply word redaction rules to JFR events or text files
+```
+<!-- END help_words -->
+
+<!-- BEGIN help_words_discover -->
+```
+Usage: jfr-redact words discover [-hV] [--ignore-classes] [--ignore-methods]
+                                 [--ignore-modules] [--ignore-packages]
+                                 [-o=<outputFile>]
+                                 [--ignore-events=<ignoreEventTypes>[,
+                                 <ignoreEventTypes>...]]... <inputFile>
+Discover all distinct strings in JFR events or text files
+      <inputFile>         Input JFR file or text file to analyze
+  -h, --help              Show this help message and exit.
+      --ignore-classes    Ignore class names (default: true)
+      --ignore-events=<ignoreEventTypes>[,<ignoreEventTypes>...]
+                          Event types to ignore (comma-separated)
+      --ignore-methods    Ignore method names (default: true)
+      --ignore-modules    Ignore module names (default: true)
+      --ignore-packages   Ignore package names (default: true)
+  -o, --output=<outputFile>
+                          Output file for discovered words (default: stdout)
+  -V, --version           Print version information and exit.
+
+Examples:
+
+  Discover words from JFR file and save to file:
+    jfr-redact words discover recording.jfr -o words.txt
+
+  Discover words from text file:
+    jfr-redact words discover application.log -o words.txt
+
+  Include method and class names (normally ignored):
+    jfr-redact words discover recording.jfr --ignore-methods=false --ignore-classes=false
+
+  Ignore specific event types:
+    jfr-redact words discover recording.jfr --ignore-events=jdk.GarbageCollection,jdk.ThreadSleep
+```
+<!-- END help_words_discover -->
+
+<!-- BEGIN help_words_redact -->
+```
+Usage: jfr-redact words redact [-hV] [-r=<rulesFile>] <inputFile> <outputFile>
+Apply word redaction rules to JFR events or text files
+      <inputFile>           Input JFR file or text file to redact
+      <outputFile>          Output file for redacted content
+  -h, --help                Show this help message and exit.
+  -r, --rules=<rulesFile>   File containing redaction rules (default: stdin)
+  -V, --version             Print version information and exit.
+
+Rule Format (one rule per line):
+  - word              Redact this word (replace with ***)
+  + word              Keep this word (whitelist, don't redact)
+  - prefix*           Redact all words starting with 'prefix'
+  - *suffix           Redact all words ending with 'suffix'
+  - *contains*        Redact all words containing 'contains'
+  # comment           Comment line (ignored)
+  (empty lines)       Ignored
+  other lines         Ignored (no - or + prefix)
+
+Examples:
+
+  Redact using rules file:
+    jfr-redact words redact app.log redacted.log -r rules.txt
+
+  Redact using rules from stdin:
+    echo "- secretpassword" | jfr-redact words redact app.log redacted.log
+
+  Example rules.txt:
+    # Redact specific sensitive values
+    - secretpassword
+    - internalhost.corp.com
+    - admin@internal.net
+    
+    # Redact all words starting with 'secret'
+    - secret*
+    
+    # Keep safe words (whitelist)
+    + localhost
+    + example.com
+```
+<!-- END help_words_redact -->
 
 </details>
 

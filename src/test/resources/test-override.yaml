@@ -1,0 +1,10 @@
+# Test configuration that overrides parent (no $PARENT marker)
+parent: default
+
+properties:
+  patterns:
+    - only_this_pattern    # Completely replace parent patterns
+
+events:
+  removed_types:
+    - only.this.Event      # Completely replace parent removed types

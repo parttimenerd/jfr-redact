@@ -17,16 +17,30 @@
 #
 parent: default
 
+# Discovery configuration - use fast mode for text files
+discovery:
+  mode: fast  # On-the-fly discovery is good for text files
+  custom_extractions:
+    # Extract usernames from "built on ... by" lines
+    - name: "build_user"
+      pattern: 'built on .* by "([^"]+)"'
+      capture_group: 1
+      type: USERNAME
+      min_occurrences: 1
+      whitelist:
+        - jenkins
+      enabled: true
+
 # Property redaction - extended for hs_err content
 properties:
   enabled: true
   patterns:
-    # Additional patterns commonly found in hs_err
-    - user(name)?          # user, username
-    - login
-    - host(name)?          # host, hostname
-    - machine
-    - owner
+    - $PARENT              # Inherit all patterns from default
+    - user(name)?          # Add: user, username
+    - login                # Add: login
+    - host(name)?          # Add: host, hostname
+    - machine              # Add: machine
+    - owner                # Add: owner
 
 # String patterns - aggressive settings for hs_err
 strings:
@@ -36,9 +50,22 @@ strings:
   redact_in_thread_names: true  # Thread names may contain user info
 
   patterns:
-    # Home directories
-    home_directories:
+    # User patterns - extract usernames from home directories and redact everywhere
+    user:
       enabled: true
+      discovery:
+        enabled: true
+        capture_group: 1
+        min_occurrences: 1
+        whitelist:
+          - root
+          - admin
+          - test
+          - user
+          - guest
+          - system
+          - build
+          - jenkins
 
     # Email addresses (common in configuration)
     emails:
@@ -47,15 +74,20 @@ strings:
     # UUIDs (enabled for hs_err - may identify machines)
     uuids:
       enabled: true
+      discovery:
+        enabled: true
+        capture_group: 0
+        min_occurrences: 1
 
     # IP addresses - customize IPv4 to avoid matching version numbers like clang-1403.0.22.14.1
     ip_addresses:
       enabled: true
       # IPv4 - require first octet to be 1-255 (not 0) to avoid matching version numbers
-      ipv4: '\b(?:[1-9][0-9]{0,2}\.(?:[0-9]{1,3}\.){2}[0-9]{1,3})\b'
-      # Only match full IPv6 addresses, not compressed forms like ead:: or ::1
+      # IPv6 - only match full IPv6 addresses, not compressed forms like ead:: or ::1
       # which conflict with C++ method names in stack traces
-      ipv6: '\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b'
+      patterns:
+        - '\b(?:[1-9][0-9]{0,2}\.(?:[0-9]{1,3}\.){2}[0-9]{1,3})\b'
+        - '\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b'
       # Ignore compiler version numbers that look like IPs
       ignore_after:
         - 'clang-[0-9]*'      # clang version numbers like clang-1403.0.22.14.1
@@ -66,24 +98,34 @@ strings:
     # SSH hosts - customized for hs_err to avoid matching method references like init@0
     ssh_hosts:
       enabled: true
+      discovery:
+        enabled: true
+        capture_group: 1
+        min_occurrences: 1
+        whitelist:
+          - localhost
       patterns:
-        - 'ssh://[a-zA-Z0-9.-]+'                                          # ssh://hostname
-        - '(?:ssh|sftp)://(?:[^@]+@)?[a-zA-Z0-9.-]+'                      # ssh://user@hostname
-        # Require host part to start with a letter (not digits like init@0 or user@192.168.1.1)
-        - '[a-zA-Z0-9_-]+@[a-zA-Z][a-zA-Z0-9.-]*(?::[0-9]+)?'             # user@host (host must start with letter)
-        - '(?<=ssh\s)[a-zA-Z0-9_-]+@[a-zA-Z][a-zA-Z0-9.-]+'               # after "ssh " command
+        - 'ssh://([a-zA-Z0-9.-]+)'
+        - '(?:ssh|sftp)://(?:[^@]+@)?([a-zA-Z0-9.-]+)'
+        - '[a-zA-Z0-9_-]+@([a-zA-Z][a-zA-Z0-9.-]*)(?::[0-9]+)?'
+        - '(?<=ssh\s)[a-zA-Z0-9_-]+@([a-zA-Z][a-zA-Z0-9.-]+)'
 
-    # Hostnames - DISABLED by default for hs_err to avoid false positives
-    # Users should specify specific hostnames via command line or config
+    # Hostnames - ENABLED for hs_err with discovery to catch all occurrences
     hostnames:
-      enabled: false
+      enabled: true
+      discovery:
+        enabled: true
+        capture_group: 0
+        min_occurrences: 1
       patterns:
-        # hs_err "Host:" line pattern - handled separately via custom pattern below
-        - '(?<=Host:\s)[a-zA-Z][a-zA-Z0-9._-]*'
+        - '(?<=Host:\s)[a-zA-Z0-9][a-zA-Z0-9._-]*'
+        - '(?<=Darwin\s)[a-zA-Z][a-zA-Z0-9._-]+(?=\s+\d)'
+        - '(?<=Linux\s)[a-zA-Z][a-zA-Z0-9._-]+(?=\s+\d)'
       ignore_exact:
         - localhost
         - localhost.localdomain
-        - '127.0.0.1'
+        - 127.0.0.1
+        - x86_64
 
     # Internal URLs - DISABLED to avoid false positives on public URLs like bugreport.java.com
     # Add specific internal URL patterns via custom patterns if needed
@@ -94,34 +136,84 @@ strings:
     custom:
       # hs_err "Host:" line - redact only the hostname at the beginning
       - name: hs_err_host_line
-        regex: '(?<=Host:\s)[A-Za-z][A-Za-z0-9_-]*(?=,|\s)'
-      # JDK version strings - redact username in adhoc builds like "22-internal-adhoc.username.jdk"
+        patterns:
+          - '(?<=Host:\s)[A-Za-z][A-Za-z0-9_-]*(?=,|\s)'
+        discovery:
+          enabled: false  # Already handled by hostnames pattern
+
+      # JDK version strings - redact username in adhoc builds
       - name: jdk_adhoc_username
-        regex: '(?<=adhoc\.)[a-zA-Z][a-zA-Z0-9_-]*(?=\.)'
+        patterns:
+          - '(?<=adhoc\.)[a-zA-Z][a-zA-Z0-9_-]*(?=\.)'
+        discovery:
+          enabled: true
+          capture_group: 0
+          min_occurrences: 1
+
       # JVM command-line arguments with sensitive values
       - name: jvm_sensitive_args
-        regex: '-D(?:password|secret|token|auth|credential)[^=]*=[^\s]+'
+        patterns:
+          - '-D(?:password|secret|token|auth|credential)[^=]*=[^\s]+'
+        discovery:
+          enabled: false
+
       # Oracle/database connection strings
       - name: db_connection
-        regex: 'jdbc:[a-zA-Z0-9]+://[^\s"'']+'
+        patterns:
+          - 'jdbc:[a-zA-Z0-9]+://[^\s"'']+'
+        discovery:
+          enabled: false
+
       # AWS/cloud credentials in arguments
       - name: aws_credentials
-        regex: '(?:AWS_|AMAZON_)[A-Z_]*(?:KEY|SECRET|TOKEN)[^\s=]*=[^\s]+'
-      # JAVA_HOME and similar paths that might reveal structure
+        patterns:
+          - '(?:AWS_|AMAZON_)[A-Z_]*(?:KEY|SECRET|TOKEN)[^\s=]*=[^\s]+'
+        discovery:
+          enabled: false
+
+      # JAVA_HOME and similar paths
       - name: java_paths
-        regex: '(?:JAVA_HOME|JRE_HOME|JDK_HOME)=[^\s]+'
-      # OS uptime - reveals how long the machine has been running
+        patterns:
+          - '(?:JAVA_HOME|JRE_HOME|JDK_HOME)=[^\s]+'
+        discovery:
+          enabled: false
+
+      # OS uptime
       - name: os_uptime
-        regex: '(?<=OS uptime:\s)[^\n]+'
-      # User/group IDs that may be sensitive
+        patterns:
+          - '(?<=OS uptime:\s)[^\n]+'
+        discovery:
+          enabled: false
+
+      # User/group IDs
       - name: user_ids
-        regex: '(?<=uid\s*:\s)\d+|(?<=euid\s*:\s)\d+|(?<=gid\s*:\s)\d+|(?<=egid\s*:\s)\d+'
-      # uname hostname - redact hostname after "Darwin " or "Linux " in uname line
+        patterns:
+          - '(?<=uid\s*:\s)\d+|(?<=euid\s*:\s)\d+|(?<=gid\s*:\s)\d+|(?<=egid\s*:\s)\d+'
+        discovery:
+          enabled: false
+
+      # uname hostname
       - name: uname_hostname
-        regex: '(?<=uname:\s(?:Darwin|Linux)\s)[A-Za-z][A-Za-z0-9_-]*(?=\s)'
-      # Builder username in vm_info line - redact username in 'built ... by "username"'
+        patterns:
+          - '(?<=uname:\s(?:Darwin|Linux)\s)[A-Za-z][A-Za-z0-9_-]*(?=\s)'
+        discovery:
+          enabled: true
+          capture_group: 0
+          min_occurrences: 1
+          whitelist:
+            - localhost
+            - x86_64
+
+      # Builder username in vm_info line
       - name: vm_info_builder
-        regex: '(?<=by\s")[a-zA-Z][a-zA-Z0-9_-]*(?=")'
+        patterns:
+          - '(?<=by\s")[a-zA-Z][a-zA-Z0-9_-]*(?=")'
+        discovery:
+          enabled: true
+          capture_group: 0
+          min_occurrences: 1
+          whitelist:
+            - jenkins
 
 # Path redaction - aggressive for hs_err
 paths:

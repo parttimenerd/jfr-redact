@@ -86,13 +86,21 @@ public class TextFileRedactorTest {
     // ========== Helper Methods ==========
 
     private TextFileRedactor createDefaultRedactor() {
-        return new TextFileRedactor(new RedactionEngine(new RedactionConfig()));
+        try {
+            return new TextFileRedactor(new RedactionEngine(new me.bechberger.jfrredact.ConfigLoader().load("default")));
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to load default config", e);
+        }
     }
 
     private TextFileRedactor createRedactorWithPseudonymization() {
-        RedactionConfig config = new RedactionConfig();
-        config.getGeneral().getPseudonymization().setEnabled(true);
-        return new TextFileRedactor(new RedactionEngine(config));
+        try {
+            me.bechberger.jfrredact.config.RedactionConfig config = new me.bechberger.jfrredact.ConfigLoader().load("default");
+            config.getGeneral().getPseudonymization().setEnabled(true);
+            return new TextFileRedactor(new RedactionEngine(config));
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to load default config", e);
+        }
     }
 
     private TextFileRedactor createRedactorWithDisabledRedaction() {

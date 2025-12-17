@@ -2,6 +2,30 @@
 # Default preset - balanced security and utility
 # Version: 1.0.0
 parent: none
+
+# Discovery configuration
+discovery:
+  mode: default  # Two-pass discovery for thorough redaction
+
+  # Property-based extraction - discover values from JFR event properties
+  # Extracts values from properties with specific key names
+  property_extractions:
+    - name: "user_name_property"
+      description: "Extract usernames from properties like user.name, username, etc."
+      key_pattern: "(?i)(user\\.name|username|user_name|user)"
+      type: USERNAME
+      case_sensitive: false
+      min_occurrences: 1
+      enabled: true
+
+    - name: "hostname_property"
+      description: "Extract hostnames from hostname properties"
+      key_pattern: "(?i)(hostname|host\\.name|host_name)"
+      type: HOSTNAME
+      case_sensitive: false
+      min_occurrences: 1
+      enabled: true
+
 properties:
   enabled: true
   case_sensitive: false
@@ -27,51 +51,80 @@ strings:
   redact_in_thread_names: false
 
   patterns:
-    # Home directory paths
-    home_directories:
+    # User name patterns - extract from user directories
+    user:
       enabled: true
-      regexes:
-        - '/Users/[^/]+'                    # macOS: /Users/username
-        - 'C:\\Users\\[a-zA-Z0-9_\-]+'     # Windows: C:\Users\username
-        - '/home/[^/]+'                     # Linux: /home/username
+      patterns:
+        - '/Users/([^/]+)'
+        - 'C:\\Users\\([a-zA-Z0-9_\-]+)'
+        - '/home/([^/]+)'
+      discovery:
+        enabled: true
+        capture_group: 1
+        min_occurrences: 1
+        whitelist:
+          - root
+          - admin
+          - test
+          - user
+          - guest
+          - system
 
     # Email addresses
     emails:
       enabled: true
-      regex: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+      patterns:
+        - '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
 
     # UUIDs (often used as identifiers)
     uuids:
       enabled: false  # Set to true if UUIDs are sensitive in your context
-      regex: '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+      patterns:
+        - '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
 
     # IP addresses
     ip_addresses:
       enabled: true
-      ipv4: '\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
-      ipv6: '\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b'
+      patterns:
+        # IPv4
+        - '\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+        # IPv6 - full RFC 4291 support including compressed formats
+        - '(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(?![0-9a-fA-F:])|(?:[0-9a-fA-F]{1,4}:){1,7}:(?![0-9a-fA-F:])|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}(?![0-9a-fA-F:])|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}(?![0-9a-fA-F:])|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}(?![0-9a-fA-F:])|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}(?![0-9a-fA-F:])|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}(?![0-9a-fA-F:])|[0-9a-fA-F]{1,4}:(?:(?::[0-9a-fA-F]{1,4}){1,6})(?![0-9a-fA-F:])|:(?:(?::[0-9a-fA-F]{1,4}){1,7}|:)(?![0-9a-fA-F:]))'
+      ignore_exact:
+        - 127.0.0.1
+        - ::1
+        - 0.0.0.0
 
     # SSH host patterns - redact hostnames in SSH connection strings
-    # Matches: user@hostname, ssh://hostname, hostname:port
     ssh_hosts:
-      enabled: true  # Enabled in default preset
+      enabled: true
       patterns:
-        - 'ssh://[a-zA-Z0-9.-]+'                           # ssh://hostname
-        - '(?:ssh|sftp)://(?:[^@]+@)?[a-zA-Z0-9.-]+'      # ssh://user@hostname
-        - '[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+(?::[0-9]+)?'     # user@host or user@host:port
-        - '(?<=ssh\s)[a-zA-Z0-9_-]+@[a-zA-Z0-9.-]+'       # after "ssh " command
+        - 'ssh://([a-zA-Z0-9.-]+)'
+        - '(?:ssh|sftp)://(?:[^@]+@)?([a-zA-Z0-9.-]+)'
+        - '[a-zA-Z0-9_-]+@([a-zA-Z0-9.-]+)(?::[0-9]+)?'
+        - '(?<=ssh\s)[a-zA-Z0-9_-]+@([a-zA-Z0-9.-]+)'
+      discovery:
+        enabled: true
+        capture_group: 1
+        min_occurrences: 1
+        whitelist:
+          - localhost
 
     # Hostnames (for hs_err files and bug reports)
     hostnames:
-      enabled: true  # Enabled for default preset
+      enabled: true
       patterns:
-        - '(?<=Host:\s)[a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9][a-zA-Z0-9.-]*)+'
-        - '\b[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z0-9-]*\.[a-zA-Z][a-zA-Z0-9-]*\b'
+        - '(?<=Host:\s)[a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9-]+)+'
+        - '\b[a-zA-Z][a-zA-Z0-9-]*(?:\.[a-zA-Z0-9-]+){2,}\b'
         - '(?<=Linux\s|Darwin\s)[a-zA-Z][a-zA-Z0-9._-]*?(?=\s+\d)'
-      ignore:
+      discovery:
+        enabled: true
+        capture_group: 0
+        min_occurrences: 2
+      ignore_exact:
         - localhost
         - localhost.localdomain
-        - '127.0.0.1'
+        - 127.0.0.1
 
     # Internal URLs
     internal_urls:
@@ -80,7 +133,7 @@ strings:
         - 'https?://[a-zA-Z0-9.-]*(?:artifactory|nexus|repo|repository)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'
         - 'https?://[a-zA-Z0-9.-]*(?:git|gitlab|github|bitbucket)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'
         - 'https?://[a-zA-Z0-9.-]*(?:intranet|internal|corp|private)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'
-        - 'https?://[a-zA-Z0-9.-]*(?:jenkins|ci|build|bamboo)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'
+        - 'https?://[a-zA-Z0-9.-]*(?:jenkins|ci|build)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'
       internal_domains:
         - '.internal'
         - '.corp'

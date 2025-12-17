@@ -1,10 +1,13 @@
 package me.bechberger.jfrredact.engine;
 
+import me.bechberger.jfrredact.ConfigLoader;
 import me.bechberger.jfrredact.config.RedactionConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,18 +18,26 @@ public class RedactionEngineTest {
 
     // ========== Helper Methods ==========
 
+    private RedactionConfig loadDefaultConfig() {
+        try {
+            return new ConfigLoader().load("default");
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load default config", e);
+        }
+    }
+
     private RedactionEngine createDefaultEngine() {
-        return new RedactionEngine(new RedactionConfig());
+        return new RedactionEngine(loadDefaultConfig());
     }
 
     private RedactionEngine createEngineWithPseudonymization() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getGeneral().getPseudonymization().setEnabled(true);
         return new RedactionEngine(config);
     }
 
     private RedactionEngine createEngineWithMode(String mode) {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getGeneral().getPseudonymization().setEnabled(true);
         config.getGeneral().getPseudonymization().setMode(mode);
         return new RedactionEngine(config);
@@ -58,7 +69,7 @@ public class RedactionEngineTest {
         "jdk.ProcessStart"
     })
     public void testEventsAreRemovedByDefault(String eventType) {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         RedactionEngine engine = new RedactionEngine(config);
 
         assertTrue(engine.shouldRemoveEvent(eventType),
@@ -73,7 +84,7 @@ public class RedactionEngineTest {
         "jdk.SocketRead"
     })
     public void testNormalEventsNotRemoved(String eventType) {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         RedactionEngine engine = new RedactionEngine(config);
 
         assertFalse(engine.shouldRemoveEvent(eventType),
@@ -82,7 +93,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testEventRemovalCanBeDisabled() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getEvents().setRemoveEnabled(false);
 
         RedactionEngine engine = new RedactionEngine(config);
@@ -120,7 +131,7 @@ public class RedactionEngineTest {
         "timestamp, 1234567890, false"
     })
     public void testNonSensitiveFieldsNotRedacted(String fieldName, String value, boolean shouldRedact) {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getStrings().setEnabled(false);  // Disable string patterns to test only properties
 
         RedactionEngine engine = new RedactionEngine(config);
@@ -163,7 +174,6 @@ public class RedactionEngineTest {
         "2001:0db8:85a3:0000:0000:8a2e:0370:7334",  // Full format
         "2001:db8:85a3::8a2e:370:7334",             // Compressed format
         "2001:db8::8a2e:370:7334",                  // Compressed with more zeros
-        "::1",                                       // IPv6 loopback
         "::",                                        // IPv6 unspecified address
         "fe80::1",                                   // Link-local
         "::ffff:192.0.2.1",                         // IPv4-mapped IPv6 (IPv6 part only)
@@ -176,6 +186,14 @@ public class RedactionEngineTest {
         assertRedacted(ip, result);
     }
 
+    @Test
+    public void testIPv6LoopbackIsNotRedacted() {
+        // ::1 is IPv6 localhost and should be kept (like 127.0.0.1)
+        RedactionEngine engine = createDefaultEngine();
+        String result = engine.redact("address", "::1");
+        assertEquals("::1", result, "IPv6 loopback (::1) should not be redacted");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
         "ssh://production.example.com",
@@ -184,7 +202,7 @@ public class RedactionEngineTest {
         "deployer@10.0.1.50"
     })
     public void testSSHHostsAreRedacted(String sshHost) {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         // Enable SSH host redaction BEFORE creating engine (patterns are compiled in constructor)
         config.getStrings().getPatterns().getSshHosts().setEnabled(true);
 
@@ -312,7 +330,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testPropertiesCanBeDisabled() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getProperties().setEnabled(false);
 
         RedactionEngine engine = new RedactionEngine(config);
@@ -323,7 +341,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testStringsCanBeDisabled() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getStrings().setEnabled(false);
 
         RedactionEngine engine = new RedactionEngine(config);
@@ -334,7 +352,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testCustomRedactionText() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getGeneral().setRedactionText("###");
 
         RedactionEngine engine = new RedactionEngine(config);
@@ -354,7 +372,7 @@ public class RedactionEngineTest {
         "app.name, MyApp, MyApp"
     })
     public void testRealWorldSpringProperties(String fieldName, String value, String expected) {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getGeneral().getPseudonymization().setEnabled(false);  // Simple redaction
         config.getStrings().setEnabled(false);  // Only test property patterns
 
@@ -406,7 +424,7 @@ public class RedactionEngineTest {
         "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     })
     public void testUUIDsAreRedactedWhenEnabled(String uuid) {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         // UUID redaction must be explicitly enabled
         config.getStrings().getPatterns().getUuids().setEnabled(true);
         RedactionEngine engine = new RedactionEngine(config);
@@ -456,7 +474,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testSSHPatternInConnectionString() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getStrings().getPatterns().getSshHosts().setEnabled(true);
         RedactionEngine engine = new RedactionEngine(config);
 
@@ -708,7 +726,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testPartialRedactionOnlyAppliesToStringPatterns() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getProperties().setEnabled(false);  // Disable property patterns
         config.getStrings().setEnabled(true);      // Enable string patterns
         RedactionEngine engine = new RedactionEngine(config);
@@ -725,7 +743,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testCustomRegexPatternsFromCli() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
 
         // Simulate CLI options with custom regex patterns
         RedactionConfig.CliOptions cliOptions = new RedactionConfig.CliOptions();
@@ -744,7 +762,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testMultipleCustomRegexPatterns() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
 
         RedactionConfig.CliOptions cliOptions = new RedactionConfig.CliOptions();
         cliOptions.getRedactionRegexes().add("\\b[A-Z]{3}-\\d{6}\\b");      // Ticket ID
@@ -769,7 +787,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testCustomRegexWithPseudonymization() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
         config.getGeneral().getPseudonymization().setEnabled(true);
         config.getGeneral().getPseudonymization().setMode("counter");
 
@@ -802,7 +820,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testCustomRegexDoesNotAffectOtherPatterns() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
 
         RedactionConfig.CliOptions cliOptions = new RedactionConfig.CliOptions();
         cliOptions.getRedactionRegexes().add("\\b[A-Z]{3}-\\d{6}\\b");
@@ -828,7 +846,7 @@ public class RedactionEngineTest {
 
     @Test
     public void testCustomRegexWithMultipleMatches() {
-        RedactionConfig config = new RedactionConfig();
+        RedactionConfig config = loadDefaultConfig();
 
         RedactionConfig.CliOptions cliOptions = new RedactionConfig.CliOptions();
         cliOptions.getRedactionRegexes().add("\\b[A-Z]{3}-\\d{6}\\b");
@@ -856,11 +874,10 @@ public class RedactionEngineTest {
         assertRedacted(text1, result1);
         assertEquals("Server at *** is down", result1);
 
-        // Test with loopback
+        // Test with loopback - should NOT be redacted (localhost)
         String text2 = "Connecting to ::1 on port 8080";
         String result2 = engine.redact("log", text2);
-        assertRedacted(text2, result2);
-        assertEquals("Connecting to *** on port 8080", result2);
+        assertEquals(text2, result2, "::1 (localhost) should not be redacted");
 
         // Test with link-local
         String text3 = "Interface fe80::1 active";

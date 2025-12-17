@@ -51,6 +51,9 @@ public class RedactionEngine {
     // Ignore lists cache - maps pattern key to IgnoreLists object
     private final Map<String, IgnoreLists> ignoreListCache = new HashMap<>();
 
+    // Discovered patterns from discovery phase (lower priority than configured patterns)
+    private DiscoveredPatterns discoveredPatterns = null;
+
     // Helper class to store all three types of ignore lists
     private static class IgnoreLists {
         final List<String> ignoreExact;
@@ -132,37 +135,46 @@ public class RedactionEngine {
 
         var patterns = config.getStrings().getPatterns();
 
-        // Email pattern
+        // Email patterns
         if (patterns.getEmails().isEnabled()) {
-            patternCache.put("email", Pattern.compile(patterns.getEmails().getRegex()));
-            ignoreListCache.put("email", new IgnoreLists(
+            IgnoreLists emailIgnore = new IgnoreLists(
                 patterns.getEmails().getIgnoreExact(),
                 patterns.getEmails().getIgnore(),
                 patterns.getEmails().getIgnoreAfter()
-            ));
+            );
+            for (int i = 0; i < patterns.getEmails().getPatterns().size(); i++) {
+                String regex = patterns.getEmails().getPatterns().get(i);
+                patternCache.put("email_" + i, Pattern.compile(regex));
+                ignoreListCache.put("email_" + i, emailIgnore);
+            }
         }
 
         // IP patterns
         if (patterns.getIpAddresses().isEnabled()) {
-            patternCache.put("ipv4", Pattern.compile(patterns.getIpAddresses().getIpv4()));
-            patternCache.put("ipv6", Pattern.compile(patterns.getIpAddresses().getIpv6()));
             IgnoreLists ipIgnore = new IgnoreLists(
                 patterns.getIpAddresses().getIgnoreExact(),
                 patterns.getIpAddresses().getIgnore(),
                 patterns.getIpAddresses().getIgnoreAfter()
             );
-            ignoreListCache.put("ipv4", ipIgnore);
-            ignoreListCache.put("ipv6", ipIgnore);
+            for (int i = 0; i < patterns.getIpAddresses().getPatterns().size(); i++) {
+                String regex = patterns.getIpAddresses().getPatterns().get(i);
+                patternCache.put("ip_" + i, Pattern.compile(regex));
+                ignoreListCache.put("ip_" + i, ipIgnore);
+            }
         }
 
-        // UUID pattern
+        // UUID patterns
         if (patterns.getUuids().isEnabled()) {
-            patternCache.put("uuid", Pattern.compile(patterns.getUuids().getRegex()));
-            ignoreListCache.put("uuid", new IgnoreLists(
+            IgnoreLists uuidIgnore = new IgnoreLists(
                 patterns.getUuids().getIgnoreExact(),
                 patterns.getUuids().getIgnore(),
                 patterns.getUuids().getIgnoreAfter()
-            ));
+            );
+            for (int i = 0; i < patterns.getUuids().getPatterns().size(); i++) {
+                String regex = patterns.getUuids().getPatterns().get(i);
+                patternCache.put("uuid_" + i, Pattern.compile(regex));
+                ignoreListCache.put("uuid_" + i, uuidIgnore);
+            }
         }
 
         // SSH host patterns
@@ -179,17 +191,17 @@ public class RedactionEngine {
             }
         }
 
-        // Home directory patterns
-        if (patterns.getHomeDirectories().isEnabled()) {
-            IgnoreLists homeIgnore = new IgnoreLists(
-                patterns.getHomeDirectories().getIgnoreExact(),
-                patterns.getHomeDirectories().getIgnore(),
-                patterns.getHomeDirectories().getIgnoreAfter()
+        // User name patterns
+        if (patterns.getUser().isEnabled()) {
+            IgnoreLists userIgnore = new IgnoreLists(
+                patterns.getUser().getIgnoreExact(),
+                patterns.getUser().getIgnore(),
+                patterns.getUser().getIgnoreAfter()
             );
-            for (int i = 0; i < patterns.getHomeDirectories().getRegexes().size(); i++) {
-                String regex = patterns.getHomeDirectories().getRegexes().get(i);
-                patternCache.put("home_" + i, Pattern.compile(regex));
-                ignoreListCache.put("home_" + i, homeIgnore);
+            for (int i = 0; i < patterns.getUser().getPatterns().size(); i++) {
+                String regex = patterns.getUser().getPatterns().get(i);
+                patternCache.put("user_" + i, Pattern.compile(regex));
+                ignoreListCache.put("user_" + i, userIgnore);
             }
         }
 
@@ -220,15 +232,19 @@ public class RedactionEngine {
         // Custom patterns
         for (int i = 0; i < patterns.getCustom().size(); i++) {
             var customPattern = patterns.getCustom().get(i);
-            if (customPattern.getRegex() != null && !customPattern.getRegex().isEmpty()) {
-                // Always use custom_ prefix to ensure patterns are processed in the custom pattern loop
-                String key = customPattern.getName() != null ? "custom_" + customPattern.getName() : "custom_" + i;
-                patternCache.put(key, Pattern.compile(customPattern.getRegex()));
-                ignoreListCache.put(key, new IgnoreLists(
+            if (!customPattern.getPatterns().isEmpty()) {
+                IgnoreLists customIgnore = new IgnoreLists(
                     customPattern.getIgnoreExact(),
                     customPattern.getIgnore(),
                     customPattern.getIgnoreAfter()
-                ));
+                );
+                String baseName = customPattern.getName() != null ? customPattern.getName() : "pattern_" + i;
+                for (int j = 0; j < customPattern.getPatterns().size(); j++) {
+                    String regex = customPattern.getPatterns().get(j);
+                    String key = "custom_" + baseName + (customPattern.getPatterns().size() > 1 ? "_" + j : "");
+                    patternCache.put(key, Pattern.compile(regex));
+                    ignoreListCache.put(key, customIgnore);
+                }
             }
         }
     }
@@ -549,43 +565,36 @@ public class RedactionEngine {
         String result = value;
         String redactionType = null;
 
-        // Check email pattern - use find() for partial matching
-        Pattern emailPattern = patternCache.get("email");
-        if (emailPattern != null) {
-            Matcher emailMatcher = emailPattern.matcher(result);
-            if (emailMatcher.find()) {
-                result = replaceMatches(emailMatcher, result, "email");
-                if (redactionType == null) redactionType = "email";
+        // Check email patterns - use find() for partial matching
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("email_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, entry.getKey());
+                    if (redactionType == null) redactionType = "email";
+                }
             }
         }
 
-        // Check IP patterns - use find() for partial matching (changed from matches())
-        Pattern ipv4Pattern = patternCache.get("ipv4");
-        if (ipv4Pattern != null) {
-            Matcher ipv4Matcher = ipv4Pattern.matcher(result);
-            if (ipv4Matcher.find()) {
-                String before = result;
-                result = replaceSafeIpMatches(ipv4Matcher, result);
-                if (!result.equals(before) && redactionType == null) redactionType = "ipv4";
+        // Check IP patterns - use find() for partial matching
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("ip_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, entry.getKey());
+                    if (redactionType == null) redactionType = "ip";
+                }
             }
         }
 
-        Pattern ipv6Pattern = patternCache.get("ipv6");
-        if (ipv6Pattern != null) {
-            Matcher ipv6Matcher = ipv6Pattern.matcher(result);
-            if (ipv6Matcher.find()) {
-                result = replaceMatches(ipv6Matcher, result, "ipv6");
-                if (redactionType == null) redactionType = "ipv6";
-            }
-        }
-
-        // Check UUID pattern - use find() for partial matching (changed from matches())
-        Pattern uuidPattern = patternCache.get("uuid");
-        if (uuidPattern != null) {
-            Matcher uuidMatcher = uuidPattern.matcher(result);
-            if (uuidMatcher.find()) {
-                result = replaceMatches(uuidMatcher, result, "uuid");
-                if (redactionType == null) redactionType = "uuid";
+        // Check UUID patterns - use find() for partial matching
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("uuid_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, entry.getKey());
+                    if (redactionType == null) redactionType = "uuid";
+                }
             }
         }
 
@@ -600,12 +609,13 @@ public class RedactionEngine {
             }
         }
 
-        // Check home directory patterns
+        // Check user/home directory patterns - replaces only the captured username, not the entire path
+        // This preserves the path structure (e.g., /Users/***/ instead of ***)
         for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("home_")) {
+            if (entry.getKey().startsWith("user_")) {
                 Matcher matcher = entry.getValue().matcher(result);
                 if (matcher.find()) {
-                    result = replaceMatches(matcher, result, "home_directory");
+                    result = replaceCaptureGroup(matcher, result, 1, "home_directory");
                     if (redactionType == null) redactionType = "home_directory";
                 }
             }
@@ -646,6 +656,17 @@ public class RedactionEngine {
             }
         }
 
+        // Check discovered patterns (lower priority - only if not already redacted by configured patterns)
+        if (discoveredPatterns != null && !result.equals(value)) {
+            // Only apply discovered patterns if we haven't already redacted
+        } else if (discoveredPatterns != null) {
+            String discoveryResult = applyDiscoveredPatterns(result);
+            if (!discoveryResult.equals(result)) {
+                result = discoveryResult;
+                if (redactionType == null) redactionType = "discovered";
+            }
+        }
+
         if (!result.equals(value)) {
             return RedactionResult.redacted(result, redactionType != null ? redactionType : "pattern");
         }
@@ -655,38 +676,33 @@ public class RedactionEngine {
     private String checkStringPatterns(String value) {
         String result = value;
 
-        // Check email pattern - use find() for partial matching
-        Pattern emailPattern = patternCache.get("email");
-        if (emailPattern != null) {
-            Matcher emailMatcher = emailPattern.matcher(result);
-            if (emailMatcher.find()) {
-                result = replaceMatches(emailMatcher, result, "email");
+        // Check email patterns - use find() for partial matching
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("email_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, entry.getKey());
+                }
             }
         }
 
-        // Check IP patterns - use find() for partial matching (changed from matches())
-        Pattern ipv4Pattern = patternCache.get("ipv4");
-        if (ipv4Pattern != null) {
-            Matcher ipv4Matcher = ipv4Pattern.matcher(result);
-            if (ipv4Matcher.find()) {
-                result = replaceSafeIpMatches(ipv4Matcher, result);
+        // Check IP patterns - use find() for partial matching
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("ip_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, entry.getKey());
+                }
             }
         }
 
-        Pattern ipv6Pattern = patternCache.get("ipv6");
-        if (ipv6Pattern != null) {
-            Matcher ipv6Matcher = ipv6Pattern.matcher(result);
-            if (ipv6Matcher.find()) {
-                result = replaceMatches(ipv6Matcher, result, "ipv6");
-            }
-        }
-
-        // Check UUID pattern - use find() for partial matching (changed from matches())
-        Pattern uuidPattern = patternCache.get("uuid");
-        if (uuidPattern != null) {
-            Matcher uuidMatcher = uuidPattern.matcher(result);
-            if (uuidMatcher.find()) {
-                result = replaceMatches(uuidMatcher, result, "uuid");
+        // Check UUID patterns - use find() for partial matching
+        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
+            if (entry.getKey().startsWith("uuid_")) {
+                Matcher matcher = entry.getValue().matcher(result);
+                if (matcher.find()) {
+                    result = replaceMatches(matcher, result, entry.getKey());
+                }
             }
         }
 
@@ -700,12 +716,13 @@ public class RedactionEngine {
             }
         }
 
-        // Check home directory patterns
+        // Check user/home directory patterns - replaces only the captured username, not the entire path
+        // This preserves the path structure (e.g., /Users/***/ instead of ***)
         for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("home_")) {
+            if (entry.getKey().startsWith("user_")) {
                 Matcher matcher = entry.getValue().matcher(result);
                 if (matcher.find()) {
-                    result = replaceMatches(matcher, result, "home_directory");
+                    result = replaceCaptureGroup(matcher, result, 1, "home_directory");
                 }
             }
         }
@@ -762,7 +779,7 @@ public class RedactionEngine {
             // Check if this string should not be redacted
             boolean shouldNotRedact = false;
 
-            // 1. Check global no_redact list (legacy)
+            // 1. Check global no_redact list
             for (String safe : noRedact) {
                 if (matched.contains(safe)) {
                     shouldNotRedact = true;
@@ -880,6 +897,54 @@ public class RedactionEngine {
         return sb.toString();
     }
 
+    /**
+     * Replace only a specific capture group in matches, preserving the rest of the match.
+     * This is used for patterns like /Users/([^/]+) where we want to redact only the username,
+     * not the entire path structure.
+     */
+    private String replaceCaptureGroup(Matcher matcher, String value, int groupNum, String patternKey) {
+        // Reset matcher to scan from beginning
+        matcher.reset();
+
+        StringBuilder sb = new StringBuilder();
+        int lastEnd = 0;
+
+        while (matcher.find()) {
+            // Check if the capture group exists
+            if (matcher.groupCount() < groupNum) {
+                continue;
+            }
+
+            String capturedValue = matcher.group(groupNum);
+            if (capturedValue == null || capturedValue.isEmpty()) {
+                continue;
+            }
+
+            // Get the redaction replacement
+            String replacement = pseudonymizer.isEnabled()
+                ? pseudonymizer.pseudonymize(capturedValue, config.getGeneral().getRedactionText())
+                : config.getGeneral().getRedactionText();
+
+            // Append text before this match
+            sb.append(value, lastEnd, matcher.start());
+
+            // Build the replacement keeping the parts before and after the capture group
+            String fullMatch = matcher.group();
+            int groupStartInMatch = matcher.start(groupNum) - matcher.start();
+            int groupEndInMatch = matcher.end(groupNum) - matcher.start();
+
+            sb.append(fullMatch, 0, groupStartInMatch);
+            sb.append(replacement);
+            sb.append(fullMatch, groupEndInMatch, fullMatch.length());
+
+            lastEnd = matcher.end();
+        }
+
+        // Append remaining text
+        sb.append(value, lastEnd, value.length());
+        return sb.toString();
+    }
+
     private String applyRedaction(String value, String context) {
         // Use pseudonymization if enabled
         if (pseudonymizer.isEnabled()) {
@@ -902,5 +967,82 @@ public class RedactionEngine {
      */
     public RedactionStats getStats() {
         return stats;
+    }
+
+    /**
+     * Get the configuration used by this redaction engine.
+     */
+    public RedactionConfig getConfig() {
+        return config;
+    }
+
+    // ========== Discovered Patterns Support ==========
+
+    /**
+     * Set discovered patterns to be used for redaction.
+     * Discovered patterns have lower priority than configured patterns.
+     *
+     * @param patterns The discovered patterns from the discovery phase (already filtered by min_occurrences)
+     */
+    public void setDiscoveredPatterns(DiscoveredPatterns patterns) {
+        this.discoveredPatterns = patterns;
+        if (patterns != null) {
+            int count = patterns.getTotalCount();
+            logger.info("Loaded {} discovered patterns for redaction", count);
+        }
+    }
+
+    /**
+     * Get the currently set discovered patterns.
+     */
+    public DiscoveredPatterns getDiscoveredPatterns() {
+        return discoveredPatterns;
+    }
+
+    /**
+     * Apply discovered patterns to a string value.
+     * Only redacts values that were discovered in the discovery phase.
+     * The patterns are already filtered by their individual min_occurrences thresholds.
+     */
+    private String applyDiscoveredPatterns(String value) {
+        if (discoveredPatterns == null || value == null || value.isEmpty()) {
+            return value;
+        }
+
+        List<DiscoveredPatterns.DiscoveredValue> values = discoveredPatterns.getValues(1);
+
+        if (values.isEmpty()) {
+            return value;
+        }
+
+        String result = value;
+        boolean caseSensitive = discoveredPatterns.isCaseSensitive();
+
+        // Sort by value length (longest first) to avoid partial replacements
+        values.sort((a, b) -> Integer.compare(b.getValue().length(), a.getValue().length()));
+
+        for (DiscoveredPatterns.DiscoveredValue discovered : values) {
+            String toFind = discovered.getValue();
+
+            // Use Pattern.quote to treat the discovered value as literal string
+            // Use CASE_INSENSITIVE flag if needed
+            int flags = caseSensitive ? 0 : Pattern.CASE_INSENSITIVE;
+            Pattern pattern = Pattern.compile(Pattern.quote(toFind), flags);
+
+            Matcher matcher = pattern.matcher(result);
+            if (matcher.find()) {
+                // Replace all occurrences
+                String replacement = pseudonymizer.isEnabled()
+                    ? pseudonymizer.pseudonymize(toFind, config.getGeneral().getRedactionText())
+                    : config.getGeneral().getRedactionText();
+
+                result = matcher.replaceAll(Matcher.quoteReplacement(replacement));
+
+                logger.trace("Redacted discovered {} value '{}' in text",
+                           discovered.getType(), toFind);
+            }
+        }
+
+        return result;
     }
 }
