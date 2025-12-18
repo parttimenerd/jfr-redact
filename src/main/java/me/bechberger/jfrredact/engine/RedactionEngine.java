@@ -548,6 +548,116 @@ public class RedactionEngine {
         return value;
     }
 
+    // ========== Array redaction methods ==========
+
+    /**
+     * Redact a byte array by calling redact on each element.
+     */
+    public byte[] redact(String fieldName, byte[] array) {
+        if (array == null) return null;
+        byte[] result = new byte[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = redact(fieldName, array[i]);
+        }
+        return result;
+    }
+
+    /**
+     * Redact a short array by calling redact on each element.
+     */
+    public short[] redact(String fieldName, short[] array) {
+        if (array == null) return null;
+        short[] result = new short[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = redact(fieldName, array[i]);
+        }
+        return result;
+    }
+
+    /**
+     * Redact an int array by calling redact on each element.
+     */
+    public int[] redact(String fieldName, int[] array) {
+        if (array == null) return null;
+        int[] result = new int[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = redact(fieldName, array[i]);
+        }
+        return result;
+    }
+
+    /**
+     * Redact a long array by calling redact on each element.
+     */
+    public long[] redact(String fieldName, long[] array) {
+        if (array == null) return null;
+        long[] result = new long[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = redact(fieldName, array[i]);
+        }
+        return result;
+    }
+
+    /**
+     * Redact a float array by calling redact on each element.
+     */
+    public float[] redact(String fieldName, float[] array) {
+        if (array == null) return null;
+        float[] result = new float[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = redact(fieldName, array[i]);
+        }
+        return result;
+    }
+
+    /**
+     * Redact a double array by calling redact on each element.
+     */
+    public double[] redact(String fieldName, double[] array) {
+        if (array == null) return null;
+        double[] result = new double[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = redact(fieldName, array[i]);
+        }
+        return result;
+    }
+
+    /**
+     * Redact a boolean array by calling redact on each element.
+     */
+    public boolean[] redact(String fieldName, boolean[] array) {
+        if (array == null) return null;
+        boolean[] result = new boolean[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = redact(fieldName, array[i]);
+        }
+        return result;
+    }
+
+    /**
+     * Redact a char array by calling redact on each element.
+     */
+    public char[] redact(String fieldName, char[] array) {
+        if (array == null) return null;
+        char[] result = new char[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = redact(fieldName, array[i]);
+        }
+        return result;
+    }
+
+    /**
+     * Redact a String array by calling redact on each element.
+     */
+    public String[] redact(String fieldName, String[] array) {
+        if (array == null) return null;
+        String[] result = new String[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = redact(fieldName, array[i]);
+        }
+        return result;
+    }
+
     // ========== Helper methods ==========
 
     private boolean isPortField(String fieldName) {

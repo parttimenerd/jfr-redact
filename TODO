@@ -1,7 +1,1 @@
 # TODO
-
-fix words command
-
-
-jfr-redact concat one.jfr two.jfr -o combined.jfr
-for compressions

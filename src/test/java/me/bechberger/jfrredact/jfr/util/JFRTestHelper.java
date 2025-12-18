@@ -738,6 +738,12 @@ public class JFRTestHelper {
                 return;
             }
 
+            // Handle arrays (including arrays of RecordedFrame, etc.)
+            if (original.getClass().isArray() && processed.getClass().isArray()) {
+                verifyArraysEqual(original, processed, context);
+                return;
+            }
+
             // Special handling for RecordedObject - need deep comparison
             if (original instanceof jdk.jfr.consumer.RecordedObject && processed instanceof jdk.jfr.consumer.RecordedObject) {
                 verifyRecordedObjectsEqual((jdk.jfr.consumer.RecordedObject) original,
@@ -750,6 +756,46 @@ public class JFRTestHelper {
                 fail(context + ": Field value mismatch\n" +
                      "  Original (before processing): " + formatValue(original) + "\n" +
                      "  Processed (after roundtrip):  " + formatValue(processed));
+            }
+        }
+
+        /**
+         * Verify arrays are equal, handling object arrays recursively.
+         */
+        private void verifyArraysEqual(Object original, Object processed, String context) {
+            Class<?> componentType = original.getClass().getComponentType();
+
+            if (componentType.isPrimitive()) {
+                // Handle primitive arrays
+                if (componentType == byte.class) {
+                    assertArrayEquals((byte[]) original, (byte[]) processed, context);
+                } else if (componentType == short.class) {
+                    assertArrayEquals((short[]) original, (short[]) processed, context);
+                } else if (componentType == int.class) {
+                    assertArrayEquals((int[]) original, (int[]) processed, context);
+                } else if (componentType == long.class) {
+                    assertArrayEquals((long[]) original, (long[]) processed, context);
+                } else if (componentType == float.class) {
+                    assertArrayEquals((float[]) original, (float[]) processed, context);
+                } else if (componentType == double.class) {
+                    assertArrayEquals((double[]) original, (double[]) processed, context);
+                } else if (componentType == boolean.class) {
+                    assertArrayEquals((boolean[]) original, (boolean[]) processed, context);
+                } else if (componentType == char.class) {
+                    assertArrayEquals((char[]) original, (char[]) processed, context);
+                }
+            } else {
+                // Handle object arrays (including RecordedObject arrays)
+                Object[] originalArray = (Object[]) original;
+                Object[] processedArray = (Object[]) processed;
+
+                assertEquals(originalArray.length, processedArray.length,
+                        context + ".length should match");
+
+                for (int i = 0; i < originalArray.length; i++) {
+                    verifyFieldValueEqual(originalArray[i], processedArray[i],
+                            context + "[" + i + "]");
+                }
             }
         }
 
@@ -888,5 +934,148 @@ public class JFRTestHelper {
                 assertAll(annotContext, assertions.stream());
             }
         }
+
+        /**
+         * Verify that all events are fully equal (deep comparison including all fields).
+         * This includes stack traces, nested objects, arrays, etc.
+         * NOTE: This will fail if using constant pool for stack frames, as the comparison
+         * requires exact field-by-field equality.
+         */
+        public RoundtripVerifier verifyEventsFullyEqual() {
+            assertEquals(originalEvents.size(), processedEvents.size(),
+                    "Event count must match for deep comparison");
+
+            List<Executable> assertions = new ArrayList<>();
+
+            for (int i = 0; i < originalEvents.size(); i++) {
+                final int index = i;
+                RecordedEvent originalEvent = originalEvents.get(i);
+                RecordedEvent processedEvent = processedEvents.get(i);
+
+                // Verify event type matches
+                assertions.add(() -> assertEquals(
+                        originalEvent.getEventType().getName(),
+                        processedEvent.getEventType().getName(),
+                        String.format("Event[%d] type should match", index)
+                ));
+
+                // Deep compare all fields
+                for (var field : originalEvent.getFields()) {
+                    String fieldName = field.getName();
+                    Object originalValue = originalEvent.getValue(fieldName);
+                    Object processedValue = processedEvent.getValue(fieldName);
+
+                    assertions.add(() -> assertValuesDeepEqual(
+                            originalValue,
+                            processedValue,
+                            String.format("Event[%d].%s (%s)", index, fieldName,
+                                    originalEvent.getEventType().getName())
+                    ));
+                }
+            }
+
+            assertAll("Deep comparison of all event fields", assertions.stream());
+            return this;
+        }
+
+        /**
+         * Deep comparison of two values from RecordedEvents.
+         * Handles primitives, strings, arrays, RecordedObject, RecordedThread, RecordedClass, etc.
+         */
+        private void assertValuesDeepEqual(Object original, Object processed, String path) {
+            // Handle nulls
+            if (original == null && processed == null) {
+                return;
+            }
+            if (original == null || processed == null) {
+                fail(String.format("%s: one value is null: original=%s, processed=%s",
+                        path, original, processed));
+                return;
+            }
+
+            // Handle primitives and strings
+            if (original instanceof String || original instanceof Number ||
+                original instanceof Boolean || original instanceof Character) {
+                assertEquals(original, processed, path + " should be equal");
+                return;
+            }
+
+            // Handle arrays
+            if (original.getClass().isArray()) {
+                assertArraysDeepEqual(original, processed, path);
+                return;
+            }
+
+            // Handle RecordedObject (includes RecordedEvent, RecordedThread, RecordedClass, RecordedStackTrace, RecordedFrame, etc.)
+            if (original instanceof jdk.jfr.consumer.RecordedObject) {
+                assertRecordedObjectsDeepEqual(
+                        (jdk.jfr.consumer.RecordedObject) original,
+                        (jdk.jfr.consumer.RecordedObject) processed,
+                        path);
+                return;
+            }
+
+            // Fallback: use equals()
+            assertEquals(original, processed, path + " should be equal (using equals())");
+        }
+
+        /**
+         * Deep comparison of RecordedObjects (includes RecordedFrame, RecordedThread, etc.)
+         */
+        private void assertRecordedObjectsDeepEqual(jdk.jfr.consumer.RecordedObject original,
+                                                     jdk.jfr.consumer.RecordedObject processed,
+                                                     String path) {
+            // Compare all fields recursively
+            for (var field : original.getFields()) {
+                String fieldName = field.getName();
+                Object originalValue = original.getValue(fieldName);
+                Object processedValue = processed.getValue(fieldName);
+
+                assertValuesDeepEqual(originalValue, processedValue,
+                        path + "." + fieldName);
+            }
+        }
+
+        /**
+         * Deep comparison of arrays (primitive or object arrays)
+         */
+        private void assertArraysDeepEqual(Object original, Object processed, String path) {
+            Class<?> componentType = original.getClass().getComponentType();
+
+            if (componentType.isPrimitive()) {
+                // Handle primitive arrays
+                if (componentType == byte.class) {
+                    assertArrayEquals((byte[]) original, (byte[]) processed, path);
+                } else if (componentType == short.class) {
+                    assertArrayEquals((short[]) original, (short[]) processed, path);
+                } else if (componentType == int.class) {
+                    assertArrayEquals((int[]) original, (int[]) processed, path);
+                } else if (componentType == long.class) {
+                    assertArrayEquals((long[]) original, (long[]) processed, path);
+                } else if (componentType == float.class) {
+                    assertArrayEquals((float[]) original, (float[]) processed, path);
+                } else if (componentType == double.class) {
+                    assertArrayEquals((double[]) original, (double[]) processed, path);
+                } else if (componentType == boolean.class) {
+                    assertArrayEquals((boolean[]) original, (boolean[]) processed, path);
+                } else if (componentType == char.class) {
+                    assertArrayEquals((char[]) original, (char[]) processed, path);
+                }
+            } else {
+                // Handle object arrays
+                Object[] originalArray = (Object[]) original;
+                Object[] processedArray = (Object[]) processed;
+
+                assertEquals(originalArray.length, processedArray.length,
+                        path + ".length should match");
+
+                for (int i = 0; i < originalArray.length; i++) {
+                    assertValuesDeepEqual(originalArray[i], processedArray[i],
+                            path + "[" + i + "]");
+                }
+            }
+        }
+
+        // ...existing code...
     }
 }

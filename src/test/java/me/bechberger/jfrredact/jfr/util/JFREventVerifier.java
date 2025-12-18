@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -20,17 +21,7 @@ public class JFREventVerifier {
 
     public JFREventVerifier(Path recordingPath) throws IOException {
         this.recordingPath = recordingPath;
-        this.allEvents = readAllEvents(recordingPath);
-    }
-
-    private static List<RecordedEvent> readAllEvents(Path recordingPath) throws IOException {
-        List<RecordedEvent> events = new ArrayList<>();
-        try (RecordingFile recordingFile = new RecordingFile(recordingPath)) {
-            while (recordingFile.hasMoreEvents()) {
-                events.add(recordingFile.readEvent());
-            }
-        }
-        return events;
+        this.allEvents = RecordingFile.readAllEvents(recordingPath);
     }
 
     public JFREventVerifier fileExists() {
@@ -215,6 +206,11 @@ public class JFREventVerifier {
         public SingleEventVerifier intNotEquals(String fieldName, int notExpectedValue) {
             assertNotEquals(notExpectedValue, event.getInt(fieldName),
                     "Field " + fieldName + " should not be " + notExpectedValue);
+            return this;
+        }
+
+        public SingleEventVerifier run(Consumer<RecordedEvent> consumer) {
+            consumer.accept(event);
             return this;
         }
 

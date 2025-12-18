@@ -1,11 +1,18 @@
 package me.bechberger.jfrredact.jfr;
 
 import jdk.jfr.*;
+import jdk.jfr.consumer.RecordedEvent;
+import jdk.jfr.consumer.RecordedStackTrace;
+import jdk.jfr.consumer.RecordingFile;
 import me.bechberger.jfrredact.jfr.util.JFRTestHelper;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.openjdk.jmc.flightrecorder.writer.RecordingImpl;
+import org.openjdk.jmc.flightrecorder.writer.api.Recordings;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -572,5 +579,87 @@ public class JFRProcessorTest {
         .fieldChanged("test.NetworkEvent", "destinationAddress")
         .fieldPreserved("test.NetworkEvent", "protocol");
         // Note: Cannot use eventsOfTypeFullyPreserved because pseudonymization changes values
+    }
+
+    @Test
+    public void testToStringOnParsedEvent() throws IOException {
+        Path inputPath = helper.recording()
+                .addSimpleEvent("Test ToString", 7, false)
+                .build();
+
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withDefaultEngine()
+                .process())
+                .findEvent("test.SimpleEvent")
+                .run(e -> {
+                    testEventStackTraceFrames(e);
+                    Assertions.assertDoesNotThrow(e.getStackTrace().getFrames().getFirst()::toString);
+                    Assertions.assertDoesNotThrow(e.getStackTrace()::toString);
+                    Assertions.assertDoesNotThrow(e::toString);
+                });
+    }
+
+    @Test
+    public void testToStringOnParsedEventWithoutRoundtrip() throws IOException {
+        Path inputPath = helper.recording()
+                .addSimpleEvent("Test ToString", 7, false)
+                .build();
+        RecordedEvent event = RecordingFile.readAllEvents(inputPath).getFirst();
+        testEventStackTraceFrames(event);
+        RecordingFile recordingFile = new RecordingFile(inputPath);
+        Path path = tempDir.resolve("output.jfr");
+        recordingFile.write(path, e -> true);
+        event = RecordingFile.readAllEvents(path).getFirst();
+        testEventStackTraceFrames(event);
+    }
+
+    private static void testEventStackTraceFrames(RecordedEvent event) {
+        Assertions.assertDoesNotThrow(event::getStackTrace);
+        RecordedStackTrace stackTrace = event.getStackTrace();
+        Assertions.assertDoesNotThrow(stackTrace::getFrames);
+    }
+
+    @Test
+    public void testRoundtrip_EventsWithStackTracesFullyEqual() throws IOException {
+        // This test will FAIL if stack frames use constant pool,
+        // because the deep comparison requires exact field-by-field equality
+        @Name("test.EventWithStackTrace")
+        @StackTrace(true)
+        class EventWithStackTrace extends Event {
+            @Label("Message")
+            String message;
+
+            @Label("Value")
+            int value;
+        }
+
+        helper.roundtrip(() -> {
+            EventWithStackTrace event = new EventWithStackTrace();
+            event.message = "Test stack trace preservation";
+            event.value = 42;
+            event.commit();
+        }, EventWithStackTrace.class)
+        .withoutRedaction()
+        .verifyEventsFullyEqual(); // This will fail if stack frames aren't properly copied
+    }
+
+    @Test
+    public void testEventFieldAccessAfterProcessing() throws IOException {
+        Path inputPath = helper.recording()
+                .addSimpleEvent("Test Field Access", 7, false)
+                .build();
+
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withDefaultEngine()
+                .process())
+                .findEvent("test.SimpleEvent")
+                .run(e -> {
+                    testEventStackTraceFrames(e);
+                    Assertions.assertDoesNotThrow(e.getStackTrace().getFrames().getFirst()::toString);
+                    Assertions.assertDoesNotThrow(e.getStackTrace()::toString);
+                    Assertions.assertDoesNotThrow(e::toString);
+                });
     }
 }

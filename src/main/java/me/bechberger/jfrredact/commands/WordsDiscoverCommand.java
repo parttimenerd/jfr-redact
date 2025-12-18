@@ -108,15 +108,16 @@ public class WordsDiscoverCommand implements Callable<Integer> {
         if (fileName.endsWith(".jfr")) {
             discoverFromJFR(discovery, out, err);
         } else {
-            err.println("Text file analysis not yet implemented. Only JFR files are supported.");
-            return 1;
+            discoverFromText(inputFile, discovery, out, err);
         }
+
+        // Write output
+        writeOutput(discovery, outputFile, out, err);
 
         return 0;
     }
 
     private void discoverFromJFR(WordDiscovery discovery, PrintWriter out, PrintWriter err) throws Exception {
-        err.println("Analyzing JFR file: " + inputFile);
 
         try (RecordingFile recording = new RecordingFile(inputFile)) {
             int eventCount = 0;
@@ -124,39 +125,17 @@ public class WordsDiscoverCommand implements Callable<Integer> {
                 var event = recording.readEvent();
                 discovery.analyzeEvent(event);
                 eventCount++;
-
-                if (eventCount % 10000 == 0) {
-                    err.println("Processed " + eventCount + " events...");
-                }
             }
-            err.println("Processed " + eventCount + " events total");
         }
-
-        err.println(discovery.getStatistics());
-        err.flush();
     }
 
     private static void discoverFromText(Path inputFile, WordDiscovery discovery, PrintWriter out, PrintWriter err) throws Exception {
-        err.println("Analyzing text file: " + inputFile);
-        err.flush();
-
-        int lineCount = 0;
         try (var reader = java.nio.file.Files.newBufferedReader(inputFile)) {
             String line;
             while ((line = reader.readLine()) != null) {
                 discovery.analyzeText(line);
-                lineCount++;
-
-                if (lineCount % 10000 == 0) {
-                    err.println("Processed " + lineCount + " lines...");
-                    err.flush();
-                }
             }
         }
-
-        err.println("Processed " + lineCount + " lines total");
-        err.println(discovery.getStatistics());
-        err.flush();
     }
 
     private static void writeOutput(WordDiscovery discovery, Path outputFile, PrintWriter out, PrintWriter err) throws Exception {
@@ -166,7 +145,9 @@ public class WordsDiscoverCommand implements Callable<Integer> {
                     fileOut.println(word);
                 }
             }
-            err.println("Wrote discovered words to: " + outputFile);
+            err.println();
+            err.println("Successfully wrote " + discovery.getDiscoveredWords().size() + " words to:");
+            err.println("  " + outputFile.toAbsolutePath());
             err.flush();
         } else {
             for (String word : discovery.getDiscoveredWords()) {

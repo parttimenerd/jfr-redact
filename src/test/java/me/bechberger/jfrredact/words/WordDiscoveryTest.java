@@ -119,4 +119,48 @@ class WordDiscoveryTest {
         assertTrue(stats.contains("3"));
         assertTrue(stats.contains("distinct"));
     }
+
+    @Test
+    void testHexadecimalValuesFiltered() {
+        WordDiscovery discovery = new WordDiscovery();
+
+        // Test various hex formats
+        discovery.analyzeText("address: 0x000000017059e000 pointer: 0x7fff5fbff710 value: 0xDEADBEEF");
+        discovery.analyzeText("Memory at 0x1234ABCD and 0xFEEDFACE");
+        discovery.analyzeText("normal word 0x123abc mixed");
+
+        Set<String> words = discovery.getDiscoveredWords();
+
+        // Hexadecimal values should be filtered out
+        assertFalse(words.contains("0x000000017059e000"), "Should filter out hex address");
+        assertFalse(words.contains("0x7fff5fbff710"), "Should filter out hex pointer");
+        assertFalse(words.contains("0xDEADBEEF"), "Should filter out hex value");
+        assertFalse(words.contains("0x1234ABCD"), "Should filter out mixed hex");
+        assertFalse(words.contains("0xFEEDFACE"), "Should filter out hex constant");
+        assertFalse(words.contains("0x123abc"), "Should filter out lowercase hex");
+
+        // Normal words should still be included
+        assertTrue(words.contains("address"), "Should keep normal word 'address'");
+        assertTrue(words.contains("pointer"), "Should keep normal word 'pointer'");
+        assertTrue(words.contains("value"), "Should keep normal word 'value'");
+        assertTrue(words.contains("Memory"), "Should keep normal word 'Memory'");
+        assertTrue(words.contains("normal"), "Should keep normal word 'normal'");
+        assertTrue(words.contains("word"), "Should keep normal word 'word'");
+        assertTrue(words.contains("mixed"), "Should keep normal word 'mixed'");
+    }
+
+    @Test
+    void testHexLikeButNotHex() {
+        WordDiscovery discovery = new WordDiscovery();
+
+        // Words that look like hex but aren't (no 0x prefix)
+        discovery.analyzeText("DEADBEEF CAFEBABE test123abc");
+
+        Set<String> words = discovery.getDiscoveredWords();
+
+        // These should NOT be filtered (no 0x prefix)
+        assertTrue(words.contains("DEADBEEF"), "Should keep hex-like word without 0x prefix");
+        assertTrue(words.contains("CAFEBABE"), "Should keep hex-like word without 0x prefix");
+        assertTrue(words.contains("test123abc"), "Should keep mixed alphanumeric");
+    }
 }

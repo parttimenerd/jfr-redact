@@ -322,7 +322,7 @@ public class RedactionEngineTest {
     public void testNullStringHandling() {
         RedactionEngine engine = createDefaultEngine();
 
-        assertNull(engine.redact("password", null),
+        assertNull(engine.redact("password", (String)null),
             "Null string should remain null");
     }
 

@@ -6,6 +6,7 @@ import jdk.jfr.consumer.RecordingFile;
 import me.bechberger.jfrredact.config.DiscoveryConfig;
 import me.bechberger.jfrredact.config.RedactionConfig;
 import me.bechberger.jfrredact.engine.DiscoveredPatterns;
+import me.bechberger.jfrredact.engine.InteractiveDecisionManager;
 import me.bechberger.jfrredact.engine.RedactionEngine;
 import me.bechberger.jfrredact.engine.PatternDiscoveryEngine;
 import org.openjdk.jmc.flightrecorder.writer.RecordingImpl;
@@ -15,9 +16,14 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.InaccessibleObjectException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Processor for JFR recordings that applies redaction rules.
@@ -51,7 +57,9 @@ public class JFRProcessor {
     private final RedactionConfig config;
     private final Path inputPath;
     private RecordingImpl output;
-    private me.bechberger.jfrredact.engine.InteractiveDecisionManager interactiveDecisionManager;
+    private InteractiveDecisionManager interactiveDecisionManager;
+    private final Map<StackTraceElement, TypedValue> frameCache = new HashMap<>(16000);
+
 
     /**
      * Create a JFR processor with file-based input (supports discovery).
@@ -366,12 +374,54 @@ public class JFRProcessor {
         typesCurrentlyAdding.add(typeName);
 
         // Use getOrAdd which will either use existing type or register new one
-        return output.getTypes().getOrAdd(typeName, null, builder -> {
+        // For StackFrame, we want to have it inline
+        return output.getTypes().getOrAdd(typeName, null, useConstantPool(descriptor), builder -> {
             for (ValueDescriptor field : descriptor.getFields()) {
                 addFieldToTypeBuilder(builder, field, typesCurrentlyAdding);
             }
             addAnnotationsToTypeBuilder(builder, descriptor.getAnnotationElements());
         });
+    }
+
+    private Method isConstantPoolMethod = null;
+    private boolean isConstantPoolMethodAccessible = true;
+
+    boolean useConstantPool(ValueDescriptor descriptor) {
+        if (!isConstantPoolMethodAccessible) {
+            // Previous attempt to access method failed, use fallback
+            return useFallbackConstantPoolHeuristic(descriptor);
+        }
+        try {
+            // Try to access the package private method descriptor.isConstantPool()
+            isConstantPoolMethod = ValueDescriptor.class.getDeclaredMethod("isConstantPool");
+            isConstantPoolMethod.setAccessible(true);
+            return (boolean) isConstantPoolMethod.invoke(descriptor);
+        } catch (NoSuchMethodException e) {
+            // Method doesn't exist in this JDK version
+            logger.debug("Method isConstantPool() not found, using fallback heuristic");
+            isConstantPoolMethodAccessible = false;
+            return useFallbackConstantPoolHeuristic(descriptor);
+        } catch (InvocationTargetException | IllegalAccessException | InaccessibleObjectException e) {
+            // Cannot access the method due to module restrictions or other access issues
+            logger.debug("Cannot access isConstantPool() method: {}, using fallback heuristic", e.getMessage());
+            isConstantPoolMethodAccessible = false;
+            return useFallbackConstantPoolHeuristic(descriptor);
+        }
+    }
+
+    /**
+     * Fallback heuristic for determining if a type should use constant pool.
+     * StackFrame should NOT use constant pool (should be inline).
+     * Most other types should use constant pool for deduplication.
+     */
+    private boolean useFallbackConstantPoolHeuristic(ValueDescriptor descriptor) {
+        String typeName = descriptor.getTypeName();
+        // StackFrame should be inline (not in constant pool)
+        if ("jdk.types.StackFrame".equals(typeName)) {
+            return false;
+        }
+        // Most other complex types benefit from constant pool
+        return true;
     }
 
     /**
@@ -864,15 +914,15 @@ public class JFRProcessor {
         if (value.getClass().isArray()) {
             // Handle primitive arrays
             switch (value) {
-                case byte[] byteArray -> valueBuilder.putField(fieldName, byteArray);
-                case short[] shortArray -> valueBuilder.putField(fieldName, shortArray);
-                case int[] intArray -> valueBuilder.putField(fieldName, intArray);
-                case long[] longArray -> valueBuilder.putField(fieldName, longArray);
-                case float[] floatArray -> valueBuilder.putField(fieldName, floatArray);
-                case double[] doubleArray -> valueBuilder.putField(fieldName, doubleArray);
-                case boolean[] booleanArray -> valueBuilder.putField(fieldName, booleanArray);
-                case char[] charArray -> valueBuilder.putField(fieldName, charArray);
-                case String[] stringArray -> valueBuilder.putField(fieldName, stringArray);
+                case byte[] byteArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, byteArray));
+                case short[] shortArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, shortArray));
+                case int[] intArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, intArray));
+                case long[] longArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, longArray));
+                case float[] floatArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, floatArray));
+                case double[] doubleArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, doubleArray));
+                case boolean[] booleanArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, booleanArray));
+                case char[] charArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, charArray));
+                case String[] stringArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, stringArray));
                 case Object[] recordedArray ->
                     // Handle arrays of complex objects
                         valueBuilder.putField(fieldName, createComplexArrayValue(field, fieldName, recordedArray));
@@ -900,7 +950,7 @@ public class JFRProcessor {
             if (element instanceof jdk.jfr.consumer.RecordedObject recordedObject) {
                 // Build the complex object value
                 typedValues.add(type.asValue(b -> {
-                    handleComplexValue(b, field, recordedObject);
+                    handleComplexValueInArray(b, field, recordedObject);
                 }));
             } else {
                 throw new UnsupportedOperationException("Object array contains non-RecordedObject element for field '" + fieldName + "'");
@@ -933,6 +983,26 @@ public class JFRProcessor {
             });
         } catch (IllegalStateException ex) {
             System.err.println("Warning: Could not process complex field '" + fieldName + "'");
+            throw ex;
+        }
+    }
+
+    private void handleComplexValueInArray(TypedValueBuilder valueBuilder,
+                                    ValueDescriptor descriptor, jdk.jfr.consumer.RecordedObject recordedObject) {
+        try {
+            for (ValueDescriptor field : descriptor.getFields()) {
+                try {
+                    Object fieldValue = recordedObject.getValue(field.getName());
+                    addFieldValue(valueBuilder, field, fieldValue);
+                } catch (IllegalArgumentException e) {
+                    // Field might not be present in this particular recordedObject
+                    // Set it to null value
+                    valueBuilder.putField(field.getName(),
+                            valueBuilder.getType().getField(field.getName()).getType().nullValue());
+                }
+            }
+        } catch (IllegalStateException ex) {
+            System.err.println("Warning: Could not process complex field '" + descriptor.getName() + "'");
             throw ex;
         }
     }

@@ -20,6 +20,8 @@ public class WordDiscovery {
     // Must contain at least one letter
     private static final Pattern WORD_PATTERN = Pattern.compile("[a-zA-Z0-9_\\-+/]+");
     private static final Pattern HAS_LETTER = Pattern.compile(".*[a-zA-Z].*");
+    // Pattern to detect hexadecimal values (0x followed by hex digits)
+    private static final Pattern HEX_PATTERN = Pattern.compile("^0[xX][0-9a-fA-F]+$");
 
     private final Set<String> discoveredWords = new TreeSet<>();
     private final Set<String> ignoredEventTypes = new HashSet<>();
@@ -113,9 +115,16 @@ public class WordDiscovery {
             String word = matcher.group();
 
             // Must contain at least one letter
-            if (HAS_LETTER.matcher(word).matches()) {
-                discoveredWords.add(word);
+            if (!HAS_LETTER.matcher(word).matches()) {
+                continue;
             }
+
+            // Skip hexadecimal values (0x followed by hex digits)
+            if (HEX_PATTERN.matcher(word).matches()) {
+                continue;
+            }
+
+            discoveredWords.add(word);
         }
     }
 
