@@ -4,7 +4,7 @@ jfr-redact
 [![CI](https://github.com/parttimenerd/jfr-redact/actions/workflows/ci.yml/badge.svg)](https://github.com/parttimenerd/jfr-redact/actions/workflows/ci.yml)
 
 __This is an early prototype of the SapMachine team, use at your own risk.__
-__We don't provide any guarantees regarding functionality.__
+__We don't provide any guarantees regarding functionality or security.__
 
 A tool to redact sensitive information from Java Flight Recorder (JFR) recordings and text files,
 replacing it with `***`.
@@ -75,6 +75,9 @@ That's it! The tool will automatically redact:
   - Optional, enabled via `--pseudonymize` flag
 - **Text File Redaction**: Apply the same redaction patterns to arbitrary text files
   - Perfect for redacting Java error logs (hs_err_pid*.log) which contain system properties, environment variables, and file paths
+
+As a utility, you can also concatenate multiple JFR files into a single recording without redaction,
+saving space.
 
 ## Installation
 
@@ -197,6 +200,27 @@ java -jar jfr-redact.jar words discover recording.jfr -o words.txt
 # Apply redaction rules
 java -jar jfr-redact.jar words redact app.log redacted.log -r rules.txt
 ```
+
+### Concatenate JFR Files
+
+Concatenate multiple JFR recordings into a single file without any redaction. This is useful for combining multiple recording sessions or chunks.
+
+```bash
+# Concatenate two JFR files
+java -jar jfr-redact.jar concat one.jfr two.jfr -o combined.jfr
+
+# Concatenate multiple files
+java -jar jfr-redact.jar concat *.jfr -o all-recordings.jfr
+
+# Concatenate with verbose output
+java -jar jfr-redact.jar concat first.jfr second.jfr third.jfr -o merged.jfr --verbose
+
+# Ignore empty files (with warning) instead of failing
+java -jar jfr-redact.jar concat *.jfr -o merged.jfr -i
+```
+
+**Note:** The concat command performs no redaction - it simply merges the recordings as-is. 
+If you need to redact the combined file, run the `redact` command on the output afterwards.
 
 ### Command-Line Options
 
@@ -510,6 +534,36 @@ Examples:
 </details>
 
 <details>
+<summary><strong>Concat Command</strong> - Concatenate multiple JFR files</summary>
+
+<!-- BEGIN help_concat -->
+```
+Usage: jfr-redact concat [-hivV] -o=<output.jfr> <input.jfr>...
+Concatenate multiple JFR recordings into a single file without any redaction
+      <input.jfr>...   Input JFR files to concatenate
+  -h, --help           Show this help message and exit.
+  -i, --ignore-empty   Ignore empty files (with a warning) instead of failing
+  -o, --output=<output.jfr>
+                       Output JFR file (required)
+  -v, --verbose        Enable verbose output
+  -V, --version        Print version information and exit.
+
+Examples:
+
+  Concatenate two JFR files:
+    jfr-redact concat one.jfr two.jfr -o combined.jfr
+
+  Concatenate multiple files:
+    jfr-redact concat *.jfr -o all-recordings.jfr
+
+  Ignore empty files (with warning):
+    jfr-redact concat *.jfr -o merged.jfr -i
+```
+<!-- END help_concat -->
+
+</details>
+
+<details>
 <summary><strong>Words Command</strong> - Discover and redact words/identifiers</summary>
 
 <!-- BEGIN help_words -->
@@ -553,10 +607,12 @@ Examples:
     jfr-redact words discover application.log -o words.txt
 
   Include method and class names (normally ignored):
-    jfr-redact words discover recording.jfr --ignore-methods=false --ignore-classes=false
+    jfr-redact words discover recording.jfr --ignore-methods=false
+--ignore-classes=false
 
   Ignore specific event types:
-    jfr-redact words discover recording.jfr --ignore-events=jdk.GarbageCollection,jdk.ThreadSleep
+    jfr-redact words discover recording.jfr --ignore-events=jdk.
+GarbageCollection,jdk.ThreadSleep
 ```
 <!-- END help_words_discover -->
 
@@ -592,11 +648,10 @@ Examples:
     # Redact specific sensitive values
     - secretpassword
     - internalhost.corp.com
-    - admin@internal.net
-    
+
     # Redact all words starting with 'secret'
     - secret*
-    
+
     # Keep safe words (whitelist)
     + localhost
     + example.com

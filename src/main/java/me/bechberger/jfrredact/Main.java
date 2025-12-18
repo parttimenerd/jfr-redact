@@ -1,5 +1,6 @@
 package me.bechberger.jfrredact;
 
+import me.bechberger.jfrredact.commands.ConcatCommand;
 import me.bechberger.jfrredact.commands.GenerateConfigCommand;
 import me.bechberger.jfrredact.commands.GenerateSchemaCommand;
 import me.bechberger.jfrredact.commands.RedactCommand;
@@ -22,6 +23,7 @@ import picocli.CommandLine.ParseResult;
     subcommands = {
         RedactCommand.class,
         RedactTextCommand.class,
+        ConcatCommand.class,
         GenerateConfigCommand.class,
         TestCommand.class,
         GenerateSchemaCommand.class,
@@ -36,6 +38,9 @@ import picocli.CommandLine.ParseResult;
         "",
         "  Redact a text file:",
         "    jfr-redact redact-text application.log",
+        "",
+        "  Concatenate JFR files:",
+        "    jfr-redact concat one.jfr two.jfr -o combined.jfr",
         "",
         "  Generate a configuration template:",
         "    jfr-redact generate-config -o my-config.yaml",

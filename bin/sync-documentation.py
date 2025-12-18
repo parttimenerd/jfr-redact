@@ -121,7 +121,7 @@ def build_project_and_get_help() -> dict[str, str]:
 
     help_outputs = {}
     commands = ["redact", "redact-text", "generate-config", "test", "generate-schema",
-                "words", "words discover", "words redact"]
+                "concat", "words", "words discover", "words redact"]
 
     for cmd in commands:
         # Split command for subcommands like "words discover"

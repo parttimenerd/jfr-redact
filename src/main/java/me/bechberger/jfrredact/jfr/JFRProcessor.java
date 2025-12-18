@@ -276,6 +276,33 @@ public class JFRProcessor {
     }
 
     /**
+     * Like {@link #processRecordingFile(RecordingFile, OutputStream, PatternDiscoveryEngine)}, but without redaction or discovery.
+     * Processes multiple recording files and concatenates them into a single output.
+     */
+    public RecordingImpl processRecordingFilesWithoutAnyProcessing(List<RecordingFile> inputs, OutputStream outputStream) throws IOException {
+        initRecording(outputStream);
+
+        int totalEvents = 0;
+
+        for (RecordingFile input : inputs) {
+            logger.info("Processing input recording file");
+            while (input.hasMoreEvents()) {
+                var event = input.readEvent();
+                totalEvents++;
+
+                // Register event type (will be idempotent if already registered)
+                registerEventType(event);
+
+                writeEvent(event);
+            }
+        }
+
+        logger.info("JFR concatenation complete: {} total events written from {} file(s)",
+                totalEvents, inputs.size());
+        return output;
+    }
+
+    /**
      * Register an event type without writing the event.
      * This is part of phase 1 of the two-pass processing.
      */
