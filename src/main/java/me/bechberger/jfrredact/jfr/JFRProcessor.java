@@ -2,6 +2,7 @@ package me.bechberger.jfrredact.jfr;
 
 import jdk.jfr.*;
 import jdk.jfr.consumer.RecordedEvent;
+import jdk.jfr.consumer.RecordedObject;
 import jdk.jfr.consumer.RecordingFile;
 import me.bechberger.jfrredact.config.DiscoveryConfig;
 import me.bechberger.jfrredact.config.RedactionConfig;
@@ -20,10 +21,7 @@ import java.lang.reflect.InaccessibleObjectException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Processor for JFR recordings that applies redaction rules.
@@ -58,8 +56,6 @@ public class JFRProcessor {
     private final Path inputPath;
     private RecordingImpl output;
     private InteractiveDecisionManager interactiveDecisionManager;
-    private final Map<StackTraceElement, TypedValue> frameCache = new HashMap<>(16000);
-
 
     /**
      * Create a JFR processor with file-based input (supports discovery).
@@ -93,18 +89,6 @@ public class JFRProcessor {
 
     }
 
-
-    /**
-     * Register an annotation type with a single boolean value field.
-     */
-    private void registerAnnotationWithBooleanValue(String annotationTypeName) {
-        output.getTypes().getOrAdd(
-                annotationTypeName,
-                Annotation.ANNOTATION_SUPER_TYPE_NAME,
-                builder -> builder.addField("value", Types.Builtin.BOOLEAN)
-        );
-    }
-
     public RecordingImpl process(OutputStream outputStream) throws IOException {
         if (config == null || inputPath == null) {
             logger.warn("Discovery disabled - processing without discovery phase");
@@ -135,9 +119,13 @@ public class JFRProcessor {
     private RecordingImpl processWithoutDiscovery(OutputStream outputStream) throws IOException {
         logger.info("Starting JFR event processing (no discovery)");
 
-        try (RecordingFile input = new RecordingFile(inputPath)) {
-            return processRecordingFile(input, outputStream, null);
-        }
+        return processRecordingFile(() -> {
+            try {
+                return new RecordingFile(inputPath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to open recording file", e);
+            }
+        }, outputStream, null);
     }
 
     /**
@@ -152,9 +140,13 @@ public class JFRProcessor {
             config.getStrings()
         );
 
-        try (RecordingFile input = new RecordingFile(inputPath)) {
-            return processRecordingFile(input, outputStream, discoveryEngine);
-        }
+        return processRecordingFile(() -> {
+            try {
+                return new RecordingFile(inputPath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to open recording file", e);
+            }
+        }, outputStream, discoveryEngine);
     }
 
     /**
@@ -163,6 +155,20 @@ public class JFRProcessor {
     private RecordingImpl processWithTwoPassDiscovery(OutputStream outputStream) throws IOException {
         logger.info("Starting JFR event processing with two-pass discovery");
 
+        discover();
+
+        // REDACTION PASS: Read file again to redact
+        logger.info("Redaction Pass: Processing events with discovered patterns...");
+        return processRecordingFile(() -> {
+            try {
+                return new RecordingFile(inputPath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to open recording file for redaction pass", e);
+            }
+        }, outputStream, null);
+    }
+
+    private void discover() throws IOException {
         // DISCOVERY PASS: Read file to discover patterns
         logger.info("Discovery Pass: Analyzing events for sensitive patterns...");
         PatternDiscoveryEngine discoveryEngine = new PatternDiscoveryEngine(
@@ -200,82 +206,63 @@ public class JFRProcessor {
 
         // Set discovered patterns in the redaction engine
         redactionEngine.setDiscoveredPatterns(patterns);
-
-        // REDACTION PASS: Read file again to redact
-        logger.info("Redaction Pass: Processing events with discovered patterns...");
-        try (RecordingFile redactionInput = new RecordingFile(inputPath)) {
-            return processRecordingFile(redactionInput, outputStream, null);
-        }
     }
 
     /**
      * Core processing logic - processes a RecordingFile with optional on-the-fly discovery.
+     * Uses Supplier to allow re-reading the file without storing all events in memory.
      */
-    private RecordingImpl processRecordingFile(RecordingFile input, OutputStream outputStream,
+    private RecordingImpl processRecordingFile(java.util.function.Supplier<RecordingFile> inputSupplier,
+                                               OutputStream outputStream,
                                                PatternDiscoveryEngine onTheFlyDiscovery) throws IOException {
         initRecording(outputStream);
 
-        // PHASE 1: Collect events and register all types
-        logger.info("Phase 1: Reading events and registering types");
-        List<RecordedEvent> eventsToWrite = new ArrayList<>();
-        int totalEvents = 0;
-        int removedEvents = 0;
-
-        while (input.hasMoreEvents()) {
-            var event = input.readEvent();
-            totalEvents++;
-
-            String eventTypeName = event.getEventType().getName();
-            redactionEngine.getStats().recordEvent(eventTypeName);
-
-            if (redactionEngine.shouldRemoveEvent(event)) {
-                removedEvents++;
-                redactionEngine.getStats().recordRemovedEvent(eventTypeName);
-                logger.debug("Removed event #{}: {}", removedEvents, eventTypeName);
-                continue; // Skip this event
-            }
-
-            // On-the-fly discovery (FAST mode)
-            if (onTheFlyDiscovery != null) {
-                onTheFlyDiscovery.analyzeEvent(event);
-
-                // Update discovered patterns periodically for fast mode
-                if (totalEvents % 1000 == 0) {
-                    redactionEngine.setDiscoveredPatterns(onTheFlyDiscovery.getDiscoveredPatterns());
-                }
-            }
-
-            // Collect event for later writing
-            eventsToWrite.add(event);
-
-            // Register event type (will be idempotent if already registered)
-            registerEventType(event);
-
-            if (eventsToWrite.size() % 1000 == 0) {
-                logger.info("Collected {} events ({} removed)", eventsToWrite.size(), removedEvents);
-            }
-        }
-
-        // Final update for fast discovery
+        // PHASE 1: Optional discovery pass (if onTheFlyDiscovery provided)
         if (onTheFlyDiscovery != null) {
+            logger.info("Phase 1: Running pattern discovery");
+            try (RecordingFile discoveryInput = inputSupplier.get()) {
+                runDiscoveryPass(discoveryInput, onTheFlyDiscovery);
+            }
+
+            // Update redaction engine with discovered patterns
             redactionEngine.setDiscoveredPatterns(onTheFlyDiscovery.getDiscoveredPatterns());
             logger.info(onTheFlyDiscovery.getStatistics());
         }
 
-        logger.info("Phase 1 complete: {} total events read, {} to process, {} removed",
-                totalEvents, eventsToWrite.size(), removedEvents);
+        // PHASE 2: Processing pass - register types and write events
+        logger.info("Phase {}: Reading events, registering types, and writing output",
+                onTheFlyDiscovery != null ? 2 : 1);
 
-        // PHASE 2: Resolve all types ONCE
-        logger.info("Phase 2: Resolving all registered types");
-        output.getTypes().resolveAll();
-        logger.info("Type resolution complete");
-
-        // PHASE 3: Write all collected events
-        logger.info("Phase 3: Writing {} events", eventsToWrite.size());
+        int totalEvents = 0;
+        int removedEvents = 0;
         int written = 0;
-        for (RecordedEvent event : eventsToWrite) {
-            writeEvent(event);
-            written++;
+
+        try (RecordingFile processingInput = inputSupplier.get()) {
+            while (processingInput.hasMoreEvents()) {
+                var event = processingInput.readEvent();
+                totalEvents++;
+
+                String eventTypeName = event.getEventType().getName();
+                redactionEngine.getStats().recordEvent(eventTypeName);
+
+                if (redactionEngine.shouldRemoveEvent(event)) {
+                    removedEvents++;
+                    redactionEngine.getStats().recordRemovedEvent(eventTypeName);
+                    logger.debug("Removed event #{}: {}", removedEvents, eventTypeName);
+                    continue; // Skip this event
+                }
+
+                // Register event type (will be idempotent if already registered)
+                registerEventType(event);
+
+                // Write event immediately (no need to store in memory)
+                writeEvent(event);
+                written++;
+
+                if (written % 10000 == 0) {
+                    logger.info("Written {} events ({} removed)", written, removedEvents);
+                }
+            }
         }
 
         logger.info("JFR processing complete: {} total events, {} processed, {} removed",
@@ -284,25 +271,75 @@ public class JFRProcessor {
     }
 
     /**
-     * Like {@link #processRecordingFile(RecordingFile, OutputStream, PatternDiscoveryEngine)}, but without redaction or discovery.
+     * Run discovery pass over events without storing them in memory or registering types.
+     * This pass only analyzes events for pattern discovery.
+     */
+    private void runDiscoveryPass(RecordingFile input, PatternDiscoveryEngine discoveryEngine) throws IOException {
+        int discoveryEvents = 0;
+        int removedEvents = 0;
+
+        while (input.hasMoreEvents()) {
+            var event = input.readEvent();
+            discoveryEvents++;
+
+            String eventTypeName = event.getEventType().getName();
+
+            // Only discover from events that won't be removed
+            if (redactionEngine.shouldRemoveEvent(event)) {
+                removedEvents++;
+                continue;
+            }
+
+            // Analyze event for pattern discovery
+            discoveryEngine.analyzeEvent(event);
+
+            // Log progress periodically
+            if (discoveryEvents % 100000 == 0) {
+                logger.info("  Discovery: analyzed {} events ({} removed)",
+                        discoveryEvents - removedEvents, removedEvents);
+            }
+        }
+
+        logger.info("Discovery pass complete: analyzed {} events ({} removed)",
+                discoveryEvents - removedEvents, removedEvents);
+    }
+
+    /**
+     * Processes multiple recording files and concatenates them into a single output without redaction or discovery.
      * Processes multiple recording files and concatenates them into a single output.
      */
     public RecordingImpl processRecordingFilesWithoutAnyProcessing(List<RecordingFile> inputs, OutputStream outputStream) throws IOException {
         initRecording(outputStream);
 
         int totalEvents = 0;
+        int fileIndex = 0;
 
         for (RecordingFile input : inputs) {
-            logger.info("Processing input recording file");
+            fileIndex++;
+            logger.info("Processing input recording file {}/{}", fileIndex, inputs.size());
+            int fileEvents = 0;
+            long startTime = System.currentTimeMillis();
+
             while (input.hasMoreEvents()) {
                 var event = input.readEvent();
                 totalEvents++;
+                fileEvents++;
 
                 // Register event type (will be idempotent if already registered)
                 registerEventType(event);
 
                 writeEvent(event);
+
+                // Log progress every 100,000 events
+                if (fileEvents % 100000 == 0) {
+                    long elapsed = System.currentTimeMillis() - startTime;
+                    logger.info("  Processed {} events", fileEvents);
+                }
             }
+
+            long elapsed = System.currentTimeMillis() - startTime;
+            logger.info("  Completed file {}: {} events in {} ms",
+                    fileIndex, fileEvents, elapsed);
         }
 
         logger.info("JFR concatenation complete: {} total events written from {} file(s)",
@@ -318,7 +355,7 @@ public class JFRProcessor {
         EventType eventType = event.getEventType();
         String eventTypeName = eventType.getName();
 
-        // Check if already registered
+        // Slow path: check if already registered in output
         if (output.getTypes().getType(eventTypeName, false) != null) {
             return;
         }
@@ -391,6 +428,17 @@ public class JFRProcessor {
             // Previous attempt to access method failed, use fallback
             return useFallbackConstantPoolHeuristic(descriptor);
         }
+        if (isConstantPoolMethod != null) {
+            // Method already accessed successfully before
+            try {
+                return (boolean) isConstantPoolMethod.invoke(descriptor);
+            } catch (InvocationTargetException | IllegalAccessException | InaccessibleObjectException e) {
+                // Cannot access the method due to module restrictions or other access issues
+                logger.debug("Cannot access isConstantPool() method: {}, using fallback heuristic", e.getMessage());
+                isConstantPoolMethodAccessible = false;
+                return useFallbackConstantPoolHeuristic(descriptor);
+            }
+        }
         try {
             // Try to access the package private method descriptor.isConstantPool()
             isConstantPoolMethod = ValueDescriptor.class.getDeclaredMethod("isConstantPool");
@@ -417,11 +465,7 @@ public class JFRProcessor {
     private boolean useFallbackConstantPoolHeuristic(ValueDescriptor descriptor) {
         String typeName = descriptor.getTypeName();
         // StackFrame should be inline (not in constant pool)
-        if ("jdk.types.StackFrame".equals(typeName)) {
-            return false;
-        }
-        // Most other complex types benefit from constant pool
-        return true;
+        return !"jdk.types.StackFrame".equals(typeName);
     }
 
     /**
@@ -525,30 +569,6 @@ public class JFRProcessor {
     }
 
     /**
-     * Creates and registers a JFR event type.
-     */
-    private Type createEventType(RecordedEvent event) {
-        EventType eventType = event.getEventType();
-        String eventTypeName = eventType.getName();
-
-        return output.registerType(eventTypeName, "jdk.jfr.Event", builder -> {
-            ImplicitFieldTracker implicitFields = new ImplicitFieldTracker();
-
-            // Register all fields from the event
-            for (ValueDescriptor field : eventType.getFields()) {
-                implicitFields.trackField(field.getName());
-                addFieldToTypeBuilder(builder, field, new ArrayList<>());
-            }
-
-            // Add missing implicit fields
-            addMissingImplicitFields(builder, eventType, implicitFields);
-
-            // Add event-level annotations
-            addAnnotationsToTypeBuilder(builder, eventType.getAnnotationElements());
-        });
-    }
-
-    /**
      * Adds implicit fields (startTime, eventThread, stackTrace) if they were not already present.
      */
     private void addMissingImplicitFields(TypeStructureBuilder builder, EventType eventType,
@@ -636,6 +656,7 @@ public class JFRProcessor {
 
     /**
      * Helper method to put a field value into an annotation builder, handling arrays and primitives.
+     * Applies redaction to String values.
      */
     private void putAnnotationField(TypedValueBuilder builder, String fieldName, Object value) {
         if (value == null) {
@@ -644,36 +665,85 @@ public class JFRProcessor {
 
         // Handle arrays with pattern matching
         if (value.getClass().isArray()) {
-            switch (value) {
-                case byte[] arr -> builder.putField(fieldName, arr);
-                case short[] arr -> builder.putField(fieldName, arr);
-                case int[] arr -> builder.putField(fieldName, arr);
-                case long[] arr -> builder.putField(fieldName, arr);
-                case float[] arr -> builder.putField(fieldName, arr);
-                case double[] arr -> builder.putField(fieldName, arr);
-                case boolean[] arr -> builder.putField(fieldName, arr);
-                case char[] arr -> builder.putField(fieldName, arr);
-                case String[] arr -> builder.putField(fieldName, arr);
-                default -> {
-                    // For unsupported array types, convert to string
-                    logger.warn("Unsupported array type in annotation: {}", value.getClass().getName());
-                    builder.putField(fieldName, value.toString());
-                }
-            }
+            handleArrayValueForAnnotation(builder, fieldName, value);
         } else {
             // Handle primitives and strings
-            switch (value) {
-                case Byte v -> builder.putField(fieldName, v);
-                case Short v -> builder.putField(fieldName, v);
-                case Integer v -> builder.putField(fieldName, v);
-                case Long v -> builder.putField(fieldName, v);
-                case Float v -> builder.putField(fieldName, v);
-                case Double v -> builder.putField(fieldName, v);
-                case Boolean v -> builder.putField(fieldName, v);
-                case Character v -> builder.putField(fieldName, v);
-                case String v -> builder.putField(fieldName, v);
-                default -> builder.putField(fieldName, value.toString());
+            handlePrimitiveOrWrapperValue(builder, fieldName, value);
+        }
+    }
+
+    /**
+     * Helper method to handle primitive and wrapper type values with redaction.
+     *
+     * @param builder The value builder to put the field into
+     * @param fieldName The name of the field
+     * @param value The primitive or wrapper value
+     */
+    private void handlePrimitiveOrWrapperValue(TypedValueBuilder builder, String fieldName, Object value) {
+        switch (value) {
+            case Byte v -> builder.putField(fieldName, redactionEngine.redact(fieldName, v));
+            case Short v -> builder.putField(fieldName, redactionEngine.redact(fieldName, v));
+            case Integer v -> builder.putField(fieldName, redactionEngine.redact(fieldName, v));
+            case Long v -> builder.putField(fieldName, redactionEngine.redact(fieldName, v));
+            case Float v -> builder.putField(fieldName, redactionEngine.redact(fieldName, v));
+            case Double v -> builder.putField(fieldName, redactionEngine.redact(fieldName, v));
+            case Boolean v -> builder.putField(fieldName, redactionEngine.redact(fieldName, v));
+            case Character v -> builder.putField(fieldName, redactionEngine.redact(fieldName, v));
+            case String v -> builder.putField(fieldName, redactionEngine.redact(fieldName, v));
+            default -> {
+                throw new UnsupportedOperationException(
+                            "Unsupported annotation field type: " + value.getClass().getName()
+                );
             }
+        }
+    }
+
+    /**
+     * Helper method to handle array values with redaction applied.
+     * Handles primitive arrays, String arrays, and optionally Object arrays.
+     *
+     * @param builder The value builder to put the field into
+     * @param fieldName The name of the field
+     * @param value The array value
+     * @param field The field descriptor (optional, only needed for Object[] handling)
+     * @return true if the array was handled, false if it needs special processing
+     */
+    private boolean handleArrayWithRedaction(TypedValueBuilder builder, String fieldName, Object value, ValueDescriptor field) {
+        switch (value) {
+            case byte[] arr -> builder.putField(fieldName, redactionEngine.redact(fieldName, arr));
+            case short[] arr -> builder.putField(fieldName, redactionEngine.redact(fieldName, arr));
+            case int[] arr -> builder.putField(fieldName, redactionEngine.redact(fieldName, arr));
+            case long[] arr -> builder.putField(fieldName, redactionEngine.redact(fieldName, arr));
+            case float[] arr -> builder.putField(fieldName, redactionEngine.redact(fieldName, arr));
+            case double[] arr -> builder.putField(fieldName, redactionEngine.redact(fieldName, arr));
+            case boolean[] arr -> builder.putField(fieldName, redactionEngine.redact(fieldName, arr));
+            case char[] arr -> builder.putField(fieldName, redactionEngine.redact(fieldName, arr));
+            case String[] arr -> builder.putField(fieldName, redactionEngine.redact(fieldName, arr));
+            case Object[] arr -> {
+                // For annotations, convert to string; for fields, handle as complex objects
+                if (field != null) {
+                    builder.putField(fieldName, createComplexArrayValue(field, fieldName, arr));
+                } else {
+                    logger.warn("Unsupported array type in annotation: {}", value.getClass().getName());
+                    builder.putField(fieldName, redactionEngine.redact(fieldName, value.toString()));
+                }
+            }
+            default -> {
+                return false; // Not handled
+            }
+        }
+        return true; // Successfully handled
+    }
+
+    /**
+     * Helper method to handle array values for annotations.
+     * Simpler version that doesn't handle Object[] as complex types.
+     */
+    private void handleArrayValueForAnnotation(TypedValueBuilder builder, String fieldName, Object value) {
+        if (!handleArrayWithRedaction(builder, fieldName, value, null)) {
+            // Not handled - log warning and convert to string
+            logger.warn("Unsupported array type in annotation: {}", value.getClass().getName());
+            builder.putField(fieldName, redactionEngine.redact(fieldName, value.toString()));
         }
     }
 
@@ -884,51 +954,20 @@ public class JFRProcessor {
         // Handle different value types with redaction applied
         String typeName = descriptor.getTypeName();
 
-        switch (typeName) {
-            case "byte" -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, (byte) value));
-            case "short" -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, (short) value));
-            case "int" -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, (int) value));
-            case "long" -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, (long) value));
-            case "float" -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, (float) value));
-            case "double" -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, (double) value));
-            case "boolean" -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, (boolean) value));
-            case "char" -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, (char) value));
-            case "java.lang.String" ->
-                    valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, value.toString()));
-            default -> {
-                // Handle complex types (classes, threads, stack traces, etc.)
-                if (value instanceof jdk.jfr.consumer.RecordedObject) {
-                    handleComplexValue(valueBuilder, descriptor, (jdk.jfr.consumer.RecordedObject) value);
-                } else {
-                    throw new UnsupportedOperationException(
-                            "Unsupported complex value type for field '" + fieldName + "': " + value.getClass().getName()
-                    );
-                }
-            }
+        if (value instanceof RecordedObject) {
+            // Complex type
+            handleComplexValue(valueBuilder, descriptor, (RecordedObject) value);
+            return;
         }
+        handlePrimitiveOrWrapperValue(valueBuilder, fieldName, value);
     }
 
     private void handleArrayValue(TypedValueBuilder valueBuilder, ValueDescriptor field, Object value) {
         String fieldName = field.getName();
         // Arrays in JFR can be primitive arrays or object arrays
         if (value.getClass().isArray()) {
-            // Handle primitive arrays
-            switch (value) {
-                case byte[] byteArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, byteArray));
-                case short[] shortArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, shortArray));
-                case int[] intArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, intArray));
-                case long[] longArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, longArray));
-                case float[] floatArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, floatArray));
-                case double[] doubleArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, doubleArray));
-                case boolean[] booleanArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, booleanArray));
-                case char[] charArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, charArray));
-                case String[] stringArray -> valueBuilder.putField(fieldName, redactionEngine.redact(fieldName, stringArray));
-                case Object[] recordedArray ->
-                    // Handle arrays of complex objects
-                        valueBuilder.putField(fieldName, createComplexArrayValue(field, fieldName, recordedArray));
-                default -> {
-                }
-            }
+            // Use shared array handling method
+            handleArrayWithRedaction(valueBuilder, fieldName, value, field);
         } else if (value instanceof List) {
             // Unsupported list type - throw exception
             throw new UnsupportedOperationException(

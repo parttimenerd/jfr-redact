@@ -275,4 +275,40 @@ public class DiscoveryConfig {
     public boolean isEnabled() {
         return mode != DiscoveryMode.NONE;
     }
+
+    /**
+     * Convenience method to enable/disable discovery.
+     * @param enabled If true, sets mode to FAST; if false, sets mode to NONE
+     */
+    public void setEnabled(boolean enabled) {
+        this.mode = enabled ? DiscoveryMode.FAST : DiscoveryMode.NONE;
+    }
+
+    /**
+     * Set the default minimum occurrences for all extraction patterns.
+     * This is a convenience method for testing.
+     * If no extraction patterns exist, creates a default word-discovery pattern.
+     */
+    public void setMinOccurrencesDefault(int minOccurrences) {
+        // Update existing patterns
+        for (CustomExtractionConfig config : customExtractions) {
+            config.setMinOccurrences(minOccurrences);
+        }
+        for (PropertyExtractionConfig config : propertyExtractions) {
+            config.setMinOccurrences(minOccurrences);
+        }
+    }
+
+    /**
+     * Set case sensitivity for all extraction patterns.
+     * This is a convenience method for testing.
+     */
+    public void setCaseSensitive(boolean caseSensitive) {
+        for (CustomExtractionConfig config : customExtractions) {
+            config.setCaseSensitive(caseSensitive);
+        }
+        for (PropertyExtractionConfig config : propertyExtractions) {
+            config.setCaseSensitive(caseSensitive);
+        }
+    }
 }

@@ -352,24 +352,6 @@ public class RedactCommand implements Callable<Integer> {
     }
 
     /**
-     * Configure logging level based on flags.
-     */
-    private void configureLogging() {
-        ch.qos.logback.classic.Logger rootLogger =
-            (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(
-                org.slf4j.Logger.ROOT_LOGGER_NAME);
-
-        if (debug) {
-            rootLogger.setLevel(ch.qos.logback.classic.Level.DEBUG);
-        } else if (verbose) {
-            rootLogger.setLevel(ch.qos.logback.classic.Level.INFO);
-        } else if (quiet) {
-            rootLogger.setLevel(ch.qos.logback.classic.Level.WARN);
-        }
-        // else keep default level from logback.xml
-    }
-
-    /**
      * Load configuration from preset or config file/URL, then apply CLI options.
      */
     private RedactionConfig loadConfiguration() throws IOException {
@@ -489,32 +471,6 @@ public class RedactCommand implements Callable<Integer> {
             }
 
             decisionsFile = new File(decisionsPath);
-        }
-    }
-
-    /**
-     * Set up interactive mode for a processor
-     */
-    private void setupInteractiveMode(Object processor) {
-        if (decisionsFile == null) {
-            logger.warn("Interactive mode enabled but no decisions file set");
-            return;
-        }
-
-        logger.info("Interactive mode enabled");
-        logger.info("Decisions file: {}", decisionsFile.getAbsolutePath());
-
-        me.bechberger.jfrredact.engine.InteractiveDecisionManager manager =
-            new me.bechberger.jfrredact.engine.InteractiveDecisionManager(
-                decisionsFile.toPath(),
-                true
-            );
-
-        // Set the interactive manager on the processor
-        if (processor instanceof JFRProcessor) {
-            ((JFRProcessor) processor).setInteractiveDecisionManager(manager);
-        } else if (processor instanceof TextFileRedactor) {
-            ((TextFileRedactor) processor).setInteractiveDecisionManager(manager);
         }
     }
 }

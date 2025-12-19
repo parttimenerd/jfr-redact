@@ -69,6 +69,42 @@ public class JFRTestProcessor {
         return this;
     }
 
+    /**
+     * Process with fast (on-the-fly) discovery enabled.
+     * @param configurer Optional configurer to customize the config before processing
+     */
+    public JFRTestProcessor withFastDiscovery(java.util.function.Consumer<RedactionConfig> configurer) {
+        try {
+            RedactionConfig config = new ConfigLoader().load("default");
+            config.getDiscovery().setMode(me.bechberger.jfrredact.config.DiscoveryConfig.DiscoveryMode.FAST);
+            if (configurer != null) {
+                configurer.accept(config);
+            }
+            this.engine = new RedactionEngine(config);
+            return this;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load default config", e);
+        }
+    }
+
+    /**
+     * Process with comprehensive discovery enabled.
+     * @param configurer Optional configurer to customize the config before processing
+     */
+    public JFRTestProcessor withComprehensiveDiscovery(java.util.function.Consumer<RedactionConfig> configurer) {
+        try {
+            RedactionConfig config = new ConfigLoader().load("default");
+            config.getDiscovery().setMode(me.bechberger.jfrredact.config.DiscoveryConfig.DiscoveryMode.TWO_PASS);
+            if (configurer != null) {
+                configurer.accept(config);
+            }
+            this.engine = new RedactionEngine(config);
+            return this;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load default config", e);
+        }
+    }
+
     public JFRTestProcessor outputTo(String name) {
         this.outputName = name;
         return this;

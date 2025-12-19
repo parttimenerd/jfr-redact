@@ -42,12 +42,121 @@ public class RedactionEngine {
 
     private static final Logger logger = LoggerFactory.getLogger(RedactionEngine.class);
 
+    /**
+     * Types of patterns supported by the redaction engine.
+     */
+    private enum PatternKind {
+        EMAIL("email"),
+        IP("ip"),
+        UUID("uuid"),
+        SSH("ssh_host"),
+        USER("home_directory"),
+        INTERNAL_URL("internal_url"),
+        HOSTNAME("hostname"),
+        CUSTOM("custom");
+
+        private final String redactionType;
+
+        PatternKind(String redactionType) {
+            this.redactionType = redactionType;
+        }
+
+        String getRedactionType() {
+            return redactionType;
+        }
+    }
+
+    /**
+     * Interface for pattern matching - supports both String.contains() and regex Pattern.
+     */
+    private sealed interface PatternMatcher {
+        boolean find(String value);
+        String getKey();
+        Matcher getMatcher(String value);
+    }
+
+    /**
+     * Simple string matcher using contains() for fast substring matching.
+     */
+    private static final class StringMatcher implements PatternMatcher {
+        private final String substring;
+        private final String key;
+        private final Pattern pattern; // Lazy-initialized pattern for getMatcher()
+        private Matcher matcher;
+
+        StringMatcher(String substring, String key) {
+            this.substring = substring;
+            this.key = key;
+            this.pattern = Pattern.compile(Pattern.quote(substring));
+        }
+
+        @Override
+        public boolean find(String value) {
+            return value.contains(substring);
+        }
+
+        @Override
+        public String getKey() {
+            return key;
+        }
+
+        @Override
+        public Matcher getMatcher(String value) {
+            if (matcher == null) {
+                matcher = pattern.matcher(value);
+            } else {
+                matcher.reset(value);
+            }
+            return matcher;
+        }
+    }
+
+    /**
+     * Regex pattern matcher for complex patterns.
+     */
+    private static final class RegexMatcher implements PatternMatcher {
+        private final Pattern pattern;
+        private final String key;
+        private Matcher matcher;
+
+        RegexMatcher(Pattern pattern, String key) {
+            this.pattern = pattern;
+            this.key = key;
+        }
+
+        @Override
+        public boolean find(String value) {
+            if (matcher == null) {
+                matcher = pattern.matcher(value);
+            } else {
+                matcher.reset(value);
+            }
+            return matcher.find();
+        }
+
+        @Override
+        public String getKey() {
+            return key;
+        }
+
+        @Override
+        public Matcher getMatcher(String value) {
+            if (matcher == null) {
+                matcher = pattern.matcher(value);
+            } else {
+                matcher.reset(value);
+            }
+            return matcher;
+        }
+    }
+
     private final RedactionConfig config;
     private final Pseudonymizer pseudonymizer;
     private final RedactionStats stats;
 
-    // Compiled patterns cache for performance
-    private final Map<String, Pattern> patternCache = new HashMap<>();
+    // Two-level compiled patterns cache for performance: PatternKind -> key -> PatternMatcher
+    // This avoids iterating through all patterns and checking prefixes
+    private final Map<PatternKind, Map<String, PatternMatcher>> patternCacheByKind = new HashMap<>();
 
     // Ignore lists cache - maps pattern key to IgnoreLists object
     private final Map<String, IgnoreLists> ignoreListCache = new HashMap<>();
@@ -145,7 +254,7 @@ public class RedactionEngine {
             );
             for (int i = 0; i < patterns.getEmails().getPatterns().size(); i++) {
                 String regex = patterns.getEmails().getPatterns().get(i);
-                patternCache.put("email_" + i, Pattern.compile(regex));
+                addPattern(PatternKind.EMAIL, "email_" + i, regex);
                 ignoreListCache.put("email_" + i, emailIgnore);
             }
         }
@@ -159,7 +268,7 @@ public class RedactionEngine {
             );
             for (int i = 0; i < patterns.getIpAddresses().getPatterns().size(); i++) {
                 String regex = patterns.getIpAddresses().getPatterns().get(i);
-                patternCache.put("ip_" + i, Pattern.compile(regex));
+                addPattern(PatternKind.IP, "ip_" + i, regex);
                 ignoreListCache.put("ip_" + i, ipIgnore);
             }
         }
@@ -173,7 +282,7 @@ public class RedactionEngine {
             );
             for (int i = 0; i < patterns.getUuids().getPatterns().size(); i++) {
                 String regex = patterns.getUuids().getPatterns().get(i);
-                patternCache.put("uuid_" + i, Pattern.compile(regex));
+                addPattern(PatternKind.UUID, "uuid_" + i, regex);
                 ignoreListCache.put("uuid_" + i, uuidIgnore);
             }
         }
@@ -187,7 +296,7 @@ public class RedactionEngine {
             );
             for (int i = 0; i < patterns.getSshHosts().getPatterns().size(); i++) {
                 String regex = patterns.getSshHosts().getPatterns().get(i);
-                patternCache.put("ssh_" + i, Pattern.compile(regex));
+                addPattern(PatternKind.SSH, "ssh_" + i, regex);
                 ignoreListCache.put("ssh_" + i, sshIgnore);
             }
         }
@@ -201,7 +310,7 @@ public class RedactionEngine {
             );
             for (int i = 0; i < patterns.getUser().getPatterns().size(); i++) {
                 String regex = patterns.getUser().getPatterns().get(i);
-                patternCache.put("user_" + i, Pattern.compile(regex));
+                addPattern(PatternKind.USER, "user_" + i, regex);
                 ignoreListCache.put("user_" + i, userIgnore);
             }
         }
@@ -210,7 +319,7 @@ public class RedactionEngine {
         if (patterns.getHostnames().isEnabled()) {
             for (int i = 0; i < patterns.getHostnames().getPatterns().size(); i++) {
                 String regex = patterns.getHostnames().getPatterns().get(i);
-                patternCache.put("hostname_" + i, Pattern.compile(regex));
+                addPattern(PatternKind.HOSTNAME, "hostname_" + i, regex);
             }
             // Note: hostnames use getIgnoreExact() for safe hostnames
             // handled separately in replaceHostnameMatches
@@ -225,7 +334,7 @@ public class RedactionEngine {
             );
             for (int i = 0; i < patterns.getInternalUrls().getPatterns().size(); i++) {
                 String regex = patterns.getInternalUrls().getPatterns().get(i);
-                patternCache.put("internal_url_" + i, Pattern.compile(regex));
+                addPattern(PatternKind.INTERNAL_URL, "internal_url_" + i, regex);
                 ignoreListCache.put("internal_url_" + i, urlIgnore);
             }
         }
@@ -243,11 +352,53 @@ public class RedactionEngine {
                 for (int j = 0; j < customPattern.getPatterns().size(); j++) {
                     String regex = customPattern.getPatterns().get(j);
                     String key = "custom_" + baseName + (customPattern.getPatterns().size() > 1 ? "_" + j : "");
-                    patternCache.put(key, Pattern.compile(regex));
+                    addPattern(PatternKind.CUSTOM, key, regex);
                     ignoreListCache.put(key, customIgnore);
                 }
             }
         }
+    }
+
+    /**
+     * Helper method to add a pattern to the two-level cache.
+     * Automatically detects if the pattern is a simple string or a regex.
+     * @param kind The kind of pattern (EMAIL, IP, UUID, etc.)
+     * @param key The full key including the kind prefix
+     * @param regex The regex pattern string (or simple string)
+     */
+    private void addPattern(PatternKind kind, String key, String regex) {
+        PatternMatcher matcher;
+
+        // Check if this is a simple string (no regex metacharacters)
+        if (isSimpleString(regex)) {
+            // Use fast StringMatcher for simple strings
+            matcher = new StringMatcher(regex, key);
+        } else {
+            // Use RegexMatcher for complex patterns
+            matcher = new RegexMatcher(Pattern.compile(regex), key);
+        }
+
+        patternCacheByKind
+            .computeIfAbsent(kind, (PatternKind k) -> new HashMap<>())
+            .put(key, matcher);
+    }
+
+    /**
+     * Check if a pattern string is a simple literal string (no regex metacharacters).
+     * Simple strings can use fast String.contains() instead of regex matching.
+     */
+    private boolean isSimpleString(String pattern) {
+        // Check for common regex metacharacters
+        // If the pattern contains any of these, it's not a simple string
+        for (char c : pattern.toCharArray()) {
+            switch (c) {
+                case '.', '*', '+', '?', '[', ']', '(', ')', '{', '}',
+                     '^', '$', '|', '\\' -> {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
@@ -671,209 +822,157 @@ public class RedactionEngine {
 
     /**
      * Check string patterns and return the redaction result with type information.
+     * Uses two-level cache for optimal performance with early exit optimization.
      */
     private RedactionResult checkStringPatternsWithType(String value) {
         String result = value;
         String redactionType = null;
 
-        // Check email patterns - use find() for partial matching
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("email_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, entry.getKey());
-                    if (redactionType == null) redactionType = "email";
+        // Check patterns in order of priority (most common first for early exit)
+        // IP patterns (very common in JFR)
+        String after = checkPatternKind(PatternKind.IP, result, this::replaceMatches);
+        if (after != result) { // Reference comparison is faster than equals()
+            if (redactionType == null) {
+                redactionType = PatternKind.IP.getRedactionType();
+            }
+            result = after;
+        }
+
+        // Email patterns
+        after = checkPatternKind(PatternKind.EMAIL, result, this::replaceMatches);
+        if (after != result) {
+            if (redactionType == null) {
+                redactionType = PatternKind.EMAIL.getRedactionType();
+            }
+            result = after;
+        }
+
+        // User/home directory patterns (common in file paths)
+        after = checkPatternKind(PatternKind.USER, result, (matcher, val, key) ->
+            replaceCaptureGroup(matcher, val, 1, key));
+        if (after != result) {
+            if (redactionType == null) {
+                redactionType = PatternKind.USER.getRedactionType();
+            }
+            result = after;
+        }
+
+        // Internal URL patterns BEFORE hostnames (URLs may contain hostnames)
+        after = checkPatternKind(PatternKind.INTERNAL_URL, result, this::replaceMatches);
+        if (after != result) {
+            if (redactionType == null) {
+                redactionType = PatternKind.INTERNAL_URL.getRedactionType();
+            }
+            result = after;
+        }
+
+        // Hostname patterns (with safe hostname filtering)
+        after = checkPatternKind(PatternKind.HOSTNAME, result, this::replaceHostnameMatches);
+        if (after != result) {
+            if (redactionType == null) {
+                redactionType = PatternKind.HOSTNAME.getRedactionType();
+            }
+            result = after;
+        }
+
+        // UUID patterns (less common)
+        after = checkPatternKind(PatternKind.UUID, result, this::replaceMatches);
+        if (after != result) {
+            if (redactionType == null) {
+                redactionType = PatternKind.UUID.getRedactionType();
+            }
+            result = after;
+        }
+
+        // SSH host patterns (less common)
+        after = checkPatternKind(PatternKind.SSH, result, this::replaceMatches);
+        if (after != result) {
+            if (redactionType == null) {
+                redactionType = PatternKind.SSH.getRedactionType();
+            }
+            result = after;
+        }
+
+        // Custom patterns (including CLI-added patterns)
+        Map<String, PatternMatcher> customPatterns = patternCacheByKind.get(PatternKind.CUSTOM);
+        if (customPatterns != null && !customPatterns.isEmpty()) {
+            for (Map.Entry<String, PatternMatcher> entry : customPatterns.entrySet()) {
+                if (entry.getValue().find(result)) {
+                    Matcher matcher = entry.getValue().getMatcher(result);
+                    after = replaceMatches(matcher, result, entry.getKey());
+                    if (after != result) {
+                        if (redactionType == null) {
+                            redactionType = entry.getKey().startsWith("cli_") ? "custom_cli" : "custom";
+                        }
+                        result = after;
+                    }
                 }
             }
         }
 
-        // Check IP patterns - use find() for partial matching
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("ip_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, entry.getKey());
-                    if (redactionType == null) redactionType = "ip";
-                }
-            }
-        }
-
-        // Check UUID patterns - use find() for partial matching
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("uuid_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, entry.getKey());
-                    if (redactionType == null) redactionType = "uuid";
-                }
-            }
-        }
-
-        // Check SSH host patterns
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("ssh_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, "ssh_host");
-                    if (redactionType == null) redactionType = "ssh_host";
-                }
-            }
-        }
-
-        // Check user/home directory patterns - replaces only the captured username, not the entire path
-        // This preserves the path structure (e.g., /Users/***/ instead of ***)
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("user_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceCaptureGroup(matcher, result, 1, "home_directory");
-                    if (redactionType == null) redactionType = "home_directory";
-                }
-            }
-        }
-
-        // Check internal URL patterns BEFORE hostnames (URLs may contain hostnames)
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("internal_url_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, "internal_url");
-                    if (redactionType == null) redactionType = "internal_url";
-                }
-            }
-        }
-
-        // Check hostname patterns (with safe hostname filtering)
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("hostname_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    String before = result;
-                    result = replaceHostnameMatches(matcher, result);
-                    if (!result.equals(before) && redactionType == null) redactionType = "hostname";
-                }
-            }
-        }
-
-        // Check custom patterns (including CLI-added patterns)
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            String key = entry.getKey();
-            if (key.startsWith("custom_") || key.startsWith("cli_pattern_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, key);
-                    if (redactionType == null) redactionType = key.startsWith("cli_") ? "custom_cli" : "custom";
-                }
-            }
-        }
-
-        // Check discovered patterns (lower priority - only if not already redacted by configured patterns)
-        if (discoveredPatterns != null && !result.equals(value)) {
-            // Only apply discovered patterns if we haven't already redacted
-        } else if (discoveredPatterns != null) {
-            String discoveryResult = applyDiscoveredPatterns(result);
-            if (!discoveryResult.equals(result)) {
-                result = discoveryResult;
+        // Check discovered patterns (lower priority - only if not already redacted)
+        if (discoveredPatterns != null && result == value) { // Reference comparison
+            after = applyDiscoveredPatterns(result);
+            if (after != result) {
+                result = after;
                 if (redactionType == null) redactionType = "discovered";
             }
         }
 
-        if (!result.equals(value)) {
-            return RedactionResult.redacted(result, redactionType != null ? redactionType : "pattern");
+        // Final check: did anything change?
+        if (result != value) { // Reference comparison
+            return RedactionResult.redacted(result, redactionType);
         }
         return RedactionResult.noChange(value);
     }
 
-    private String checkStringPatterns(String value) {
+    /**
+     * Functional interface for pattern replacement strategies.
+     */
+    @FunctionalInterface
+    private interface ReplacementStrategy {
+        String replace(Matcher matcher, String value, String key);
+    }
+
+    /**
+     * Check all patterns of a given kind and apply replacements.
+     * Returns the same string reference if no changes were made (for fast comparison).
+     */
+    private String checkPatternKind(PatternKind kind, String value, ReplacementStrategy replacer) {
+        Map<String, PatternMatcher> patterns = patternCacheByKind.get(kind);
+        if (patterns == null || patterns.isEmpty()) {
+            return value; // Return same reference for fast identity comparison
+        }
+
         String result = value;
-
-        // Check email patterns - use find() for partial matching
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("email_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, entry.getKey());
+        for (Map.Entry<String, PatternMatcher> entry : patterns.entrySet()) {
+            if (entry.getValue().find(result)) {
+                Matcher matcher = entry.getValue().getMatcher(result);
+                String replaced = replacer.replace(matcher, result, entry.getKey());
+                if (replaced != result) {
+                    result = replaced;
                 }
             }
         }
-
-        // Check IP patterns - use find() for partial matching
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("ip_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, entry.getKey());
-                }
-            }
-        }
-
-        // Check UUID patterns - use find() for partial matching
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("uuid_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, entry.getKey());
-                }
-            }
-        }
-
-        // Check SSH host patterns
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("ssh_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, "ssh_host");
-                }
-            }
-        }
-
-        // Check user/home directory patterns - replaces only the captured username, not the entire path
-        // This preserves the path structure (e.g., /Users/***/ instead of ***)
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("user_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceCaptureGroup(matcher, result, 1, "home_directory");
-                }
-            }
-        }
-
-        // Check internal URL patterns BEFORE hostnames (URLs may contain hostnames)
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("internal_url_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, "internal_url");
-                }
-            }
-        }
-
-        // Check hostname patterns (with safe hostname filtering)
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            if (entry.getKey().startsWith("hostname_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceHostnameMatches(matcher, result);
-                }
-            }
-        }
-
-        // Check custom patterns (including CLI-added patterns)
-        for (Map.Entry<String, Pattern> entry : patternCache.entrySet()) {
-            String key = entry.getKey();
-            if (key.startsWith("custom_") || key.startsWith("cli_pattern_")) {
-                Matcher matcher = entry.getValue().matcher(result);
-                if (matcher.find()) {
-                    result = replaceMatches(matcher, result, key);
-                }
-            }
-        }
-
         return result;
+    }
+
+
+    private String checkStringPatterns(String value) {
+        // Reuse the optimized checkStringPatternsWithType and just extract the value
+        return checkStringPatternsWithType(value).getRedactedValue();
     }
 
     private String replaceMatches(Matcher matcher, String value, String patternKey) {
         // Reset matcher to scan from beginning
+        matcher.reset();
+
+        // Early exit: if no match found, return original value
+        if (!matcher.find()) {
+            return value;
+        }
+
+        // Reset again to start from beginning for replacement
         matcher.reset();
 
         // Get global no_redact list
@@ -946,7 +1045,7 @@ public class RedactionEngine {
         return sb.toString();
     }
 
-    private String replaceHostnameMatches(Matcher matcher, String value) {
+    private String replaceHostnameMatches(Matcher matcher, String value, String patternKey) {
         // Reset matcher to scan from beginning
         matcher.reset();
 
@@ -1129,17 +1228,26 @@ public class RedactionEngine {
         String result = value;
         boolean caseSensitive = discoveredPatterns.isCaseSensitive();
 
-        // Sort by value length (longest first) to avoid partial replacements
-        values.sort((a, b) -> Integer.compare(b.getValue().length(), a.getValue().length()));
+        // Cache toLowerCase() result if case-insensitive (avoid repeated allocations)
+        String lowerValue = caseSensitive ? null : value.toLowerCase();
 
-        int flags = caseSensitive ? 0 : Pattern.CASE_INSENSITIVE;
+        // Note: values are already sorted by length (longest first) from discovery phase
+        // No need to sort again on every call
 
         for (DiscoveredPatterns.DiscoveredValue discovered : values) {
             String toFind = discovered.getValue();
 
-            boolean found = caseSensitive
-                ? result.contains(toFind)
-                : result.toLowerCase().contains(toFind.toLowerCase());
+            // Fast check before replacement - avoid toLowerCase if case-sensitive
+            boolean found;
+            if (caseSensitive) {
+                found = result.contains(toFind);
+            } else {
+                // Use cached lowercase for comparison
+                if (lowerValue == null) {
+                    lowerValue = result.toLowerCase();
+                }
+                found = lowerValue.contains(toFind.toLowerCase());
+            }
 
             if (found) {
                 // Replace all occurrences
@@ -1151,8 +1259,10 @@ public class RedactionEngine {
                 if (caseSensitive) {
                     result = result.replace(toFind, replacement);
                 } else {
-                    // Case-insensitive replacement - need to find and replace all occurrences
+                    // Case-insensitive replacement
                     result = replaceCaseInsensitive(result, toFind, replacement);
+                    // Update cached lowercase since result changed
+                    lowerValue = result.toLowerCase();
                 }
 
                 logger.trace("Redacted discovered {} value '{}' in text",

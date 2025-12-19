@@ -4,15 +4,13 @@ import jdk.jfr.*;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordedStackTrace;
 import jdk.jfr.consumer.RecordingFile;
+import me.bechberger.jfrredact.config.StringConfig;
 import me.bechberger.jfrredact.jfr.util.JFRTestHelper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.openjdk.jmc.flightrecorder.writer.RecordingImpl;
-import org.openjdk.jmc.flightrecorder.writer.api.Recordings;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -660,6 +658,455 @@ public class JFRProcessorTest {
                     Assertions.assertDoesNotThrow(e.getStackTrace().getFrames().getFirst()::toString);
                     Assertions.assertDoesNotThrow(e.getStackTrace()::toString);
                     Assertions.assertDoesNotThrow(e::toString);
+                });
+    }
+
+    // ========== On-The-Fly Discovery Tests ==========
+    // NOTE: On-the-fly discovery requires proper configuration of extraction patterns.
+
+    @Test
+    public void testFastDiscoveryMode_BasicFunctionality() throws IOException {
+        // Verify that fast discovery mode processes files without errors
+        Path inputPath = helper.recording()
+                .addSimpleEvent("Hello World", 42, true)
+                .addSimpleEvent("Goodbye World", 43, false)
+                .build();
+
+        // Process with fast discovery enabled (should complete without errors)
+        helper.verify(helper.process()
+                        .from(inputPath)
+                        .withFastDiscovery(null)
+                        .process())
+                .fileExists()
+                .fileNotEmpty()
+                .hasEvents()
+                .hasEventOfType("test.SimpleEvent", 2);
+    }
+
+    @Test
+    public void testComprehensiveDiscoveryMode() throws IOException {
+        // Test comprehensive (two-pass) discovery mode
+        Path inputPath = helper.recording()
+                .addSimpleEvent("Processing item_123", 1, true)
+                .addSimpleEvent("Processing item_456", 2, true)
+                .build();
+
+        // Process with comprehensive discovery
+        helper.verify(helper.process()
+                        .from(inputPath)
+                        .withComprehensiveDiscovery(null)
+                        .process())
+                .fileExists()
+                .hasEvents();
+    }
+
+    @Test
+    public void testOnTheFlyDiscovery_EmailsAndIPs() throws IOException {
+        // Create events with emails and IPs
+        Path inputPath = helper.recording()
+                .addEvent(() -> {
+                    for (int i = 0; i < 3; i++) {
+                        SensitiveDataEvent e = new SensitiveDataEvent();
+                        e.username = "user" + i;
+                        e.password = "pass" + i;
+                        e.email = "admin@internal.com"; // Same email repeated
+                        e.ipAddress = "10.0.0." + i;
+                        e.commit();
+                    }
+                })
+                .build();
+
+        // Process with on-the-fly discovery
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withFastDiscovery(config -> {
+                    config.getDiscovery().setEnabled(true);
+                    config.getDiscovery().setMinOccurrencesDefault(2);
+                })
+                .process())
+                .allEvents(events -> {
+                    // Email appears 3 times, should be discovered and redacted
+                    boolean emailRedacted = events.stream()
+                            .allMatch(e -> {
+                                String email = e.getString("email");
+                                return email != null && !email.contains("admin@internal.com");
+                            });
+                    Assertions.assertTrue(emailRedacted, "Email should be redacted");
+                });
+    }
+
+    @Test
+    public void testOnTheFlyDiscovery_MinOccurrencesThreshold() throws IOException {
+        // Create events where some values appear frequently, others don't
+        Path inputPath = helper.recording()
+                .addEvent(() -> {
+                    // "frequent_value" appears 5 times
+                    for (int i = 0; i < 5; i++) {
+                        SimpleEvent e = new SimpleEvent();
+                        e.message = "Log: frequent_value detected";
+                        e.commit();
+                    }
+
+                    // "rare_value" appears only once
+                    SimpleEvent rare = new SimpleEvent();
+                    rare.message = "Log: rare_value detected";
+                    rare.commit();
+                })
+                .build();
+
+        // Set min_occurrences to 3
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withFastDiscovery(config -> {
+                    config.getDiscovery().setEnabled(true);
+                    config.getDiscovery().setMinOccurrencesDefault(3);
+                })
+                .process())
+                .allEvents(events -> {
+                    long frequentRedacted = events.stream()
+                            .filter(e -> {
+                                String msg = e.getString("message");
+                                return msg != null && !msg.contains("frequent_value");
+                            })
+                            .count();
+
+                    long rareNotRedacted = events.stream()
+                            .filter(e -> {
+                                String msg = e.getString("message");
+                                return msg != null && msg.contains("rare_value");
+                            })
+                            .count();
+
+                    Assertions.assertTrue(frequentRedacted > 0, "frequent_value should be redacted");
+                    Assertions.assertEquals(1, rareNotRedacted, "rare_value should NOT be redacted");
+                });
+    }
+
+    @Test
+    public void testOnTheFlyDiscovery_MixedPatternTypes() throws IOException {
+        // Create events with various pattern types
+        Path inputPath = helper.recording()
+                .addEvent(() -> {
+                    SimpleEvent e1 = new SimpleEvent();
+                    e1.message = "Contact admin@example.com or visit 10.0.0.5";
+                    e1.commit();
+
+                    SimpleEvent e2 = new SimpleEvent();
+                    e2.message = "User alice logged in from 10.0.0.5";
+                    e2.commit();
+
+                    SimpleEvent e3 = new SimpleEvent();
+                    e3.message = "Email admin@example.com sent notification";
+                    e3.commit();
+                })
+                .build();
+
+        // With on-the-fly discovery
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withFastDiscovery(config -> {
+                    config.getDiscovery().setEnabled(true);
+                    config.getDiscovery().setMinOccurrencesDefault(2);
+                    // Also enable configured patterns
+                    config.getStrings().setEnabled(true);
+                })
+                .process())
+                .allEvents(events -> {
+                    // Both configured patterns (email, IP) and discovered patterns should work
+                    boolean allRedacted = events.stream()
+                            .allMatch(e -> {
+                                String msg = e.getString("message");
+                                if (msg == null) return true;
+                                // Should not contain the original values
+                                return !msg.contains("admin@example.com") &&
+                                       !msg.contains("10.0.0.5");
+                            });
+                    Assertions.assertTrue(allRedacted, "All sensitive data should be redacted");
+                });
+    }
+
+    @Test
+    public void testOnTheFlyDiscovery_PathsAndFilenames() throws IOException {
+        Path inputPath = helper.recording()
+                .addEvent(() -> {
+                    SimpleEvent e1 = new SimpleEvent();
+                    e1.message = "File /home/john_doe/project/data.txt modified";
+                    e1.commit();
+
+                    SimpleEvent e2 = new SimpleEvent();
+                    e2.message = "File /home/john_doe/project/config.xml created";
+                    e2.commit();
+
+                    SimpleEvent e3 = new SimpleEvent();
+                    e3.message = "File /home/alice/document.pdf opened";
+                    e3.commit();
+                })
+                .build();
+
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withFastDiscovery(config -> {
+                    config.getDiscovery().setEnabled(true);
+                    config.getPaths().setEnabled(true);
+                })
+                .process())
+                .allEvents(events -> {
+                    // john_doe appears twice in paths, should be redacted
+                    boolean johnRedacted = events.stream()
+                            .filter(e -> e.getString("message") != null)
+                            .filter(e -> e.getString("message").contains("/home/"))
+                            .allMatch(e -> !e.getString("message").contains("john_doe"));
+                    Assertions.assertTrue(johnRedacted, "john_doe in paths should be redacted");
+                });
+    }
+
+    @Test
+    public void testOnTheFlyDiscovery_CustomPatterns() throws IOException {
+        // Test that custom patterns work with on-the-fly discovery
+        Path inputPath = helper.recording()
+                .addEvent(() -> {
+                    // Create events with custom identifiers
+                    SimpleEvent e1 = new SimpleEvent();
+                    e1.message = "Transaction ID: TXN-12345-ABC processed";
+                    e1.commit();
+
+                    SimpleEvent e2 = new SimpleEvent();
+                    e2.message = "Transaction ID: TXN-12345-ABC completed";
+                    e2.commit();
+
+                    SimpleEvent e3 = new SimpleEvent();
+                    e3.message = "Transaction ID: TXN-67890-XYZ started";
+                    e3.commit();
+                })
+                .build();
+
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withFastDiscovery(config -> {
+                    config.getDiscovery().setEnabled(true);
+                    config.getDiscovery().setMinOccurrencesDefault(2);
+                    // Add custom pattern for transaction IDs
+                    var customPattern = new me.bechberger.jfrredact.config.StringConfig.CustomPatternConfig();
+                    customPattern.setName("transaction_id");
+                    customPattern.getPatterns().add("TXN-[0-9A-Z-]+");
+                    config.getStrings().getPatterns().getCustom().add(customPattern);
+                })
+                .process())
+                .allEvents(events -> {
+                    // TXN-12345-ABC appears twice, should be redacted by custom pattern
+                    boolean txnRedacted = events.stream()
+                            .filter(e -> e.getString("message") != null)
+                            .filter(e -> e.getString("message").contains("Transaction"))
+                            .allMatch(e -> !e.getString("message").contains("TXN-12345-ABC"));
+                    Assertions.assertTrue(txnRedacted, "Transaction ID should be redacted by custom pattern");
+                });
+    }
+
+    @Test
+    public void testOnTheFlyDiscovery_CustomPatternWithDiscovery() throws IOException {
+        // Test combining custom patterns with discovered patterns
+        Path inputPath = helper.recording()
+                .addEvent(() -> {
+                    // Events with both custom pattern matches and discoverable values
+                    SimpleEvent e1 = new SimpleEvent();
+                    e1.message = "API Key: api_key_abc123 used by service_alpha";
+                    e1.commit();
+
+                    SimpleEvent e2 = new SimpleEvent();
+                    e2.message = "API Key: api_key_xyz789 used by service_alpha";
+                    e2.commit();
+
+                    SimpleEvent e3 = new SimpleEvent();
+                    e3.message = "Request from service_alpha completed";
+                    e3.commit();
+                })
+                .build();
+
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withFastDiscovery(config -> {
+                    config.getDiscovery().setEnabled(true);
+                    config.getDiscovery().setMinOccurrencesDefault(2);
+                    // Add custom pattern for API keys
+                    var customPattern = new StringConfig.CustomPatternConfig();
+                    customPattern.setName("api_key");
+                    customPattern.getPatterns().add("api_key_[a-z0-9]+");
+                    config.getStrings().getPatterns().getCustom().add(customPattern);
+                    // Add custom pattern for service identifiers with discovery enabled
+                    var servicePattern = new StringConfig.CustomPatternConfig();
+                    servicePattern.setName("service_identifier");
+                    servicePattern.getPatterns().add("service_[a-z_]+");
+                    servicePattern.setEnableDiscovery(true);
+                    servicePattern.setDiscoveryMinOccurrences(2);
+                    config.getStrings().getPatterns().getCustom().add(servicePattern);
+                })
+                .process())
+                .allEvents(events -> {
+                    // Both API keys should be redacted by custom pattern
+                    boolean apiKeysRedacted = events.stream()
+                            .filter(e -> e.getString("message") != null)
+                            .allMatch(e -> {
+                                String msg = e.getString("message");
+                                return !msg.contains("api_key_abc123") && !msg.contains("api_key_xyz789");
+                            });
+                    Assertions.assertTrue(apiKeysRedacted, "API keys should be redacted by custom pattern");
+
+                    // service_alpha appears 3 times, should be discovered and redacted
+                    boolean serviceRedacted = events.stream()
+                            .filter(e -> e.getString("message") != null)
+                            .filter(e -> e.getString("message").contains("service"))
+                            .allMatch(e -> !e.getString("message").contains("service_alpha"));
+                    Assertions.assertTrue(serviceRedacted, "service_alpha should be discovered and redacted");
+                });
+    }
+
+    @Test
+    public void testOnTheFlyDiscovery_CustomPatternIgnoreList() throws IOException {
+        // Test that custom patterns respect ignore lists during discovery
+        Path inputPath = helper.recording()
+                .addEvent(() -> {
+                    SimpleEvent e1 = new SimpleEvent();
+                    e1.message = "Server localhost responded";
+                    e1.commit();
+
+                    SimpleEvent e2 = new SimpleEvent();
+                    e2.message = "Server localhost timeout";
+                    e2.commit();
+
+                    SimpleEvent e3 = new SimpleEvent();
+                    e3.message = "Server prod-server-01 responded";
+                    e3.commit();
+                })
+                .build();
+
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withFastDiscovery(config -> {
+                    config.getDiscovery().setEnabled(true);
+                    config.getDiscovery().setMinOccurrencesDefault(2);
+                    // Add custom pattern for server names with ignore list
+                    var customPattern = new StringConfig.CustomPatternConfig();
+                    customPattern.setName("server_name");
+                    customPattern.getPatterns().add("(localhost|[a-z0-9-]+)");
+                    customPattern.getIgnoreExact().add("localhost"); // Don't redact localhost
+                    config.getStrings().getPatterns().getCustom().add(customPattern);
+                })
+                .process())
+                .allEvents(events -> {
+                    // localhost should NOT be redacted (in ignore list)
+                    long localhostCount = events.stream()
+                            .filter(e -> e.getString("message") != null)
+                            .filter(e -> e.getString("message").contains("localhost"))
+                            .count();
+                    Assertions.assertEquals(2, localhostCount, "localhost should not be redacted");
+                });
+    }
+
+    @Test
+    public void testOnTheFlyDiscovery_MultipleConcurrentPatterns() throws IOException {
+        // Test that multiple pattern types work together in discovery
+        Path inputPath = helper.recording()
+                .addEvent(() -> {
+                    for (int i = 0; i < 4; i++) {
+                        SensitiveDataEvent e = new SensitiveDataEvent();
+                        e.username = "admin_user"; // Repeated 4 times
+                        e.password = "secret_" + i; // Different each time
+                        e.email = "admin@company.com"; // Repeated 4 times
+                        e.ipAddress = "10.0.0." + (i % 2); // Two IPs, each repeated twice
+                        e.commit();
+                    }
+                })
+                .build();
+
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withFastDiscovery(config -> {
+                    config.getDiscovery().setEnabled(true);
+                    config.getDiscovery().setMinOccurrencesDefault(2);
+                    config.getStrings().setEnabled(true); // Enable built-in patterns
+                    // Add custom pattern
+                    var customPattern = new StringConfig.CustomPatternConfig();
+                    customPattern.setName("secret");
+                    customPattern.getPatterns().add("secret_[0-9]+");
+                    config.getStrings().getPatterns().getCustom().add(customPattern);
+                })
+                .process())
+                .allEvents(events -> {
+                    Assertions.assertEquals(4, events.size(), "Should have 4 events");
+
+                    // Check all redactions happened
+                    for (RecordedEvent e : events) {
+                        String username = e.getString("username");
+                        String password = e.getString("password");
+                        String email = e.getString("email");
+                        String ip = e.getString("ipAddress");
+
+                        // admin_user appears 4 times - should be discovered
+                        Assertions.assertNotNull(username);
+                        Assertions.assertNotEquals("admin_user", username, "Username should be redacted");
+
+                        // Passwords matched by custom pattern
+                        Assertions.assertNotNull(password);
+                        Assertions.assertFalse(password.startsWith("secret_"), "Password should be redacted");
+
+                        // Email matched by built-in pattern
+                        Assertions.assertNotNull(email);
+                        Assertions.assertNotEquals("admin@company.com", email, "Email should be redacted");
+
+                        // IP matched by built-in pattern
+                        Assertions.assertNotNull(ip);
+                        Assertions.assertFalse(ip.startsWith("10.0.0."), "IP should be redacted");
+                    }
+                });
+    }
+
+    @Test
+    public void testOnTheFlyDiscovery_CaseSensitivity() throws IOException {
+        // Test case sensitivity in discovery
+        Path inputPath = helper.recording()
+                .addEvent(() -> {
+                    SimpleEvent e1 = new SimpleEvent();
+                    e1.message = "User ADMIN logged in";
+                    e1.commit();
+
+                    SimpleEvent e2 = new SimpleEvent();
+                    e2.message = "User admin logged out";
+                    e2.commit();
+
+                    SimpleEvent e3 = new SimpleEvent();
+                    e3.message = "User Admin created file";
+                    e3.commit();
+                })
+                .build();
+
+        // Case-insensitive discovery
+        helper.verify(helper.process()
+                .from(inputPath)
+                .withFastDiscovery(config -> {
+                    config.getDiscovery().setEnabled(true);
+                    config.getDiscovery().setCaseSensitive(false);
+                    config.getDiscovery().setMinOccurrencesDefault(2);
+                    // Add custom pattern to extract usernames
+                    var customPattern = new StringConfig.CustomPatternConfig();
+                    customPattern.setName("username");
+                    customPattern.getPatterns().add("User (\\w+) ");
+                    customPattern.setEnableDiscovery(true);
+                    customPattern.setDiscoveryCaseSensitive(false);
+                    customPattern.setDiscoveryMinOccurrences(2);
+                    config.getStrings().getPatterns().getCustom().add(customPattern);
+                })
+                .process())
+                .allEvents(events -> {
+                    // All variants of "admin" should be treated as the same value
+                    // and since there are 3 occurrences total, should be redacted
+                    boolean allRedacted = events.stream()
+                            .allMatch(e -> {
+                                String msg = e.getString("message");
+                                return msg != null &&
+                                       !msg.toLowerCase().contains("admin logged") &&
+                                       !msg.toLowerCase().contains("admin created");
+                            });
+                    Assertions.assertTrue(allRedacted, "All case variants of admin should be redacted");
                 });
     }
 }

@@ -164,7 +164,6 @@ public class ConcatCommand implements Callable<Integer> {
                 RecordingImpl recording = processor.processRecordingFilesWithoutAnyProcessing(recordingFiles, fos);
                 // Must close the recording to flush all data to the output stream
                 recording.close();
-                fos.flush();
             }
         } finally {
             // Close all recording files

@@ -84,6 +84,15 @@ public class JFREventVerifier {
         return this;
     }
 
+    /**
+     * Run custom assertions on all events.
+     * Useful for complex assertions that need to examine multiple events together.
+     */
+    public JFREventVerifier allEvents(java.util.function.Consumer<List<RecordedEvent>> assertions) {
+        assertions.accept(allEvents);
+        return this;
+    }
+
     public List<RecordedEvent> getAllEvents() {
         return allEvents;
     }
