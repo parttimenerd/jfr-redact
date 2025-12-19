@@ -25,7 +25,7 @@ import java.util.concurrent.Callable;
  */
 @Command(
     name = "redact-text",
-    description = "Redact sensitive information from text files (logs, configuration files, etc.)",
+    description = "Redact sensitive information from text files, especially hserr files, but also logs, configuration files, etc.",
     mixinStandardHelpOptions = true,
     version = Version.FULL_VERSION,
     footerHeading = "%nExamples:%n",
@@ -36,7 +36,7 @@ import java.util.concurrent.Callable;
         "    (creates application.redacted.log)",
         "",
         "  Use hserr preset for Java crash reports:",
-        "    jfr-redact redact-text hs_err_pid12345.log --preset hserr",
+        "    jfr-redact redact-text hs_err_pid12345.log",
         "",
         "  Read from stdin, write to stdout:",
         "    cat hs_err_pid12345.log | jfr-redact redact-text - -",
@@ -74,7 +74,7 @@ public class RedactTextCommand implements Callable<Integer> {
     @Option(
         names = {"--preset"},
         description = "Use a predefined configuration preset. Valid values: ${COMPLETION-CANDIDATES} (default: ${DEFAULT-VALUE})",
-        defaultValue = "default"
+        defaultValue = "hserr"
     )
     private Preset preset;
 
