@@ -52,7 +52,7 @@ public class ConfigInheritanceTest {
         assertTrue(config.getProperties().matches("my_api_key"));
 
         // Should have default events
-        assertTrue(config.getEvents().getRemovedTypes().contains("jdk.OSInformation"));
+        assertTrue(config.getEvents().getRemovedTypes().contains("jdk.SystemProcess"));
 
         // Should have child events
         assertTrue(config.getEvents().getRemovedTypes().contains("jdk.CustomEvent"));

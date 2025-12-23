@@ -241,7 +241,6 @@ public class JFRTestHelper {
         public RoundtripVerifier eventCountPreservedExceptDefaultRemovals() {
             // Default removed types (from EventConfig)
             java.util.Set<String> defaultRemovedTypes = java.util.Set.of(
-                "jdk.OSInformation",
                 "jdk.SystemProcess",
                 "jdk.InitialEnvironmentVariable",
                 "jdk.ProcessStart"
@@ -263,7 +262,6 @@ public class JFRTestHelper {
         public RoundtripVerifier eventCountPreservedExceptStrictRemovals() {
             // Strict removed types (from EventConfig + NativeLibrary)
             java.util.Set<String> strictRemovedTypes = java.util.Set.of(
-                "jdk.OSInformation",
                 "jdk.SystemProcess",
                 "jdk.InitialEnvironmentVariable",
                 "jdk.ProcessStart",

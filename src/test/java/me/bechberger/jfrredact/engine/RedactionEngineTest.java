@@ -63,7 +63,6 @@ public class RedactionEngineTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-        "jdk.OSInformation",
         "jdk.SystemProcess",
         "jdk.InitialEnvironmentVariable",
         "jdk.ProcessStart"
@@ -606,7 +605,7 @@ public class RedactionEngineTest {
         RedactionEngine engine = createEngineWithPseudonymization();
 
         // Some events should be removed
-        assertTrue(engine.shouldRemoveEvent("jdk.OSInformation"));
+        assertTrue(engine.shouldRemoveEvent("jdk.SystemProcess"));
 
         // But fields in kept events should still be redacted
         String password = engine.redact("password", "secret");

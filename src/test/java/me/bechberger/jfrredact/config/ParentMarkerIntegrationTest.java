@@ -44,7 +44,6 @@ public class ParentMarkerIntegrationTest {
         List<String> removedTypes = config.getEvents().getRemovedTypes();
 
         // From default.yaml
-        assertTrue(removedTypes.contains("jdk.OSInformation"), "Should contain default OSInformation");
         assertTrue(removedTypes.contains("jdk.SystemProcess"), "Should contain default SystemProcess");
 
         // From strict.yaml (added via $PARENT)
@@ -98,7 +97,6 @@ public class ParentMarkerIntegrationTest {
         List<String> removedTypes = config.getEvents().getRemovedTypes();
 
         // From default (via $PARENT)
-        assertTrue(removedTypes.contains("jdk.OSInformation"));
         assertTrue(removedTypes.contains("jdk.SystemProcess"));
 
         // From test config

@@ -86,7 +86,7 @@ public class ConfigLoaderTest {
         assertTrue(config.getProperties().getPatterns().contains("my_password"));
 
         // Should have both default events and custom ones
-        assertTrue(config.getEvents().getRemovedTypes().contains("jdk.OSInformation"));
+        assertTrue(config.getEvents().getRemovedTypes().contains("jdk.SystemProcess"));
         assertTrue(config.getEvents().getRemovedTypes().contains("jdk.CustomEvent"));
 
         // Pseudonymization settings from child config

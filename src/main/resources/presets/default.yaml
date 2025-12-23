@@ -40,7 +40,6 @@ properties:
 events:
   remove_enabled: true
   removed_types:
-    - jdk.OSInformation
     - jdk.SystemProcess
     - jdk.InitialEnvironmentVariable
     - jdk.ProcessStart

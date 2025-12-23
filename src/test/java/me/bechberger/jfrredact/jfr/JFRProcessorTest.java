@@ -73,9 +73,9 @@ public class JFRProcessorTest {
 
     @Test
     public void testEventRemoval() throws IOException {
-        @Name("jdk.OSInformation")
-        class OSInfoEvent extends Event {
-            String osName = "Linux";
+        @Name("jdk.SystemProcess")
+        class SystemProcessEvent extends Event {
+            String processName = "test-process";
         }
 
         Path inputPath = helper.recording()
@@ -84,8 +84,8 @@ public class JFRProcessorTest {
                     simple.message = "Keep this";
                     simple.commit();
 
-                    OSInfoEvent osInfo = new OSInfoEvent();
-                    osInfo.commit();
+                    SystemProcessEvent systemProcess = new SystemProcessEvent();
+                    systemProcess.commit();
                 })
                 .build();
 
@@ -93,7 +93,7 @@ public class JFRProcessorTest {
                 .from(inputPath)
                 .withDefaultEngine()
                 .process())
-                .hasNoEventOfType("jdk.OSInformation")
+                .hasNoEventOfType("jdk.SystemProcess")
                 .hasEventOfType("test.SimpleEvent", 1);
     }
 
