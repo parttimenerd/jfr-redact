@@ -64,6 +64,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jfr-redact
+          path: target/jfr-redact
+          retention-days: 30
 
       - name: Run tests
         run: mvn clean test
