@@ -2,7 +2,7 @@
   "catalogs": {},
   "aliases": {
     "jfr-redact": {
-      "script-ref": "https://github.com/parttimenerd/jfr-redact/releases/download/snapshot/jfr-redact.jar"
+      "script-ref": "https://github.com/parttimenerd/jfr-redact/releases/download/v0.1.1/jfr-redact.jar"
     }
   },
   "templates": {}

@@ -85,7 +85,7 @@ This tool requires Java 21 or higher.
 
 ### As a Command-Line Tool
 
-Download the standalone JAR from the [releases page](https://github.com/parttimenerd/jfr-redact/releases).
+Download the standalone JAR or executable from the [releases page](https://github.com/parttimenerd/jfr-redact/releases).
 
 ### Using JBang
 
@@ -102,7 +102,7 @@ Use jfr-redact as a library to programmatically redact JFR files in your own app
 <dependency>
   <groupId>me.bechberger</groupId>
   <artifactId>jfr-redact</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
 </dependency>
 ```
 
@@ -1213,15 +1213,8 @@ To skip the hook temporarily: `git commit --no-verify`
 
 ### Deployment
 
-To release a new version to Maven Central:
-
-1. Update the version in `src/main/java/me/bechberger/jfr-redact/Version.java`
-2. Run `./bin/sync-documentation.py` to sync version to `pom.xml`
-3. Commit the changes
-4. Create and push a tag: `git tag v<version> && git push origin v<version>`
-5. The CI will automatically build, sign, and deploy to Maven Central
-
-The `publish-maven.yml` workflow handles GPG signing and deployment to OSSRH.
+To release a new version to Maven Central and GitHub Releases,
+run `release.py`.
 
 ### IDE Support for Configuration Files
 
@@ -1245,9 +1238,7 @@ Support, Feedback, Contributing
 -------------------------------
 This project is open to feature requests/suggestions, bug reports etc. 
 via [GitHub](https://github.com/parttimenerd/jfr-redact/issues) issues. 
-Contribution and feedback are encouraged and always welcome. 
-For more information about how to contribute, the project structure, 
-as well as additional contribution information, see our Contribution Guidelines.
+Contribution and feedback are encouraged and always welcome.
 
 
 License

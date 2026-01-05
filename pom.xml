@@ -6,7 +6,7 @@
 
     <groupId>me.bechberger</groupId>
     <artifactId>jfr-redact</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
 
 
     <name>jfrredact</name>
@@ -182,6 +182,24 @@
             </plugin>
 
             <plugin>
+                <groupId>me.bechberger</groupId>
+                <artifactId>execjar</artifactId>
+                <version>0.1.1</version>
+                <executions>
+                    <execution>
+                        <id>create-executable</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>execjar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <jarFile>target/jfr-redact.jar</jarFile>
+                </configuration>
+            </plugin>
+
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
@@ -225,14 +243,14 @@
 
                     <!-- Nexus Staging Plugin - For deploying to Maven Central -->
                     <plugin>
-                        <groupId>org.sonatype.plugins</groupId>
-                        <artifactId>nexus-staging-maven-plugin</artifactId>
-                        <version>1.6.13</version>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
                         <extensions>true</extensions>
                         <configuration>
-                            <serverId>ossrh</serverId>
-                            <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
-                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                            <publishingServerId>ossrh</publishingServerId>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>uploaded</waitUntil>
                         </configuration>
                     </plugin>
                 </plugins>
