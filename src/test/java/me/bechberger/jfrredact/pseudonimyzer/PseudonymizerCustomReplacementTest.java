@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for custom replacement functionality in Pseudonymizer.
@@ -73,9 +74,9 @@ public class PseudonymizerCustomReplacementTest {
 
         // Value not in replacement map should use normal pseudonymization
         String result = pseudonymizer.pseudonymize("janedoe", "***");
-        assertNotEquals("***", result);
-        assertNotEquals("janedoe", result);
-        assertTrue(result.startsWith("<redacted:"));
+        assertThat(result).isNotEqualTo("***");
+        assertThat(result).isNotEqualTo("janedoe");
+        assertThat(result).startsWith("<redacted:");
     }
 
     @ParameterizedTest(name = "[{index}] {2}")
@@ -108,7 +109,7 @@ public class PseudonymizerCustomReplacementTest {
 
         // Should use custom replacement, not hash
         assertEquals("custom@test.org", result);
-        assertFalse(result.contains("<redacted:"));
+        assertThat(result).doesNotContain("<redacted:");
     }
 
     @Test
@@ -141,7 +142,7 @@ public class PseudonymizerCustomReplacementTest {
 
         // Should use custom replacement, not counter
         assertEquals("CUSTOM1", result);
-        assertFalse(result.contains("<redacted:"));
+        assertThat(result).doesNotContain("<redacted:");
     }
 
     // ========== Consistency Tests ==========
@@ -178,8 +179,8 @@ public class PseudonymizerCustomReplacementTest {
 
         // Normal pseudonymization
         String result2 = pseudonymizer.pseudonymize("unknown_user", "***");
-        assertNotEquals("unknown_user", result2);
-        assertTrue(result2.startsWith("<redacted:"));
+        assertThat(result2).isNotEqualTo("unknown_user");
+        assertThat(result2).startsWith("<redacted:");
 
         // Another custom replacement query
         String result3 = pseudonymizer.pseudonymize("known_user", "***");
@@ -315,9 +316,9 @@ public class PseudonymizerCustomReplacementTest {
 
         // Test unknown values fall back to realistic mode
         String unknownEmail = pseudonymizer.pseudonymize("jane.smith@company.com", "***");
-        assertTrue(unknownEmail.contains("@"));
-        assertNotEquals("jane.smith@company.com", unknownEmail);
-        assertFalse(unknownEmail.contains("<redacted:"));
+        assertThat(unknownEmail).contains("@");
+        assertThat(unknownEmail).isNotEqualTo("jane.smith@company.com");
+        assertThat(unknownEmail).doesNotContain("<redacted:");
     }
 
     @Test

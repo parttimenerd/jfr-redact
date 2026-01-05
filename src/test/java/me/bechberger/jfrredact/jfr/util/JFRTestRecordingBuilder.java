@@ -5,10 +5,7 @@ import jdk.jfr.Recording;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static me.bechberger.jfrredact.jfr.util.JFRTestEvents.*;
 
@@ -51,9 +48,7 @@ public class JFRTestRecordingBuilder {
      */
     @SafeVarargs
     public final JFRTestRecordingBuilder withEventClasses(Class<? extends Event>... eventClasses) {
-        for (Class<? extends Event> eventClass : eventClasses) {
-            customEventClasses.add(eventClass);
-        }
+        customEventClasses.addAll(Arrays.asList(eventClasses));
         return this;
     }
 

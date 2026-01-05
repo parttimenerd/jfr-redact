@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for TestCommand (also used as validate command).
@@ -42,11 +43,8 @@ class TestCommandTest {
         assertEquals(0, exitCode, "Validation should succeed");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Configuration Validation") ||
-                   output.contains("Configuration is valid"),
-                "Should show validation confirmation");
-        assertTrue(output.contains("Preset: default"),
-                "Should show default preset");
+        assertThat(output.contains("Configuration Validation") || output.contains("Configuration is valid")).as("Should show validation confirmation").isTrue();
+        assertThat(output).as("Should show default preset").contains("Preset: default");
     }
 
     @Test
@@ -56,11 +54,8 @@ class TestCommandTest {
         assertEquals(0, exitCode, "Validation should succeed");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Configuration Validation") ||
-                   output.contains("Configuration is valid"),
-                "Should show validation confirmation");
-        assertTrue(output.contains("Preset: strict"),
-                "Should show strict preset");
+        assertThat(output.contains("Configuration Validation") || output.contains("Configuration is valid")).as("Should show validation confirmation").isTrue();
+        assertThat(output).as("Should show strict preset").contains("Preset: strict");
     }
 
     @Test
@@ -83,9 +78,7 @@ class TestCommandTest {
         assertEquals(0, exitCode, "Validation should succeed");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Configuration Validation") ||
-                   output.contains("Configuration is valid"),
-                "Should show validation confirmation");
+        assertThat(output.contains("Configuration Validation") || output.contains("Configuration is valid")).as("Should show validation confirmation").isTrue();
     }
 
     @Test
@@ -102,8 +95,7 @@ class TestCommandTest {
         assertNotEquals(0, exitCode, "Should fail with invalid config");
 
         String stderr = errContent.toString();
-        assertTrue(stderr.contains("Error") || stderr.contains("error"),
-                "Should show error message");
+        assertThat(stderr.contains("Error") || stderr.contains("error")).as("Should show error message").isTrue();
     }
 
     @Test
@@ -113,10 +105,8 @@ class TestCommandTest {
         assertEquals(0, exitCode, "Test should succeed");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Configuration Test Results"),
-                "Should show test results");
-        assertTrue(output.contains("jdk.JavaMonitorEnter"),
-                "Should show event type");
+        assertThat(output).as("Should show test results").contains("Configuration Test Results");
+        assertThat(output).as("Should show event type").contains("jdk.JavaMonitorEnter");
     }
 
     @Test
@@ -126,10 +116,8 @@ class TestCommandTest {
         assertEquals(0, exitCode, "Test should succeed");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Configuration Test Results"),
-                "Should show test results");
-        assertTrue(output.contains("password"),
-                "Should show property name");
+        assertThat(output).as("Should show test results").contains("Configuration Test Results");
+        assertThat(output).as("Should show property name").contains("password");
     }
 
     @Test
@@ -139,10 +127,8 @@ class TestCommandTest {
         assertEquals(0, exitCode, "Test should succeed");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Configuration Test Results"),
-                "Should show test results");
-        assertTrue(output.contains("main"),
-                "Should show thread name");
+        assertThat(output).as("Should show test results").contains("Configuration Test Results");
+        assertThat(output).as("Should show thread name").contains("main");
     }
 
     @Test
@@ -152,10 +138,8 @@ class TestCommandTest {
         assertEquals(0, exitCode, "Test should succeed");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Configuration Test Results"),
-                "Should show test results");
-        assertTrue(output.contains("user@example.com"),
-                "Should show value being tested");
+        assertThat(output).as("Should show test results").contains("Configuration Test Results");
+        assertThat(output).as("Should show value being tested").contains("user@example.com");
     }
 
     @Test
@@ -165,8 +149,7 @@ class TestCommandTest {
         assertEquals(0, exitCode, "Test should succeed");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Pseudonymize: enabled"),
-                "Should show pseudonymization is enabled");
+        assertThat(output).as("Should show pseudonymization is enabled").contains("Pseudonymize: enabled");
     }
 
     @Test
@@ -176,10 +159,8 @@ class TestCommandTest {
         assertEquals(0, exitCode, "Test should succeed");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Preset: strict"),
-                "Should show strict preset");
-        assertTrue(output.contains("user@example.com"),
-                "Should show value being tested");
+        assertThat(output).as("Should show strict preset").contains("Preset: strict");
+        assertThat(output).as("Should show value being tested").contains("user@example.com");
     }
 
     @Test
@@ -189,14 +170,10 @@ class TestCommandTest {
         assertEquals(0, exitCode, "Help should exit successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("test"),
-                "Help should mention command name");
-        assertTrue(output.contains("--property"),
-                "Help should mention --property option");
-        assertTrue(output.contains("--value"),
-                "Help should mention --value option");
-        assertTrue(output.contains("validate"),
-                "Help should mention validate alias");
+        assertThat(output).as("Help should mention command name").contains("test");
+        assertThat(output).as("Help should mention --property option").contains("--property");
+        assertThat(output).as("Help should mention --value option").contains("--value");
+        assertThat(output).as("Help should mention validate alias").contains("validate");
     }
 
     @Test
@@ -206,7 +183,6 @@ class TestCommandTest {
         assertNotEquals(0, exitCode, "Should fail with nonexistent file");
 
         String stderr = errContent.toString();
-        assertTrue(stderr.contains("Error") || stderr.contains("not found"),
-                "Should show error about missing file");
+        assertThat(stderr.contains("Error") || stderr.contains("not found")).as("Should show error about missing file").isTrue();
     }
 }

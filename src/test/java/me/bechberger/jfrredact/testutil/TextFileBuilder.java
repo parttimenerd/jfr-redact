@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -43,9 +44,7 @@ public class TextFileBuilder {
      * Add multiple lines to the file
      */
     public TextFileBuilder withLines(String... lines) {
-        for (String line : lines) {
-            this.lines.add(line);
-        }
+        this.lines.addAll(Arrays.asList(lines));
         return this;
     }
 

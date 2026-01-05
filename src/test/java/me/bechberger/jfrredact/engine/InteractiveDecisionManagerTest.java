@@ -7,6 +7,7 @@ import java.io.*;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for InteractiveDecisionManager
@@ -145,7 +146,7 @@ class InteractiveDecisionManagerTest {
             );
 
             assertNotNull(manager.getStorage());
-            assertTrue(manager.getStorage().getUsernames().containsKey("testuser"));
+            assertThat(manager.getStorage().getUsernames()).containsKey("testuser");
             assertEquals(
                 InteractiveDecisionManager.DecisionAction.KEEP,
                 manager.getStorage().getUsernames().get("testuser").getAction()

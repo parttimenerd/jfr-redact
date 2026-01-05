@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.net.URL;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
+import static me.bechberger.jfrredact.testutil.PropertiesAssert.assertThatProperties;
 
 /**
  * Tests for configuration loading and resolution.
@@ -65,8 +67,8 @@ public class ConfigLoaderTest {
         assertNotNull(config);
         assertEquals("none", config.getParent());
         assertEquals("###", config.getGeneral().getRedactionText());
-        assertFalse(config.getEvents().isRemoveEnabled());
-        assertTrue(config.getProperties().getPatterns().contains("test_password"));
+        assertThat(config.getEvents().isRemoveEnabled()).isFalse();
+        assertThat(config.getProperties().getPatterns()).contains("test_password");
     }
 
     @Test
@@ -81,16 +83,14 @@ public class ConfigLoaderTest {
         assertEquals("default", config.getParent());
 
         // Should have both default patterns and custom ones
-        assertTrue(config.getProperties().matches("password"));
-        assertTrue(config.getProperties().getPatterns().contains("custom_secret"));
-        assertTrue(config.getProperties().getPatterns().contains("my_password"));
+        assertThatProperties(config.getProperties()).matches("password");
+        assertThat(config.getProperties().getPatterns()).contains("custom_secret", "my_password");
 
         // Should have both default events and custom ones
-        assertTrue(config.getEvents().getRemovedTypes().contains("jdk.SystemProcess"));
-        assertTrue(config.getEvents().getRemovedTypes().contains("jdk.CustomEvent"));
+        assertThat(config.getEvents().getRemovedTypes()).contains("jdk.SystemProcess", "jdk.CustomEvent");
 
         // Pseudonymization settings from child config
-        assertTrue(config.getGeneral().getPseudonymization().isEnabled());
+        assertThat(config.getGeneral().getPseudonymization().isEnabled()).isTrue();
         assertEquals(12, config.getGeneral().getPseudonymization().getHashLength());
     }
 
@@ -143,14 +143,14 @@ public class ConfigLoaderTest {
         RedactionConfig config = loader.load(resource.getPath());
 
         // Verify patterns are merged
-        assertTrue(config.getProperties().getPatterns().size() > 2);
+        assertThat(config.getProperties().getPatterns()).hasSizeGreaterThan(2);
 
         // Parent patterns should match
-        assertTrue(config.getProperties().matches("password"), "Should match 'password' from parent");
-        assertTrue(config.getProperties().matches("secret"), "Should match 'secret' from parent");
+        assertThatProperties(config.getProperties()).matches("password");
+        assertThatProperties(config.getProperties()).matches("secret");
 
         // Child patterns should match
-        assertTrue(config.getProperties().matches("custom_secret"), "Should match 'custom_secret' from child");
+        assertThatProperties(config.getProperties()).matches("custom_secret");
     }
 
     @Test
@@ -160,7 +160,7 @@ public class ConfigLoaderTest {
 
         // Default config has pseudonymization disabled
         var pseudonymizer = config.createPseudonymizer();
-        assertFalse(pseudonymizer.isEnabled());
+        assertThat(pseudonymizer.isEnabled()).isFalse();
     }
 
     @Test
@@ -184,8 +184,8 @@ public class ConfigLoaderTest {
 
         config.applyCliOptions(cliOptions);
 
-        assertTrue(config.getGeneral().getPseudonymization().isEnabled());
-        assertTrue(config.getEvents().getRemovedTypes().contains("jdk.TestEvent"));
+        assertThat(config.getGeneral().getPseudonymization().isEnabled()).isTrue();
+        assertThat(config.getEvents().getRemovedTypes()).contains("jdk.TestEvent");
     }
 
     @ParameterizedTest
@@ -218,13 +218,11 @@ public class ConfigLoaderTest {
         RedactionConfig config = loader.load("default");
 
         // Email pattern should be enabled
-        assertTrue(config.getStrings().isEnabled(), "Strings should be enabled");
-        assertTrue(config.getStrings().getPatterns().getEmails().isEnabled(),
-                "Email redaction should be enabled in default preset");
+        assertThat(config.getStrings().isEnabled()).as("Strings should be enabled").isTrue();
+        assertThat(config.getStrings().getPatterns().getEmails().isEnabled()).as("Email redaction should be enabled in default preset").isTrue();
 
         // Verify email patterns are configured
-        assertFalse(config.getStrings().getPatterns().getEmails().getPatterns().isEmpty(),
-                "Email patterns should be configured");
+        assertThat(config.getStrings().getPatterns().getEmails().getPatterns()).isNotEmpty();
     }
 
     @Test
@@ -233,8 +231,7 @@ public class ConfigLoaderTest {
         RedactionConfig config = loader.load("default");
 
         // UUID pattern should be disabled in default
-        assertFalse(config.getStrings().getPatterns().getUuids().isEnabled(),
-                "UUID redaction should be disabled in default preset");
+        assertThat(config.getStrings().getPatterns().getUuids().isEnabled()).as("UUID redaction should be disabled in default preset").isFalse();
     }
 
     @Test
@@ -243,19 +240,15 @@ public class ConfigLoaderTest {
         RedactionConfig config = loader.load("strict");
 
         // Email pattern should be enabled (inherited from default)
-        assertTrue(config.getStrings().isEnabled(), "Strings should be enabled");
-        assertTrue(config.getStrings().getPatterns().getEmails().isEnabled(),
-                "Email redaction should be enabled in strict preset");
+        assertThat(config.getStrings().isEnabled()).as("Strings should be enabled").isTrue();
+        assertThat(config.getStrings().getPatterns().getEmails().isEnabled()).as("Email redaction should be enabled in strict preset").isTrue();
 
         // UUID pattern should be enabled (overridden in strict)
-        assertTrue(config.getStrings().getPatterns().getUuids().isEnabled(),
-                "UUID redaction should be enabled in strict preset");
+        assertThat(config.getStrings().getPatterns().getUuids().isEnabled()).as("UUID redaction should be enabled in strict preset").isTrue();
 
         // Verify patterns are configured
-        assertFalse(config.getStrings().getPatterns().getEmails().getPatterns().isEmpty(),
-                "Email patterns should be configured");
-        assertFalse(config.getStrings().getPatterns().getUuids().getPatterns().isEmpty(),
-                "UUID patterns should be configured");
+        assertThat(config.getStrings().getPatterns().getEmails().getPatterns()).isNotEmpty();
+        assertThat(config.getStrings().getPatterns().getUuids().getPatterns()).isNotEmpty();
     }
 
     @Test
@@ -264,10 +257,8 @@ public class ConfigLoaderTest {
         RedactionConfig config = loader.load("default");
 
         // SSH host redaction should be enabled in default
-        assertTrue(config.getStrings().getPatterns().getSshHosts().isEnabled(),
-                "SSH host redaction should be enabled in default preset");
-        assertFalse(config.getStrings().getPatterns().getSshHosts().getPatterns().isEmpty(),
-                "SSH host patterns should be configured");
+        assertThat(config.getStrings().getPatterns().getSshHosts().isEnabled()).as("SSH host redaction should be enabled in default preset").isTrue();
+        assertThat(config.getStrings().getPatterns().getSshHosts().getPatterns()).as("SSH host patterns should be configured").isNotEmpty();
     }
 
     @Test
@@ -280,16 +271,12 @@ public class ConfigLoaderTest {
                 "Strict preset should extend default");
 
         // Should inherit default patterns
-        assertTrue(config.getStrings().getPatterns().getEmails().isEnabled(),
-                "Should inherit email redaction from default");
-        assertTrue(config.getStrings().getPatterns().getIpAddresses().isEnabled(),
-                "Should inherit IP redaction from default");
-        assertTrue(config.getStrings().getPatterns().getUser().isEnabled(),
-                "Should inherit home directory redaction from default");
+        assertThat(config.getStrings().getPatterns().getEmails().isEnabled()).as("Should inherit email redaction from default").isTrue();
+        assertThat(config.getStrings().getPatterns().getIpAddresses().isEnabled()).as("Should inherit IP redaction from default").isTrue();
+        assertThat(config.getStrings().getPatterns().getUser().isEnabled()).as("Should inherit home directory redaction from default").isTrue();
 
         // Should override UUID setting
-        assertTrue(config.getStrings().getPatterns().getUuids().isEnabled(),
-                "Should override UUID redaction to enabled");
+        assertThat(config.getStrings().getPatterns().getUuids().isEnabled()).as("Should override UUID redaction to enabled").isTrue();
     }
 
     @Test
@@ -310,10 +297,10 @@ public class ConfigLoaderTest {
                 "SSH host patterns should exist");
 
         // Verify enabled states
-        assertTrue(config.getStrings().getPatterns().getUser().isEnabled());
-        assertTrue(config.getStrings().getPatterns().getEmails().isEnabled());
-        assertFalse(config.getStrings().getPatterns().getUuids().isEnabled());
-        assertTrue(config.getStrings().getPatterns().getIpAddresses().isEnabled());
-        assertTrue(config.getStrings().getPatterns().getSshHosts().isEnabled());
+        assertThat(config.getStrings().getPatterns().getUser().isEnabled()).isTrue();
+        assertThat(config.getStrings().getPatterns().getEmails().isEnabled()).isTrue();
+        assertThat(config.getStrings().getPatterns().getUuids().isEnabled()).isFalse();
+        assertThat(config.getStrings().getPatterns().getIpAddresses().isEnabled()).isTrue();
+        assertThat(config.getStrings().getPatterns().getSshHosts().isEnabled()).isTrue();
     }
 }

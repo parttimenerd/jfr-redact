@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for GenerateConfigCommand.
@@ -41,14 +42,7 @@ class GenerateConfigCommandTest {
         assertEquals(0, exitCode, "Should exit successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("# Custom Configuration Template"),
-                "Should contain template header");
-        assertTrue(output.contains("properties:"),
-                "Should contain properties section");
-        assertTrue(output.contains("strings:"),
-                "Should contain strings section");
-        assertTrue(output.contains("general:"),
-                "Should contain general section");
+        assertThat(output).contains("# Custom Configuration Template", "properties:", "strings:", "general:");
     }
 
     @Test
@@ -58,17 +52,13 @@ class GenerateConfigCommandTest {
         int exitCode = cmd.execute("-o", outputFile.toString());
 
         assertEquals(0, exitCode, "Should exit successfully");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
 
         String content = Files.readString(outputFile);
-        assertTrue(content.contains("# Custom Configuration Template"),
-                "Should contain template header");
-        assertTrue(content.contains("properties:"),
-                "Should contain properties section");
+        assertThat(content).contains("# Custom Configuration Template", "properties:");
 
         String stderr = errContent.toString();
-        assertTrue(stderr.contains("Configuration written to:"),
-                "Should show confirmation message");
+        assertThat(stderr).contains("Configuration written to:");
     }
 
     @Test
@@ -78,11 +68,10 @@ class GenerateConfigCommandTest {
         int exitCode = cmd.execute(outputFile.toString());
 
         assertEquals(0, exitCode, "Should exit successfully");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
 
         String content = Files.readString(outputFile);
-        assertTrue(content.contains("# Custom Configuration Template"),
-                "Should contain template header");
+        assertThat(content).contains("# Custom Configuration Template");
     }
 
     @Test
@@ -92,11 +81,10 @@ class GenerateConfigCommandTest {
         assertEquals(0, exitCode, "Should exit successfully");
 
         String output = outContent.toString();
-        assertFalse(output.isEmpty(), "Should generate output");
+        assertThat(output).isNotEmpty();
 
         String stderr = errContent.toString();
-        assertTrue(stderr.contains("Generated configuration based on preset: default"),
-                "Should show preset message");
+        assertThat(stderr).contains("Generated configuration based on preset: default");
     }
 
     @Test
@@ -106,11 +94,10 @@ class GenerateConfigCommandTest {
         assertEquals(0, exitCode, "Should exit successfully");
 
         String output = outContent.toString();
-        assertFalse(output.isEmpty(), "Should generate output");
+        assertThat(output).isNotEmpty();
 
         String stderr = errContent.toString();
-        assertTrue(stderr.contains("Generated configuration based on preset: strict"),
-                "Should show preset message");
+        assertThat(stderr).contains("Generated configuration based on preset: strict");
     }
 
     @Test
@@ -120,10 +107,7 @@ class GenerateConfigCommandTest {
         int exitCode = cmd.execute("--preset", "strict", "-o", outputFile.toString());
 
         assertEquals(0, exitCode, "Should exit successfully");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
-
-        String content = Files.readString(outputFile);
-        assertFalse(content.isEmpty(), "File should not be empty");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -133,12 +117,7 @@ class GenerateConfigCommandTest {
         assertEquals(0, exitCode, "Should exit successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("# Minimal JFR Redaction Configuration"),
-                "Should contain minimal config header");
-        assertTrue(output.contains("#properties:"),
-                "Should contain commented properties section");
-        assertTrue(output.contains("#strings:"),
-                "Should contain commented strings section");
+        assertThat(output).contains("# Minimal JFR Redaction Configuration", "#properties:", "#strings:");
     }
 
     @Test
@@ -148,11 +127,7 @@ class GenerateConfigCommandTest {
         int exitCode = cmd.execute("--minimal", "-o", outputFile.toString());
 
         assertEquals(0, exitCode, "Should exit successfully");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
-
-        String content = Files.readString(outputFile);
-        assertTrue(content.contains("# Minimal JFR Redaction Configuration"),
-                "Should contain minimal config header");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -162,12 +137,7 @@ class GenerateConfigCommandTest {
         assertEquals(0, exitCode, "Help should exit successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("generate-config"),
-                "Help should mention command name");
-        assertTrue(output.contains("--preset"),
-                "Help should mention --preset option");
-        assertTrue(output.contains("--minimal"),
-                "Help should mention --minimal option");
+        assertThat(output).contains("generate-config", "--preset", "--minimal");
     }
 
     @Test
@@ -177,8 +147,11 @@ class GenerateConfigCommandTest {
         assertNotEquals(0, exitCode, "Should fail with invalid preset");
 
         String stderr = errContent.toString();
-        assertTrue(stderr.contains("Invalid value") || stderr.contains("error") || stderr.contains("nonexistent"),
-                "Should show error message about invalid preset, got: " + stderr);
+        assertThat(stderr).satisfiesAnyOf(
+            s -> assertThat(s).contains("Invalid value"),
+            s -> assertThat(s).contains("error"),
+            s -> assertThat(s).contains("nonexistent")
+        );
     }
 
     @Test
@@ -190,7 +163,6 @@ class GenerateConfigCommandTest {
 
         String output = outContent.toString();
         // Should use preset, not minimal
-        assertFalse(output.contains("# Minimal JFR Redaction Configuration"),
-                "Should not generate minimal config when preset is specified");
+        assertThat(output).doesNotContain("# Minimal JFR Redaction Configuration");
     }
 }

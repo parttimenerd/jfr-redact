@@ -52,6 +52,7 @@ public class WordRedactionRule {
             return word.equals(pattern);
         }
     }
+
     public static WordRedactionRule parse(String line) {
         line = line.trim();
         if (line.startsWith("-$")) {

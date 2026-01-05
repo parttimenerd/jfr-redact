@@ -1,23 +1,24 @@
 package me.bechberger.jfrredact.words;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 class WordRedactionRuleTest {
     @Test
     void testParseRedactRule() {
         WordRedactionRule rule = WordRedactionRule.parse("- secretvalue");
         assertEquals(WordRedactionRule.RuleType.REDACT, rule.getType());
         assertEquals("secretvalue", rule.getPattern());
-        assertFalse(rule.isRegex());
-        assertTrue(rule.matches("secretvalue"));
-        assertFalse(rule.matches("other"));
+        assertThat(rule.isRegex()).isFalse();
+        assertThat(rule.matches("secretvalue")).isTrue();
+        assertThat(rule.matches("other")).isFalse();
     }
     @Test
     void testParseKeepRule() {
         WordRedactionRule rule = WordRedactionRule.parse("+ publicvalue");
         assertEquals(WordRedactionRule.RuleType.KEEP, rule.getType());
         assertEquals("publicvalue", rule.getPattern());
-        assertFalse(rule.isRegex());
-        assertTrue(rule.matches("publicvalue"));
+        assertThat(rule.isRegex()).isFalse();
+        assertThat(rule.matches("publicvalue")).isTrue();
     }
     @Test
     void testParseReplaceRule() {
@@ -25,35 +26,35 @@ class WordRedactionRuleTest {
         assertEquals(WordRedactionRule.RuleType.REPLACE, rule.getType());
         assertEquals("oldvalue", rule.getPattern());
         assertEquals("newvalue", rule.getReplacement());
-        assertFalse(rule.isRegex());
+        assertThat(rule.isRegex()).isFalse();
     }
     @Test
     void testParsePrefixRule() {
         WordRedactionRule rule = WordRedactionRule.parse("-$ secret");
         assertEquals(WordRedactionRule.RuleType.REDACT_PREFIX, rule.getType());
         assertEquals("secret", rule.getPattern());
-        assertTrue(rule.matches("secret123"));
-        assertTrue(rule.matches("secretValue"));
-        assertFalse(rule.matches("mysecret"));
+        assertThat(rule.matches("secret123")).isTrue();
+        assertThat(rule.matches("secretValue")).isTrue();
+        assertThat(rule.matches("mysecret")).isFalse();
     }
     @Test
     void testParseRegexRedactRule() {
         WordRedactionRule rule = WordRedactionRule.parse("- /secret.*/");
         assertEquals(WordRedactionRule.RuleType.REDACT, rule.getType());
         assertEquals("secret.*", rule.getPattern());
-        assertTrue(rule.isRegex());
-        assertTrue(rule.matches("secret123"));
-        assertTrue(rule.matches("secretValue"));
-        assertFalse(rule.matches("mysecret"));
+        assertThat(rule.isRegex()).isTrue();
+        assertThat(rule.matches("secret123")).isTrue();
+        assertThat(rule.matches("secretValue")).isTrue();
+        assertThat(rule.matches("mysecret")).isFalse();
     }
     @Test
     void testParseRegexKeepRule() {
         WordRedactionRule rule = WordRedactionRule.parse("+ /public[0-9]+/");
         assertEquals(WordRedactionRule.RuleType.KEEP, rule.getType());
         assertEquals("public[0-9]+", rule.getPattern());
-        assertTrue(rule.isRegex());
-        assertTrue(rule.matches("public123"));
-        assertFalse(rule.matches("publicABC"));
+        assertThat(rule.isRegex()).isTrue();
+        assertThat(rule.matches("public123")).isTrue();
+        assertThat(rule.matches("publicABC")).isFalse();
     }
     @Test
     void testFormatRedactRule() {

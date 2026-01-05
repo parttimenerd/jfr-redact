@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for RealisticDataGenerator user folder generation enhancements.
@@ -35,7 +36,7 @@ public class RealisticDataGeneratorUserFolderTest {
         assertNotEquals(folder2, folder3);
 
         // Should not contain numbers (uses actual names)
-        assertFalse(folder1.matches(".*\\d+.*"), "Should use names, not numbers: " + folder1);
+        assertThat(folder1.matches(".*\\d+.*")).as("Should use names, not numbers: %s", folder1).isFalse();
     }
 
     @Test
@@ -60,7 +61,7 @@ public class RealisticDataGeneratorUserFolderTest {
 
         assertNotNull(combined);
         // Combined names should be longer than single names (typically)
-        assertTrue(combined.length() > 3, "Combined name should be longer: " + combined);
+        assertThat(combined.length()).as("Combined name should be longer: %s", combined).isGreaterThan(3);
     }
 
     @Test
@@ -69,12 +70,12 @@ public class RealisticDataGeneratorUserFolderTest {
 
         String result = generator.generatePath(path);
 
-        assertTrue(result.startsWith("/home/"), "Should preserve /home/ prefix");
-        assertTrue(result.endsWith("/documents"), "Should preserve subdirectory");
+        assertThat(result).as("Should preserve /home/ prefix").startsWith("/home/");
+        assertThat(result).as("Should preserve subdirectory").endsWith("/documents");
 
         // Extract username
         String username = result.substring(6, result.indexOf("/documents"));
-        assertFalse(username.matches("user\\d+"), "Should not use numbered pattern: " + username);
+        assertThat(username.matches("user\\d+")).as("Should not use numbered pattern: %s", username).isFalse();
     }
 
     @Test
@@ -83,12 +84,12 @@ public class RealisticDataGeneratorUserFolderTest {
 
         String result = generator.generatePath(path);
 
-        assertTrue(result.startsWith("/Users/"), "Should preserve /Users/ prefix");
-        assertTrue(result.endsWith("/Library"), "Should preserve subdirectory");
+        assertThat(result).as("Should preserve /Users/ prefix").startsWith("/Users/");
+        assertThat(result).as("Should preserve subdirectory").endsWith("/Library");
 
         // Extract username
         String username = result.substring(7, result.indexOf("/Library"));
-        assertFalse(username.matches("user\\d+"), "Should not use numbered pattern: " + username);
+        assertThat(username.matches("user\\d+")).as("Should not use numbered pattern: %s", username).isFalse();
     }
 
     @Test
@@ -97,8 +98,8 @@ public class RealisticDataGeneratorUserFolderTest {
 
         String result = generator.generatePath(path);
 
-        assertTrue(result.startsWith("C:\\Users\\"), "Should preserve C:\\Users\\ prefix");
-        assertTrue(result.endsWith("\\AppData"), "Should preserve subdirectory");
+        assertThat(result).as("Should preserve C:\\Users\\ prefix").startsWith("C:\\Users\\");
+        assertThat(result).as("Should preserve subdirectory").endsWith("\\AppData");
 
         // Extract username (capitalized for Windows)
         int startIdx = "C:\\Users\\".length();
@@ -106,9 +107,8 @@ public class RealisticDataGeneratorUserFolderTest {
         String username = result.substring(startIdx, endIdx);
 
         // Should be capitalized
-        assertTrue(Character.isUpperCase(username.charAt(0)),
-                   "Windows username should be capitalized: " + username);
-        assertFalse(username.matches("User\\d+"), "Should not use numbered pattern: " + username);
+        assertThat(Character.isUpperCase(username.charAt(0))).as("Windows username should be capitalized: %s", username).isTrue();
+        assertThat(username.matches("User\\d+")).as("Should not use numbered pattern: %s", username).isFalse();
     }
 
     @Test
@@ -177,8 +177,7 @@ public class RealisticDataGeneratorUserFolderTest {
             String result = generator.generatePath(path);
             assertNotNull(result);
             // Should not contain "user\d+" pattern
-            assertFalse(result.matches(".*user\\d+.*"),
-                       "Should use realistic names, not numbered pattern: " + result);
+            assertThat(result.matches(".*user\\d+.*")).as("Should use realistic names, not numbered pattern: %s", result).isFalse();
         }
     }
 

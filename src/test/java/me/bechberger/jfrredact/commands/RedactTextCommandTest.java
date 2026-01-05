@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Simple tests for RedactTextCommand.
@@ -41,14 +42,7 @@ class RedactTextCommandTest {
         assertEquals(0, exitCode, "Help should exit successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("redact-text"),
-                "Help should show command name");
-        assertTrue(output.contains("Redact sensitive information from text files"),
-                "Help should show description");
-        assertTrue(output.contains("--preset"),
-                "Help should show preset option");
-        assertTrue(output.contains("--pseudonymize"),
-                "Help should show pseudonymize option");
+        assertThat(output).contains("redact-text", "Redact sensitive information from text files", "--preset", "--pseudonymize");
     }
 
     @Test
@@ -71,16 +65,12 @@ class RedactTextCommandTest {
 
         // Check that output file was created with default name
         Path expectedOutput = tempDir.resolve("test.redacted.log");
-        assertTrue(Files.exists(expectedOutput), "Should create output file with .redacted extension");
+        assertThat(expectedOutput).exists();
 
         // Verify redaction occurred
         String redactedContent = Files.readString(expectedOutput);
-        assertFalse(redactedContent.contains("john.doe@example.com"),
-                "Email should be redacted");
-        assertFalse(redactedContent.contains("192.168.1.100"),
-                "IP address should be redacted");
-        assertTrue(redactedContent.contains("Application started"),
-                "Normal content should remain");
+        assertThat(redactedContent).doesNotContain("john.doe@example.com").doesNotContain("192.168.1.100");
+        assertThat(redactedContent).contains("Application started");
     }
 
     @Test
@@ -103,16 +93,12 @@ class RedactTextCommandTest {
         assertEquals(0, exitCode, "Should exit successfully");
 
         // Check that custom output file was created
-        assertTrue(Files.exists(outputFile), "Should create custom output file");
+        assertThat(outputFile).exists();
 
         // Verify redaction
         String redactedContent = Files.readString(outputFile);
-        assertFalse(redactedContent.contains("192.168.1.100"),
-                "IP address should be redacted");
-        assertFalse(redactedContent.contains("test@example.com"),
-                "Email should be redacted");
-        assertTrue(redactedContent.contains("Public info"),
-                "Normal content should remain");
+        assertThat(redactedContent).doesNotContain("192.168.1.100", "test@example.com");
+        assertThat(redactedContent).contains("Public info");
     }
 
     @Test
@@ -125,7 +111,7 @@ class RedactTextCommandTest {
         assertEquals(0, exitCode, "Should exit successfully with strict preset");
 
         Path expectedOutput = tempDir.resolve("test.redacted.log");
-        assertTrue(Files.exists(expectedOutput), "Should create output file");
+        assertThat(expectedOutput).exists();
     }
 
     @Test
@@ -145,10 +131,8 @@ class RedactTextCommandTest {
         Path expectedOutput = tempDir.resolve("test.redacted.log");
         String redactedContent = Files.readString(expectedOutput);
 
-        assertFalse(redactedContent.contains("550e8400-e29b-41d4-a716-446655440000"),
-                "UUID should be redacted with strict preset");
-        assertTrue(redactedContent.contains("Normal data"),
-                "Normal content should remain");
+        assertThat(redactedContent).doesNotContain("550e8400-e29b-41d4-a716-446655440000");
+        assertThat(redactedContent).contains("Normal data");
     }
 
     @Test
@@ -169,10 +153,7 @@ class RedactTextCommandTest {
         String redactedContent = Files.readString(expectedOutput);
 
         // With pseudonymization, same email should get same pseudonym
-        assertFalse(redactedContent.contains("alice@example.com"),
-                "Original email should not appear");
-        assertFalse(redactedContent.contains("bob@example.com"),
-                "Original email should not appear");
+        assertThat(redactedContent).doesNotContain("alice@example.com", "bob@example.com");
     }
 
     @Test
@@ -196,12 +177,8 @@ class RedactTextCommandTest {
         Path expectedOutput = tempDir.resolve("test.redacted.log");
         String redactedContent = Files.readString(expectedOutput);
 
-        assertFalse(redactedContent.contains("ABC-123456"),
-                "Custom pattern should be redacted");
-        assertFalse(redactedContent.contains("XYZ-789012"),
-                "Custom pattern should be redacted");
-        assertTrue(redactedContent.contains("Normal text"),
-                "Normal content should remain");
+        assertThat(redactedContent).doesNotContain("ABC-123456", "XYZ-789012");
+        assertThat(redactedContent).contains("Normal text");
     }
 
     @Test
@@ -223,7 +200,7 @@ class RedactTextCommandTest {
         assertEquals(0, exitCode, "Should handle files without extension");
 
         Path expectedOutput = tempDir.resolve("logfile.redacted");
-        assertTrue(Files.exists(expectedOutput), "Should append .redacted when no extension");
+        assertThat(expectedOutput).exists();
     }
 
     @Test
@@ -248,6 +225,6 @@ class RedactTextCommandTest {
         assertEquals(0, exitCode, "Should exit successfully in quiet mode");
 
         Path expectedOutput = tempDir.resolve("test.redacted.log");
-        assertTrue(Files.exists(expectedOutput), "Should create output file in quiet mode");
+        assertThat(expectedOutput).exists();
     }
 }

@@ -61,7 +61,7 @@ That's it! The tool will automatically redact:
   - Second pass: Redact discovered values wherever they appear in the file
   - Configurable minimum occurrences and whitelists to reduce false positives
   - Use `--discovery-mode=fast` for single-pass (faster), `--discovery-mode=default` for two-pass (more thorough)
-- **Words Mode**: Discover and redact specific words/identifiers ([docs](WORDS_MODE.md))
+- **Words Mode**: Discover and redact specific words/identifiers
   - Discover all distinct words in a file: `jfr-redact words discover recording.jfr`
   - Create rules to keep or redact specific words
   - Apply rules: `jfr-redact words redact app.log redacted.log -r rules.txt`
@@ -180,7 +180,7 @@ cat hs_err_pid12345.log | java -jar jfr-redact.jar redact-text - -
 
 ### Words Mode
 
-Discover and redact specific words/identifiers manually. See [WORDS_MODE.md](WORDS_MODE.md) for full documentation.
+Discover and redact specific words/identifiers manually.
 
 ```bash
 # Discover all distinct words in a file

@@ -9,7 +9,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.IntPredicate;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -25,17 +27,17 @@ public class JFREventVerifier {
     }
 
     public JFREventVerifier fileExists() {
-        assertTrue(Files.exists(recordingPath), "Output file should exist");
+        assertThat(Files.exists(recordingPath)).as("Output file should exist").isTrue();
         return this;
     }
 
     public JFREventVerifier fileNotEmpty() throws IOException {
-        assertTrue(Files.size(recordingPath) > 0, "Output file should not be empty");
+        assertThat(Files.size(recordingPath)).as("Output file should not be empty").isGreaterThan(0);
         return this;
     }
 
     public JFREventVerifier hasEvents() {
-        assertFalse(allEvents.isEmpty(), "Output should contain events");
+        assertThat(allEvents).as("Output should contain events").isNotEmpty();
         return this;
     }
 
@@ -59,7 +61,7 @@ public class JFREventVerifier {
     public JFREventVerifier hasNoEventOfType(String eventTypeName) {
         boolean hasEvent = allEvents.stream()
                 .anyMatch(e -> e.getEventType().getName().equals(eventTypeName));
-        assertFalse(hasEvent, "Should not have events of type " + eventTypeName);
+        assertThat(hasEvent).as("Should not have events of type %s", eventTypeName).isFalse();
         return this;
     }
 
@@ -128,93 +130,80 @@ public class JFREventVerifier {
         }
 
         public SingleEventVerifier hasString(String fieldName, String expectedValue) {
-            assertEquals(expectedValue, event.getString(fieldName),
-                    "Field " + fieldName + " should be " + expectedValue);
+            assertThat(event.getString(fieldName)).as("Field %s should be %s", fieldName, expectedValue).isEqualTo(expectedValue);
             return this;
         }
 
         public SingleEventVerifier hasInt(String fieldName, int expectedValue) {
-            assertEquals(expectedValue, event.getInt(fieldName),
-                    "Field " + fieldName + " should be " + expectedValue);
+            assertThat(event.getInt(fieldName)).as("Field %s should be %d", fieldName, expectedValue).isEqualTo(expectedValue);
             return this;
         }
 
         public SingleEventVerifier hasLong(String fieldName, long expectedValue) {
-            assertEquals(expectedValue, event.getLong(fieldName),
-                    "Field " + fieldName + " should be " + expectedValue);
+            assertThat(event.getLong(fieldName)).as("Field %s should be %d", fieldName, expectedValue).isEqualTo(expectedValue);
             return this;
         }
 
         public SingleEventVerifier hasBoolean(String fieldName, boolean expectedValue) {
-            assertEquals(expectedValue, event.getBoolean(fieldName),
-                    "Field " + fieldName + " should be " + expectedValue);
+            assertThat(event.getBoolean(fieldName)).as("Field %s should be %s", fieldName, expectedValue).isEqualTo(expectedValue);
             return this;
         }
 
         public SingleEventVerifier hasFloat(String fieldName, float expectedValue, float delta) {
-            assertEquals(expectedValue, event.getFloat(fieldName), delta,
-                    "Field " + fieldName + " should be " + expectedValue);
+            assertThat(event.getFloat(fieldName)).as("Field %s should be %s", fieldName, expectedValue).isCloseTo(expectedValue, within(delta));
             return this;
         }
 
         public SingleEventVerifier hasDouble(String fieldName, double expectedValue, double delta) {
-            assertEquals(expectedValue, event.getDouble(fieldName), delta,
-                    "Field " + fieldName + " should be " + expectedValue);
+            assertThat(event.getDouble(fieldName)).as("Field %s should be %s", fieldName, expectedValue).isCloseTo(expectedValue, within(delta));
             return this;
         }
 
         public SingleEventVerifier hasByte(String fieldName, byte expectedValue) {
-            assertEquals(expectedValue, event.getByte(fieldName),
-                    "Field " + fieldName + " should be " + expectedValue);
+            assertThat(event.getByte(fieldName)).as("Field %s should be %s", fieldName, expectedValue).isEqualTo(expectedValue);
             return this;
         }
 
         public SingleEventVerifier hasShort(String fieldName, short expectedValue) {
-            assertEquals(expectedValue, event.getShort(fieldName),
-                    "Field " + fieldName + " should be " + expectedValue);
+            assertThat(event.getShort(fieldName)).as("Field %s should be %s", fieldName, expectedValue).isEqualTo(expectedValue);
             return this;
         }
 
         public SingleEventVerifier hasChar(String fieldName, char expectedValue) {
-            assertEquals(expectedValue, event.getChar(fieldName),
-                    "Field " + fieldName + " should be " + expectedValue);
+            assertThat(event.getChar(fieldName)).as("Field %s should be %s", fieldName, expectedValue).isEqualTo(expectedValue);
             return this;
         }
 
         public SingleEventVerifier fieldIsNull(String fieldName) {
-            assertNull(event.getString(fieldName), "Field " + fieldName + " should be null");
+            assertThat(event.getString(fieldName)).as("Field %s should be null", fieldName).isNull();
             return this;
         }
 
         public SingleEventVerifier fieldNotNull(String fieldName) {
-            assertNotNull(event.getValue(fieldName), "Field " + fieldName + " should not be null");
+            assertThat((Object)event.getValue(fieldName)).as("Field %s should not be null", fieldName).isNotNull();
             return this;
         }
 
         public SingleEventVerifier stringContains(String fieldName, String substring) {
             String value = event.getString(fieldName);
-            assertTrue(value.contains(substring),
-                    "Field " + fieldName + " should contain '" + substring + "' but was: " + value);
+            assertThat(value).as("Field %s should contain '%s'", fieldName, substring).contains(substring);
             return this;
         }
 
         public SingleEventVerifier stringDoesNotContain(String fieldName, String substring) {
             String value = event.getString(fieldName);
-            assertFalse(value.contains(substring),
-                    "Field " + fieldName + " should not contain '" + substring + "'");
+            assertThat(value).as("Field %s should not contain '%s'", fieldName, substring).doesNotContain(substring);
             return this;
         }
 
         public SingleEventVerifier isRedacted(String fieldName) {
             String value = event.getString(fieldName);
-            assertTrue(value.contains("***") || value.contains("<redacted:"),
-                    "Field " + fieldName + " should be redacted");
+            assertThat(value).as("Field %s should be redacted", fieldName).containsAnyOf("***", "<redacted:");
             return this;
         }
 
         public SingleEventVerifier intNotEquals(String fieldName, int notExpectedValue) {
-            assertNotEquals(notExpectedValue, event.getInt(fieldName),
-                    "Field " + fieldName + " should not be " + notExpectedValue);
+            assertThat(event.getInt(fieldName)).as("Field %s should not be %d", fieldName, notExpectedValue).isNotEqualTo(notExpectedValue);
             return this;
         }
 

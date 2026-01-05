@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -32,9 +33,7 @@ public class MockConsole {
      * Add input lines that will be "typed" by the user
      */
     public MockConsole withInput(String... lines) {
-        for (String line : lines) {
-            inputLines.add(line);
-        }
+        inputLines.addAll(Arrays.asList(lines));
         return this;
     }
 

@@ -9,6 +9,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for RealisticDataGenerator.
@@ -61,7 +62,7 @@ public class RealisticDataGeneratorTest {
 
         assertNotNull(result);
         assertNotEquals(original, result, "Generated username should differ from original");
-        assertFalse(result.isEmpty(), "Generated username should not be empty");
+        assertThat(result).isNotEmpty();
     }
 
     @Test
@@ -82,8 +83,8 @@ public class RealisticDataGeneratorTest {
         String resultDot = generator.generateUsername(withDot);
         String resultUnderscore = generator.generateUsername(withUnderscore);
 
-        assertTrue(resultDot.contains("."), "Should preserve dot format");
-        assertTrue(resultUnderscore.contains("_"), "Should preserve underscore format");
+        assertThat(resultDot).as("Should preserve dot format").contains(".");
+        assertThat(resultUnderscore).as("Should preserve underscore format").contains("_");
     }
 
     @Test
@@ -101,8 +102,8 @@ public class RealisticDataGeneratorTest {
 
         assertNotNull(result);
         assertNotEquals(original, result, "Generated email should differ from original");
-        assertTrue(result.contains("@"), "Generated email should contain @");
-        assertTrue(result.contains("."), "Generated email should contain .");
+        assertThat(result).as("Generated email should contain @").contains("@");
+        assertThat(result).as("Generated email should contain .").contains(".");
     }
 
     @Test
@@ -119,9 +120,7 @@ public class RealisticDataGeneratorTest {
     public void testGenerateEmail_PreservesDomainStructure() {
         String result = generator.generateEmail("user@test.org");
 
-        assertTrue(result.endsWith(".org") || result.endsWith(".com") ||
-                  result.endsWith(".net") || result.endsWith(".io"),
-            "Should use common TLD");
+        assertThat(result).as("Should use common TLD").matches(".*(\\.org|\\.com|\\.net|\\.io)$");
     }
 
     @Test
@@ -162,24 +161,24 @@ public class RealisticDataGeneratorTest {
     public void testGeneratePath_PreservesUnixStructure() {
         String result = generator.generatePath("/home/johndoe/documents");
 
-        assertTrue(result.startsWith("/home/"), "Should preserve /home/ prefix");
-        assertTrue(result.contains("/documents"), "Should preserve subdirectories");
+        assertThat(result).as("Should preserve /home/ prefix").startsWith("/home/");
+        assertThat(result).as("Should preserve subdirectories").contains("/documents");
     }
 
     @Test
     public void testGeneratePath_PreservesMacStructure() {
         String result = generator.generatePath("/Users/johndoe/Library");
 
-        assertTrue(result.startsWith("/Users/"), "Should preserve /Users/ prefix");
-        assertTrue(result.contains("/Library"), "Should preserve subdirectories");
+        assertThat(result).as("Should preserve /Users/ prefix").startsWith("/Users/");
+        assertThat(result).as("Should preserve subdirectories").contains("/Library");
     }
 
     @Test
     public void testGeneratePath_PreservesWindowsStructure() {
         String result = generator.generatePath("C:\\Users\\JohnDoe\\Documents");
 
-        assertTrue(result.startsWith("C:\\Users\\"), "Should preserve C:\\Users\\ prefix");
-        assertTrue(result.contains("\\Documents"), "Should preserve subdirectories");
+        assertThat(result).as("Should preserve C:\\Users\\ prefix").startsWith("C:\\Users\\");
+        assertThat(result).as("Should preserve subdirectories").contains("\\Documents");
     }
 
     @Test
@@ -196,7 +195,7 @@ public class RealisticDataGeneratorTest {
         String result = generator.generateReplacement(email);
 
         assertNotEquals(email, result);
-        assertTrue(result.contains("@"));
+        assertThat(result).contains("@");
     }
 
     @Test
@@ -205,7 +204,7 @@ public class RealisticDataGeneratorTest {
         String result = generator.generateReplacement(path);
 
         assertNotEquals(path, result);
-        assertTrue(result.contains("/"));
+        assertThat(result).contains("/");
     }
 
     @Test
@@ -271,35 +270,28 @@ public class RealisticDataGeneratorTest {
         String localPart = parts[0];
         String domain = parts[1];
 
-        assertFalse(localPart.contains("<"), "Should not contain brackets");
-        assertFalse(localPart.contains(">"), "Should not contain brackets");
-        assertFalse(localPart.contains("redacted"), "Should not contain 'redacted'");
-
-        assertTrue(domain.contains("."), "Domain should have TLD");
+        assertThat(localPart).doesNotContain("<", ">", "redacted");
+        assertThat(domain).as("Domain should have TLD").contains(".");
     }
 
     @Test
     public void testRealisticPath_LooksPlausible() {
         String result = generator.generatePath("/home/johndoe");
 
-        assertFalse(result.contains("<"), "Should not contain brackets");
-        assertFalse(result.contains(">"), "Should not contain brackets");
-        assertFalse(result.contains("redacted"), "Should not contain 'redacted'");
-        assertTrue(result.startsWith("/home/"), "Should preserve /home/ prefix");
-        assertFalse(result.contains("johndoe"), "Should not contain original username");
-        assertTrue(result.matches("/home/[a-z]+"), "Should match realistic pattern with name");
+        assertThat(result).doesNotContain("<", ">", "redacted");
+        assertThat(result).as("Should preserve /home/ prefix").startsWith("/home/");
+        assertThat(result).doesNotContain("johndoe");
+        assertThat(result).matches("/home/[a-z]+");
     }
 
     @Test
     public void testRealisticUsername_LooksPlausible() {
         String result = generator.generateUsername("johndoe");
 
-        assertFalse(result.contains("<"), "Should not contain brackets");
-        assertFalse(result.contains(">"), "Should not contain brackets");
-        assertFalse(result.contains("redacted"), "Should not contain 'redacted'");
-        assertFalse(result.equals("johndoe"), "Should not be original username");
+        assertThat(result).doesNotContain("<", ">", "redacted");
+        assertThat(result).isNotEqualTo("johndoe");
         // generateUsername generates: "user01", "user02", etc. (with numbers)
-        assertTrue(result.matches("user\\d{2}"), "Should match realistic pattern: " + result);
+        assertThat(result).matches("user\\d{2}");
     }
 
     // ========== Deterministic Seed Tests ==========

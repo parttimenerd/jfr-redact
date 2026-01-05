@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for WordRedactor
@@ -104,6 +105,6 @@ class WordRedactorTest {
         assertEquals("***", redactor.applyRules("secret"));
 
         String stats = redactor.getStatistics();
-        assertTrue(stats.contains("1 unique value"));  // Only one unique value cached
+        assertThat(stats).contains("1 unique value");  // Only one unique value cached
     }
 }

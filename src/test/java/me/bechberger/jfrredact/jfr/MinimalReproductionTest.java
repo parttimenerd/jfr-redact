@@ -15,6 +15,7 @@ import org.opentest4j.MultipleFailuresError;
 import java.nio.file.Path;
 import java.time.Duration;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -76,7 +77,7 @@ public class MinimalReproductionTest {
             );
 
             // Verify the error contains the expected failures
-            assertTrue(error.getFailures().size() > 0, "Should have at least one failure");
+            assertThat(error.getFailures()).as("Should have at least one failure").isNotEmpty();
         }
 
         /**
@@ -100,7 +101,7 @@ public class MinimalReproductionTest {
             );
 
             // Can still verify the error contains expected info
-            assertTrue(error.getFailures().size() > 0, "Should have at least one failure");
+            assertThat(error.getFailures()).as("Should have at least one failure").isNotEmpty();
         }
 
         /**
@@ -251,7 +252,7 @@ public class MinimalReproductionTest {
             }
 
             // This test is for diagnostics, not to assert
-            assertTrue(true);
+            assertThat(true).isTrue();
         }
     }
 }

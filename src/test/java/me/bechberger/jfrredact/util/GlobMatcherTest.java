@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 class GlobMatcherTest {
 
@@ -85,13 +86,13 @@ class GlobMatcherTest {
 
     @Test
     void testEmptyPatterns() {
-        assertFalse(GlobMatcher.matches("jdk.ThreadSleep", Collections.emptyList()));
-        assertFalse(GlobMatcher.matches("jdk.ThreadSleep", null));
+        assertThat(GlobMatcher.matches("jdk.ThreadSleep", Collections.emptyList())).isFalse();
+        assertThat(GlobMatcher.matches("jdk.ThreadSleep", null)).isFalse();
     }
 
     @Test
     void testNullValue() {
         List<String> patterns = List.of("jdk.*");
-        assertFalse(GlobMatcher.matches(null, patterns));
+        assertThat(GlobMatcher.matches(null, patterns)).isFalse();
     }
 }

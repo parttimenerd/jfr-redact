@@ -15,6 +15,7 @@ import java.util.List;
 
 import static me.bechberger.jfrredact.jfr.util.JFRTestEvents.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for WordsDiscoverCommand.
@@ -57,8 +58,11 @@ class WordsDiscoverCommandTest {
 
         String output = outContent.toString();
         // Should contain discovered words from the events
-        assertTrue(output.contains("Hello") || output.contains("World") || output.contains("Test"),
-                "Output should contain discovered words");
+        assertThat(output).satisfiesAnyOf(
+            o -> assertThat(o).contains("Hello"),
+            o -> assertThat(o).contains("World"),
+            o -> assertThat(o).contains("Test")
+        );
     }
 
     @Test
@@ -76,14 +80,14 @@ class WordsDiscoverCommandTest {
         );
 
         assertEquals(0, exitCode, "Command should succeed");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
 
         String content = Files.readString(outputFile);
-        assertFalse(content.isEmpty(), "Output file should not be empty");
+        assertThat(content).isNotEmpty();
 
         // Verify words are one per line
         List<String> lines = Files.readAllLines(outputFile);
-        assertFalse(lines.isEmpty(), "Should have discovered some words");
+        assertThat(lines).isNotEmpty();
     }
 
     @Test
@@ -102,7 +106,7 @@ class WordsDiscoverCommandTest {
         );
 
         assertEquals(0, exitCode, "Command should succeed");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -122,7 +126,7 @@ class WordsDiscoverCommandTest {
         );
 
         assertEquals(0, exitCode, "Command should succeed");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -145,10 +149,10 @@ class WordsDiscoverCommandTest {
         );
 
         assertEquals(0, exitCode, "Command should succeed");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
 
         List<String> words = Files.readAllLines(outputFile);
-        assertFalse(words.isEmpty(), "Should discover words from multiple events");
+        assertThat(words).isNotEmpty();
     }
 
     // ========== Text File Tests ==========
@@ -168,7 +172,7 @@ class WordsDiscoverCommandTest {
         assertEquals(0, exitCode, "Command should succeed");
 
         String output = outContent.toString();
-        assertFalse(output.isEmpty(), "Should output discovered words");
+        assertThat(output).isNotEmpty();
     }
 
     @Test
@@ -190,17 +194,14 @@ class WordsDiscoverCommandTest {
         );
 
         assertEquals(0, exitCode, "Command should succeed");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
 
         List<String> words = Files.readAllLines(outputFile);
-        assertFalse(words.isEmpty(), "Should discover words from log file");
+        assertThat(words).isNotEmpty();
 
         // Should contain various words from the log
         String allWords = String.join("\n", words);
-        assertTrue(allWords.contains("Application") ||
-                   allWords.contains("Connection") ||
-                   allWords.contains("User"),
-                "Should discover common words from log");
+        assertThat(allWords).containsAnyOf("Application", "Connection", "User");
     }
 
     @Test
@@ -222,11 +223,11 @@ class WordsDiscoverCommandTest {
         );
 
         assertEquals(0, exitCode, "Command should succeed with large file");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
 
         // Verify words were discovered
         List<String> words = Files.readAllLines(outputFile);
-        assertFalse(words.isEmpty(), "Should discover words from large file");
+        assertThat(words).isNotEmpty();
     }
 
     @Test
@@ -242,7 +243,7 @@ class WordsDiscoverCommandTest {
         );
 
         assertEquals(0, exitCode, "Command should succeed even with empty file");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -264,10 +265,10 @@ class WordsDiscoverCommandTest {
         );
 
         assertEquals(0, exitCode, "Command should succeed with special characters");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
 
         List<String> words = Files.readAllLines(outputFile);
-        assertFalse(words.isEmpty(), "Should discover words even with special chars");
+        assertThat(words).isNotEmpty();
     }
 
     // ========== Error Cases ==========
@@ -279,8 +280,7 @@ class WordsDiscoverCommandTest {
         assertEquals(1, exitCode, "Should fail when file doesn't exist");
 
         String stderr = errContent.toString();
-        assertTrue(stderr.contains("does not exist"),
-                "Should mention file doesn't exist");
+        assertThat(stderr).contains("does not exist");
     }
 
     @Test
@@ -297,10 +297,7 @@ class WordsDiscoverCommandTest {
         assertEquals(0, exitCode, "Help should display successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("discover"),
-                "Help should mention command name");
-        assertTrue(output.contains("Examples"),
-                "Help should include examples");
+        assertThat(output).contains("discover", "Examples");
     }
 
     @Test
@@ -309,11 +306,7 @@ class WordsDiscoverCommandTest {
 
         // Version flag should be accepted (exit code 0) or unrecognized (exit code 2)
         // Both are acceptable since this is a subcommand and version handling varies
-        assertTrue(exitCode == 0 || exitCode == 2,
-                "Version flag should be handled gracefully");
-
-        // Note: Version output capture behavior varies for subcommands in picocli,
-        // so we don't assert on the output content, just that the flag is handled
+        assertThat(exitCode).isIn(0, 2);
     }
 
     // ========== Output Format Tests ==========
@@ -335,8 +328,7 @@ class WordsDiscoverCommandTest {
         List<String> lines = Files.readAllLines(outputFile);
         // Each line should contain one word (no spaces within lines)
         for (String line : lines) {
-            assertFalse(line.contains(" "),
-                    "Each line should contain a single word, not: " + line);
+            assertThat(line).doesNotContain(" ");
         }
     }
 
@@ -352,8 +344,7 @@ class WordsDiscoverCommandTest {
 
         // Statistics should NOT be shown by default (only in verbose mode)
         String allOutput = outContent.toString() + errContent.toString();
-        assertFalse(allOutput.contains("Processed") && allOutput.contains("events"),
-                "Should not show statistics by default");
+        assertThat(allOutput).doesNotContain("Processed").doesNotContain("events");
     }
 
     @Test
@@ -366,7 +357,7 @@ class WordsDiscoverCommandTest {
         int exitCode = cmd.execute(jfrFile.toString(), "--verbose");
 
         // Verbose mode might not be implemented yet, so accept either success or CLI error
-        assertTrue(exitCode == 0 || exitCode == 2, "Command should succeed or reject unknown option");
+        assertThat(exitCode).isIn(0, 2);
     }
 
     @Test
@@ -385,7 +376,7 @@ class WordsDiscoverCommandTest {
         );
 
         assertEquals(0, exitCode, "Should accept long option names");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -402,6 +393,6 @@ class WordsDiscoverCommandTest {
         );
 
         assertEquals(0, exitCode, "Should accept short option names");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 }

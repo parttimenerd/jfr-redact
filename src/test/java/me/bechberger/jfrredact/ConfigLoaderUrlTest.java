@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -47,8 +48,8 @@ public class ConfigLoaderUrlTest {
         RedactionConfig config = loader.load(fileUrl);
 
         assertNotNull(config);
-        assertTrue(config.getProperties().isEnabled());
-        assertTrue(config.getProperties().getPatterns().contains("test_property"));
+        assertThat(config.getProperties().isEnabled()).isTrue();
+        assertThat(config.getProperties().getPatterns()).contains("test_property");
     }
 
     @Test
@@ -81,9 +82,8 @@ public class ConfigLoaderUrlTest {
         RedactionConfig config = loader.load(childFile.toUri().toString());
 
         assertNotNull(config);
-        assertTrue(config.getProperties().isEnabled());
-        assertTrue(config.getProperties().getPatterns().contains("parent_property"));
-        assertTrue(config.getProperties().getPatterns().contains("child_property"));
+        assertThat(config.getProperties().isEnabled()).isTrue();
+        assertThat(config.getProperties().getPatterns()).contains("parent_property", "child_property");
     }
 
     @Test
@@ -104,11 +104,10 @@ public class ConfigLoaderUrlTest {
         RedactionConfig config = loader.load(configFile.toUri().toString());
 
         assertNotNull(config);
-        assertTrue(config.getProperties().isEnabled());
-        assertTrue(config.getProperties().getPatterns().contains("custom_property"));
+        assertThat(config.getProperties().isEnabled()).isTrue();
+        assertThat(config.getProperties().getPatterns()).contains("custom_property");
         // Should also have patterns from default preset
-        assertTrue(config.getProperties().getPatterns().stream()
-            .anyMatch(p -> p.contains("secret") || p.contains("password")));
+        assertThat(config.getProperties().getPatterns()).anyMatch(p -> p.contains("secret") || p.contains("password"));
     }
 
     @Test
@@ -127,7 +126,7 @@ public class ConfigLoaderUrlTest {
         RedactionConfig config = loader.load(configFile.toString());
 
         assertNotNull(config);
-        assertTrue(config.getProperties().isEnabled());
+        assertThat(config.getProperties().isEnabled()).isTrue();
     }
 
     @Test
@@ -135,7 +134,7 @@ public class ConfigLoaderUrlTest {
         RedactionConfig config = loader.load("default");
 
         assertNotNull(config);
-        assertTrue(config.getProperties().isEnabled());
+        assertThat(config.getProperties().isEnabled()).isTrue();
     }
 
     @Test
@@ -275,12 +274,10 @@ public class ConfigLoaderUrlTest {
         RedactionConfig config = loader.load(childFile.toUri().toString());
 
         assertNotNull(config);
-        assertTrue(config.getProperties().isEnabled());
-        assertTrue(config.getProperties().getPatterns().contains("child_pattern"));
-        assertTrue(config.getProperties().getPatterns().contains("parent_pattern"));
+        assertThat(config.getProperties().isEnabled()).isTrue();
+        assertThat(config.getProperties().getPatterns()).contains("child_pattern", "parent_pattern");
         // Should also have patterns from default preset
-        assertTrue(config.getProperties().getPatterns().stream()
-            .anyMatch(p -> p.contains("secret") || p.contains("password")));
+        assertThat(config.getProperties().getPatterns()).anyMatch(p -> p.contains("secret") || p.contains("password"));
     }
 
     @Test
@@ -311,7 +308,6 @@ public class ConfigLoaderUrlTest {
         RedactionConfig config = loader.load(childFile.toUri().toString());
 
         assertNotNull(config);
-        assertTrue(config.getProperties().getPatterns().contains("from_parent"));
-        assertTrue(config.getProperties().getPatterns().contains("from_child"));
+        assertThat(config.getProperties().getPatterns()).contains("from_parent", "from_child");
     }
 }

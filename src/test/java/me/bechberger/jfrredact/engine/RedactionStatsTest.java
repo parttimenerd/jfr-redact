@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -35,8 +36,9 @@ class RedactionStatsTest {
 
         assertEquals(1, stats.getTotalEvents(), "Should record total event");
         assertEquals(1, stats.getProcessedEvents(), "Should count as processed");
-        assertTrue(stats.getEventTypeStats().containsKey("jdk.ThreadSleep"),
-                "Should track event type");
+        assertThat(stats.getEventTypeStats())
+                .as("Should track event type")
+                .containsKey("jdk.ThreadSleep");
         assertEquals(1, stats.getEventTypeStats().get("jdk.ThreadSleep").get(),
                 "Should count event type occurrence");
     }
@@ -81,10 +83,7 @@ class RedactionStatsTest {
         stats.recordRedactedField("password");
 
         assertEquals(3, stats.getRedactedFields(), "Should record 3 redacted fields");
-        assertTrue(stats.getRedactedFieldNames().containsKey("password"),
-                "Should track password field");
-        assertTrue(stats.getRedactedFieldNames().containsKey("secret"),
-                "Should track secret field");
+        assertThat(stats.getRedactedFieldNames()).containsKeys("password", "secret");
         assertEquals(2, stats.getRedactedFieldNames().get("password").get(),
                 "Should count password field twice");
         assertEquals(1, stats.getRedactedFieldNames().get("secret").get(),
@@ -131,20 +130,21 @@ class RedactionStatsTest {
             String output = outContent.toString();
 
             // Verify output contains expected sections
-            assertTrue(output.contains("Redaction Statistics"),
-                    "Should contain title");
-            assertTrue(output.contains("Events:"),
-                    "Should contain Events section");
-            assertTrue(output.contains("Redactions:"),
-                    "Should contain Redactions section");
-            assertTrue(output.contains("Total events read:"),
-                    "Should show total events");
-            assertTrue(output.contains("Events processed:"),
-                    "Should show processed events");
-            assertTrue(output.contains("Events removed:"),
-                    "Should show removed events");
-            assertTrue(output.contains("Total fields redacted:"),
-                    "Should show redacted fields");
+            assertThat(output)
+                    .as("Should contain title")
+                    .contains("Redaction Statistics")
+                    .as("Should contain Events section")
+                    .contains("Events:")
+                    .as("Should contain Redactions section")
+                    .contains("Redactions:")
+                    .as("Should show total events")
+                    .contains("Total events read:")
+                    .as("Should show processed events")
+                    .contains("Events processed:")
+                    .as("Should show removed events")
+                    .contains("Events removed:")
+                    .as("Should show redacted fields")
+                    .contains("Total fields redacted:");
 
         } finally {
             // Restore stdout
@@ -170,12 +170,13 @@ class RedactionStatsTest {
             stats.print();
 
             String output = outContent.toString();
-            assertTrue(output.contains("Top event types processed:"),
-                    "Should show top event types");
-            assertTrue(output.contains("jdk.ThreadSleep"),
-                    "Should list ThreadSleep");
-            assertTrue(output.contains("jdk.JavaMonitorEnter"),
-                    "Should list JavaMonitorEnter");
+            assertThat(output)
+                    .as("Should show top event types")
+                    .contains("Top event types processed:")
+                    .as("Should list ThreadSleep")
+                    .contains("jdk.ThreadSleep")
+                    .as("Should list JavaMonitorEnter")
+                    .contains("jdk.JavaMonitorEnter");
 
         } finally {
             System.setOut(originalOut);
@@ -200,12 +201,13 @@ class RedactionStatsTest {
             stats.print();
 
             String output = outContent.toString();
-            assertTrue(output.contains("Top redacted fields:"),
-                    "Should show top redacted fields");
-            assertTrue(output.contains("password"),
-                    "Should list password field");
-            assertTrue(output.contains("apiKey"),
-                    "Should list apiKey field");
+            assertThat(output)
+                    .as("Should show top redacted fields")
+                    .contains("Top redacted fields:")
+                    .as("Should list password field")
+                    .contains("password")
+                    .as("Should list apiKey field")
+                    .contains("apiKey");
 
         } finally {
             System.setOut(originalOut);
@@ -250,10 +252,11 @@ class RedactionStatsTest {
             stats.print();
 
             String output = outContent.toString();
-            assertTrue(output.contains("Redaction Statistics"),
-                    "Should print even with no data");
-            assertTrue(output.contains("0"),
-                    "Should show zero counts");
+            assertThat(output)
+                    .as("Should print even with no data")
+                    .contains("Redaction Statistics")
+                    .as("Should show zero counts")
+                    .contains("0");
 
         } finally {
             System.setOut(originalOut);

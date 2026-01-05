@@ -8,6 +8,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static me.bechberger.jfrredact.jfr.util.JFRTestEvents.*;
 
@@ -534,9 +535,9 @@ public class JFRTestFrameworkVerificationTest {
             .eventsOfTypeFullyPreserved("test.CustomSensitiveEvent");
         });
 
-        assertTrue(error.getMessage().contains("Field value") ||
-                   error.getMessage().contains("failure"),
-                "Error message should indicate field value mismatch");
+        assertThat(error.getMessage())
+                .as("Error message should indicate field value mismatch")
+                .containsAnyOf("Field value", "failure");
     }
 
     @Test
@@ -556,9 +557,9 @@ public class JFRTestFrameworkVerificationTest {
             .eventsOfTypeFullyPreserved("test.SensitiveDataEvent");
         });
 
-        assertTrue(error.getMessage().contains("Field value") ||
-                   error.getMessage().contains("failure"),
-                "Error message should indicate field value mismatch");
+        assertThat(error.getMessage())
+                .as("Error message should indicate field value mismatch")
+                .containsAnyOf("Field value", "failure");
     }
 
     @Test
@@ -576,9 +577,9 @@ public class JFRTestFrameworkVerificationTest {
             .eventsOfTypeFullyPreserved("test.SimpleEvent");
         });
 
-        assertTrue(error.getMessage().contains("Field value") ||
-                   error.getMessage().contains("failure"),
-                "Error message should indicate field mismatch due to pseudonymization");
+        assertThat(error.getMessage())
+                .as("Error message should indicate field mismatch due to pseudonymization")
+                .containsAnyOf("Field value", "failure");
     }
 
     @Test

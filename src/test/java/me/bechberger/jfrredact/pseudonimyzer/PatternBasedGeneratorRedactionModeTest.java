@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for PatternBasedGenerator redaction mode and cardinality warnings.
@@ -28,7 +29,7 @@ public class PatternBasedGeneratorRedactionModeTest {
         String result = generator.generateRandom("usernames");
 
         assertNotNull(result);
-        assertTrue(result.matches("user\\d{3}"), "Should match pattern: " + result);
+        assertThat(result).as("Should match pattern: %s", result).matches("user\\d{3}");
     }
 
     @Test
@@ -43,14 +44,14 @@ public class PatternBasedGeneratorRedactionModeTest {
         String result3 = generator.generateRandom("tokens");
 
         // All should be valid
-        assertTrue(result1.matches("[a-z]{4}"));
-        assertTrue(result2.matches("[a-z]{4}"));
-        assertTrue(result3.matches("[a-z]{4}"));
+        assertThat(result1).matches("[a-z]{4}");
+        assertThat(result2).matches("[a-z]{4}");
+        assertThat(result3).matches("[a-z]{4}");
 
         // Should be different (with high probability)
         // At least one pair should be different
         boolean hasVariation = !result1.equals(result2) || !result2.equals(result3) || !result1.equals(result3);
-        assertTrue(hasVariation, "Random generation should produce variation");
+        assertThat(hasVariation).as("Random generation should produce variation").isTrue();
     }
 
     @Test
@@ -63,8 +64,8 @@ public class PatternBasedGeneratorRedactionModeTest {
         String result = generator.generateRandom("user_path");
 
         assertNotNull(result);
-        assertTrue(result.startsWith("/home/"), "Should start with /home/");
-        assertFalse(result.contains("{users}"), "Should replace placeholder");
+        assertThat(result).as("Should start with /home/").startsWith("/home/");
+        assertThat(result).as("Should replace placeholder").doesNotContain("{users}");
     }
 
     @Test
@@ -80,11 +81,11 @@ public class PatternBasedGeneratorRedactionModeTest {
         }
 
         // Should have generated multiple different values
-        assertTrue(generated.size() >= 2, "Should generate multiple different values: " + generated);
+        assertThat(generated.size()).as("Should generate multiple different values: %s", generated).isGreaterThanOrEqualTo(2);
 
         // All should be valid
         for (String color : generated) {
-            assertTrue(color.matches("(red|green|blue)"), "Invalid color: " + color);
+            assertThat(color).as("Invalid color: %s", color).matches("(red|green|blue)");
         }
     }
 
@@ -99,10 +100,10 @@ public class PatternBasedGeneratorRedactionModeTest {
         for (int i = 0; i < 10; i++) {
             String ip = generator.generateRandom("ips");
             generated.add(ip);
-            assertTrue(ip.matches("10\\.0\\.\\d{1,3}\\.\\d{1,3}"), "Invalid IP: " + ip);
+            assertThat(ip).as("Invalid IP: %s", ip).matches("10\\.0\\.\\d{1,3}\\.\\d{1,3}");
         }
 
-        assertTrue(generated.size() >= 5, "Should generate varied IPs");
+        assertThat(generated.size()).as("Should generate varied IPs").isGreaterThanOrEqualTo(5);
     }
 
     // ========== Pseudonymization Mode (Deterministic) Tests ==========
@@ -151,7 +152,7 @@ public class PatternBasedGeneratorRedactionModeTest {
         for (int i = 0; i < 10; i++) {
             randoms.add(generator.generateRandom("ids"));
         }
-        assertTrue(randoms.size() > 1, "Random mode should produce variation");
+        assertThat(randoms.size()).as("Random mode should produce variation").isGreaterThan(1);
 
         // Pseudonymization mode - should be consistent
         String pseudo1 = generator.generate("ids", "test");
@@ -242,9 +243,9 @@ public class PatternBasedGeneratorRedactionModeTest {
         assertNotNull(val3);
 
         // All should be valid
-        assertTrue(val1.matches("[01]"));
-        assertTrue(val2.matches("[01]"));
-        assertTrue(val3.matches("[01]"));
+        assertThat(val1).matches("[01]");
+        assertThat(val2).matches("[01]");
+        assertThat(val3).matches("[01]");
     }
 
     @Test
@@ -307,10 +308,10 @@ public class PatternBasedGeneratorRedactionModeTest {
         String ip2 = generator.generateRandom("ip_addresses");
 
         // All should be valid
-        assertTrue(host1.matches("srv\\d{2}\\.test\\.local"));
-        assertTrue(host2.matches("srv\\d{2}\\.test\\.local"));
-        assertTrue(ip1.matches("10\\.0\\.\\d{1,3}\\.\\d{1,3}"));
-        assertTrue(ip2.matches("10\\.0\\.\\d{1,3}\\.\\d{1,3}"));
+        assertThat(host1).matches("srv\\d{2}\\.test\\.local");
+        assertThat(host2).matches("srv\\d{2}\\.test\\.local");
+        assertThat(ip1).matches("10\\.0\\.\\d{1,3}\\.\\d{1,3}");
+        assertThat(ip2).matches("10\\.0\\.\\d{1,3}\\.\\d{1,3}");
     }
 
     @Test
@@ -347,7 +348,7 @@ public class PatternBasedGeneratorRedactionModeTest {
 
         // Random for simple redaction
         String randomToken = generator.generateRandom("tokens");
-        assertTrue(randomToken.matches("tok_[a-f0-9]{8}"));
+        assertThat(randomToken).matches("tok_[a-f0-9]{8}");
 
         // Deterministic for pseudonymization
         String pseudoToken1 = generator.generate("tokens", "secret1");
@@ -356,6 +357,6 @@ public class PatternBasedGeneratorRedactionModeTest {
 
         // Random should still work independently
         String randomToken2 = generator.generateRandom("tokens");
-        assertTrue(randomToken2.matches("tok_[a-f0-9]{8}"));
+        assertThat(randomToken2).matches("tok_[a-f0-9]{8}");
     }
 }

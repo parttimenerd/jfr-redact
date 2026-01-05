@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for improved configuration error handling.
@@ -29,8 +30,7 @@ public class ConfigErrorHandlingTest {
             () -> loader.load(missingFile.toString())
         );
 
-        assertTrue(exception.getMessage().contains("not found"));
-        assertTrue(exception.getMessage().contains("config-template.yaml"));
+        assertThat(exception.getMessage()).contains("not found", "config-template.yaml");
     }
 
     @Test
@@ -45,8 +45,7 @@ public class ConfigErrorHandlingTest {
             () -> loader.load(emptyFile.toString())
         );
 
-        assertTrue(exception.getMessage().contains("empty"));
-        assertTrue(exception.getMessage().contains("preset"));
+        assertThat(exception.getMessage()).contains("empty", "preset");
     }
 
     @Test
@@ -68,9 +67,7 @@ public class ConfigErrorHandlingTest {
             () -> loader.load(configFile.toString())
         );
 
-        // Should get some configuration error (exact message depends on Jackson parser)
-        assertNotNull(exception.getMessage());
-        assertTrue(exception.getMessage().length() > 0);
+        assertThat(exception.getMessage()).isNotEmpty();
     }
 
     @Test
@@ -91,9 +88,11 @@ public class ConfigErrorHandlingTest {
             () -> loader.load(configFile.toString())
         );
 
-        assertTrue(exception.getMessage().contains("Unknown property") ||
-                   exception.getMessage().contains("properteis"));
-        assertTrue(exception.getMessage().contains("config-template.yaml"));
+        assertThat(exception.getMessage()).satisfiesAnyOf(
+            msg -> assertThat(msg).contains("Unknown property"),
+            msg -> assertThat(msg).contains("properteis")
+        );
+        assertThat(exception.getMessage()).contains("config-template.yaml");
     }
 
     @Test
@@ -123,9 +122,10 @@ public class ConfigErrorHandlingTest {
             () -> loader.load(config1File.toString())
         );
 
-        // Check that we get a circular dependency error
-        assertTrue(exception.getMessage().contains("Circular") ||
-                   exception.getMessage().contains("circular"));
+        assertThat(exception.getMessage()).satisfiesAnyOf(
+            msg -> assertThat(msg).contains("Circular"),
+            msg -> assertThat(msg).contains("circular")
+        );
     }
 
     @Test
@@ -146,8 +146,7 @@ public class ConfigErrorHandlingTest {
             () -> loader.load(configFile.toString())
         );
 
-        assertTrue(exception.getMessage().contains("parent"));
-        assertTrue(exception.getMessage().contains("/nonexistent/parent.yaml"));
+        assertThat(exception.getMessage()).contains("parent", "/nonexistent/parent.yaml");
     }
 
     @Test
@@ -178,7 +177,9 @@ public class ConfigErrorHandlingTest {
             () -> loader.load("http://invalid-hostname-that-does-not-exist-12345.com/config.yaml")
         );
 
-        assertTrue(exception.getMessage().contains("Cannot resolve hostname") ||
-                   exception.getMessage().contains("URL"));
+        assertThat(exception.getMessage()).satisfiesAnyOf(
+            msg -> assertThat(msg).contains("Cannot resolve hostname"),
+            msg -> assertThat(msg).contains("URL")
+        );
     }
 }

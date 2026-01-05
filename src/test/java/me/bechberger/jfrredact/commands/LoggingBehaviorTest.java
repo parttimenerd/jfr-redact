@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -156,8 +157,6 @@ class LoggingBehaviorTest {
     @DisplayName("Main CLI Logging Integration Tests")
     class MainCliLoggingTests {
 
-        private ByteArrayOutputStream outContent;
-        private ByteArrayOutputStream errContent;
         private PrintStream originalOut;
         private PrintStream originalErr;
 
@@ -165,8 +164,8 @@ class LoggingBehaviorTest {
         void setUpStreams() {
             originalOut = System.out;
             originalErr = System.err;
-            outContent = new ByteArrayOutputStream();
-            errContent = new ByteArrayOutputStream();
+            ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+            ByteArrayOutputStream errContent = new ByteArrayOutputStream();
             // Don't redirect System.out/err as it interferes with logback
         }
 
@@ -206,28 +205,23 @@ class LoggingBehaviorTest {
         @DisplayName("RedactCommand should have --debug option")
         void testRedactCommandHasDebugOption() {
             CommandLine cmd = new CommandLine(new RedactCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--debug") != null,
-                "RedactCommand should have --debug option");
+            assertNotNull(cmd.getCommandSpec().findOption("--debug"), "RedactCommand should have --debug option");
         }
 
         @Test
         @DisplayName("RedactCommand should have --verbose option")
         void testRedactCommandHasVerboseOption() {
             CommandLine cmd = new CommandLine(new RedactCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--verbose") != null,
-                "RedactCommand should have --verbose option");
-            assertTrue(cmd.getCommandSpec().findOption("-v") != null,
-                "RedactCommand should have -v short option");
+            assertNotNull(cmd.getCommandSpec().findOption("--verbose"), "RedactCommand should have --verbose option");
+            assertNotNull(cmd.getCommandSpec().findOption("-v"), "RedactCommand should have -v short option");
         }
 
         @Test
         @DisplayName("RedactCommand should have --quiet option")
         void testRedactCommandHasQuietOption() {
             CommandLine cmd = new CommandLine(new RedactCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--quiet") != null,
-                "RedactCommand should have --quiet option");
-            assertTrue(cmd.getCommandSpec().findOption("-q") != null,
-                "RedactCommand should have -q short option");
+            assertNotNull(cmd.getCommandSpec().findOption("--quiet"), "RedactCommand should have --quiet option");
+            assertNotNull(cmd.getCommandSpec().findOption("-q"), "RedactCommand should have -q short option");
         }
 
         @Test
@@ -265,24 +259,21 @@ class LoggingBehaviorTest {
         @DisplayName("RedactTextCommand should have --debug option")
         void testRedactTextCommandHasDebugOption() {
             CommandLine cmd = new CommandLine(new RedactTextCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--debug") != null,
-                "RedactTextCommand should have --debug option");
+            assertNotNull(cmd.getCommandSpec().findOption("--debug"), "RedactTextCommand should have --debug option");
         }
 
         @Test
         @DisplayName("RedactTextCommand should have --verbose option")
         void testRedactTextCommandHasVerboseOption() {
             CommandLine cmd = new CommandLine(new RedactTextCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--verbose") != null,
-                "RedactTextCommand should have --verbose option");
+            assertNotNull(cmd.getCommandSpec().findOption("--verbose"), "RedactTextCommand should have --verbose option");
         }
 
         @Test
         @DisplayName("RedactTextCommand should have --quiet option")
         void testRedactTextCommandHasQuietOption() {
             CommandLine cmd = new CommandLine(new RedactTextCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--quiet") != null,
-                "RedactTextCommand should have --quiet option");
+            assertNotNull(cmd.getCommandSpec().findOption("--quiet"), "RedactTextCommand should have --quiet option");
         }
 
         @Test
@@ -320,24 +311,21 @@ class LoggingBehaviorTest {
         @DisplayName("TestCommand should have --debug option")
         void testTestCommandHasDebugOption() {
             CommandLine cmd = new CommandLine(new TestCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--debug") != null,
-                "TestCommand should have --debug option");
+            assertNotNull(cmd.getCommandSpec().findOption("--debug"), "TestCommand should have --debug option");
         }
 
         @Test
         @DisplayName("TestCommand should have --verbose option")
         void testTestCommandHasVerboseOption() {
             CommandLine cmd = new CommandLine(new TestCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--verbose") != null,
-                "TestCommand should have --verbose option");
+            assertNotNull(cmd.getCommandSpec().findOption("--verbose"), "TestCommand should have --verbose option");
         }
 
         @Test
         @DisplayName("TestCommand should have --quiet option")
         void testTestCommandHasQuietOption() {
             CommandLine cmd = new CommandLine(new TestCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--quiet") != null,
-                "TestCommand should have --quiet option");
+            assertNotNull(cmd.getCommandSpec().findOption("--quiet"), "TestCommand should have --quiet option");
         }
     }
 
@@ -351,24 +339,21 @@ class LoggingBehaviorTest {
         @DisplayName("GenerateConfigCommand should have --debug option")
         void testGenerateConfigCommandHasDebugOption() {
             CommandLine cmd = new CommandLine(new GenerateConfigCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--debug") != null,
-                "GenerateConfigCommand should have --debug option");
+            assertNotNull(cmd.getCommandSpec().findOption("--debug"), "GenerateConfigCommand should have --debug option");
         }
 
         @Test
         @DisplayName("GenerateConfigCommand should have --verbose option")
         void testGenerateConfigCommandHasVerboseOption() {
             CommandLine cmd = new CommandLine(new GenerateConfigCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--verbose") != null,
-                "GenerateConfigCommand should have --verbose option");
+            assertNotNull(cmd.getCommandSpec().findOption("--verbose"), "GenerateConfigCommand should have --verbose option");
         }
 
         @Test
         @DisplayName("GenerateConfigCommand should have --quiet option")
         void testGenerateConfigCommandHasQuietOption() {
             CommandLine cmd = new CommandLine(new GenerateConfigCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--quiet") != null,
-                "GenerateConfigCommand should have --quiet option");
+            assertNotNull(cmd.getCommandSpec().findOption("--quiet"), "GenerateConfigCommand should have --quiet option");
         }
     }
 
@@ -382,24 +367,21 @@ class LoggingBehaviorTest {
         @DisplayName("GenerateSchemaCommand should have --debug option")
         void testGenerateSchemaCommandHasDebugOption() {
             CommandLine cmd = new CommandLine(new GenerateSchemaCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--debug") != null,
-                "GenerateSchemaCommand should have --debug option");
+            assertNotNull(cmd.getCommandSpec().findOption("--debug"), "GenerateSchemaCommand should have --debug option");
         }
 
         @Test
         @DisplayName("GenerateSchemaCommand should have --verbose option")
         void testGenerateSchemaCommandHasVerboseOption() {
             CommandLine cmd = new CommandLine(new GenerateSchemaCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--verbose") != null,
-                "GenerateSchemaCommand should have --verbose option");
+            assertNotNull(cmd.getCommandSpec().findOption("--verbose"), "GenerateSchemaCommand should have --verbose option");
         }
 
         @Test
         @DisplayName("GenerateSchemaCommand should have --quiet option")
         void testGenerateSchemaCommandHasQuietOption() {
             CommandLine cmd = new CommandLine(new GenerateSchemaCommand());
-            assertTrue(cmd.getCommandSpec().findOption("--quiet") != null,
-                "GenerateSchemaCommand should have --quiet option");
+            assertNotNull(cmd.getCommandSpec().findOption("--quiet"), "GenerateSchemaCommand should have --quiet option");
         }
     }
 
@@ -450,17 +432,11 @@ class LoggingBehaviorTest {
             String quietDesc = String.join("", cmd.getCommandSpec().findOption("--quiet").description());
 
             assertAll(
-                () -> assertTrue(debugDesc.toLowerCase().contains("debug"),
-                    commandName + " --debug should mention debug in description"),
-                () -> assertTrue(verboseDesc.toLowerCase().contains("verbose") ||
-                                verboseDesc.toLowerCase().contains("info"),
-                    commandName + " --verbose should mention verbose/info in description"),
-                () -> assertTrue(quietDesc.toLowerCase().contains("quiet") ||
-                                quietDesc.toLowerCase().contains("error") ||
-                                quietDesc.toLowerCase().contains("minimize"),
-                    commandName + " --quiet should mention quiet/error/minimize in description")
-            );
-        }
+                () -> assertThat(debugDesc.toLowerCase().contains("debug")).as(commandName + " --debug should mention debug in description").isTrue(),
+                () -> assertThat(verboseDesc.toLowerCase().contains("verbose") || verboseDesc.toLowerCase().contains("info")).as(commandName + " --verbose should mention verbose/info in description").isTrue(),
+                () -> assertThat(quietDesc.toLowerCase().contains("quiet") || quietDesc.toLowerCase().contains("error") || quietDesc.toLowerCase().contains("minimize")).as(commandName + " --quiet should mention quiet/error/minimize in description").isTrue()
+             );
+         }
     }
 
     // ==================== Helper Methods ====================

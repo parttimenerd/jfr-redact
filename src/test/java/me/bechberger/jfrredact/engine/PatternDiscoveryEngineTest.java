@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -59,8 +60,8 @@ class PatternDiscoveryEngineTest {
 
         assertEquals(2, values.size(), "Should discover 2 usernames");
 
-        assertTrue(patterns.contains("alice"));
-        assertTrue(patterns.contains("bob"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("alice", "bob");
     }
 
     @Test
@@ -80,8 +81,8 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertTrue(patterns.contains("charlie"));
-        assertTrue(patterns.contains("david"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("charlie", "david");
     }
 
     @Test
@@ -103,9 +104,10 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertFalse(patterns.contains("root"), "root should be whitelisted");
-        assertFalse(patterns.contains("admin"), "admin should be whitelisted");
-        assertTrue(patterns.contains("alice"), "alice should be discovered");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .doesNotContain("root", "admin");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("alice");
     }
 
     @Test
@@ -130,7 +132,8 @@ class PatternDiscoveryEngineTest {
         List<DiscoveredPatterns.DiscoveredValue> values = patterns.getValues(1);
         // alice appears 2 times, bob appears 1 time but needs 2
         assertEquals(1, values.size(), "Only alice appears 2+ times");
-        assertTrue(patterns.contains("alice"));
+        assertThat(values).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("alice");
     }
 
     @Test
@@ -177,8 +180,9 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertTrue(patterns.getValues(1).size() > 0, "Should discover at least one hostname");
-        assertTrue(patterns.contains("server01.example.com") || patterns.contains("server02.example.com"));
+        assertThat(patterns.getValues(1)).isNotEmpty();
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .containsAnyOf("server01.example.com", "server02.example.com");
     }
 
     @Test
@@ -202,7 +206,9 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertTrue(patterns.contains("F5N"), "Should discover hostname F5N from Host: line");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .as("Should discover hostname F5N from Host: line")
+            .contains("F5N");
     }
 
     @Test
@@ -229,12 +235,14 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertTrue(patterns.contains("F5N"), "Should discover hostname F5N");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .as("Should discover hostname F5N")
+            .contains("F5N");
 
         // Verify it was discovered multiple times
         DiscoveredPatterns.DiscoveredValue value = patterns.get("F5N");
         assertNotNull(value);
-        assertTrue(value.getOccurrences() >= 2, "Should have discovered hostname multiple times");
+        assertThat(value.getOccurrences()).as("Should have discovered hostname multiple times").isGreaterThanOrEqualTo(2);
     }
 
     @Test
@@ -257,8 +265,9 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertFalse(patterns.contains("localhost"), "localhost should be whitelisted");
-        assertTrue(patterns.contains("realhostname.example.com"), "Real hostname should be discovered");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .as("Real hostname should be discovered")
+            .contains("realhostname.example.com");
     }
 
     @Test
@@ -282,10 +291,12 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertFalse(patterns.contains("jenkins"), "jenkins should be in ignore_exact");
-        assertFalse(patterns.contains("test123"), "test123 should match ignore pattern");
-        assertFalse(patterns.contains("testuser"), "testuser should match ignore pattern");
-        assertTrue(patterns.contains("alice"), "alice should be discovered");
+        assertThat(patterns.contains("jenkins")).as("jenkins should be ignored").isFalse();
+        assertThat(patterns.contains("test123")).as("test123 should match ignore pattern").isFalse();
+        assertThat(patterns.contains("testuser")).as("testuser should match ignore pattern").isFalse();
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .as("alice should be discovered")
+            .contains("alice");
     }
 
     @Test
@@ -318,7 +329,8 @@ class PatternDiscoveryEngineTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Verify usernames are case insensitive
-        assertTrue(patterns.contains("alice") || patterns.contains("Alice"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .containsAnyOf("alice", "Alice");
         DiscoveredPatterns.DiscoveredValue userValue = patterns.get("alice");
         if (userValue != null) {
             assertEquals(2, userValue.getOccurrences(), "Both Alice and alice should count as same");
@@ -354,8 +366,9 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertTrue(patterns.contains("alice"), "Should extract username alice");
-        assertTrue(patterns.contains("bob"), "Should extract username bob");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .as("Should extract usernames")
+            .contains("alice", "bob");
     }
 
     @Test
@@ -381,8 +394,9 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertTrue(patterns.contains("ABC123"), "Should extract project code ABC123");
-        assertTrue(patterns.contains("XYZ789"), "Should extract project code XYZ789");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .as("Should extract project codes")
+            .contains("ABC123", "XYZ789");
     }
 
     @Test
@@ -455,11 +469,13 @@ class PatternDiscoveryEngineTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // alice appears 2 times (meets threshold), bob appears 1 time (doesn't meet threshold)
-        assertTrue(patterns.contains("alice"), "alice should be discovered (2 occurrences)");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .as("alice should be discovered (2 occurrences)")
+            .contains("alice");
 
         // Both hostnames should be discovered (min 1 occurrence)
-        assertTrue(patterns.contains("SERVER1"), "SERVER1 should be discovered");
-        assertTrue(patterns.contains("SERVER2"), "SERVER2 should be discovered");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("SERVER1", "SERVER2");
     }
 
     @Test
@@ -481,8 +497,9 @@ class PatternDiscoveryEngineTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // With empty whitelist, everything should be discovered
-        assertTrue(patterns.contains("root"), "root should be discovered (no whitelist)");
-        assertTrue(patterns.contains("admin"), "admin should be discovered (no whitelist)");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .as("root and admin should be discovered (no whitelist)")
+            .contains("root", "admin");
     }
 
     @Test
@@ -510,8 +527,9 @@ class PatternDiscoveryEngineTest {
         String stats = engine.getStatistics();
 
         assertNotNull(stats);
-        assertTrue(stats.contains("Discovery Statistics"), "Should contain statistics header");
-        assertTrue(stats.contains("Total discovered values"), "Should show total count");
+        assertThat(stats)
+            .as("Should contain statistics header and total count")
+            .contains("Discovery Statistics", "Total discovered values");
     }
 
     @Test
@@ -532,7 +550,9 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertTrue(patterns.contains("testhost.example.com"), "Should extract entire match when capture group is 0");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .as("Should extract entire match when capture group is 0")
+            .contains("testhost.example.com");
     }
 
     @Test
@@ -554,7 +574,7 @@ class PatternDiscoveryEngineTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Should not discover anything since capture group doesn't exist
-        assertFalse(patterns.contains("alice"), "Should not extract with invalid capture group");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue).doesNotContain("alice");
     }
 
     @Test
@@ -590,15 +610,18 @@ class PatternDiscoveryEngineTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Hostname should be discovered
-        assertTrue(patterns.contains("F5N"), "Should discover hostname F5N");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("F5N");
         DiscoveredPatterns.DiscoveredValue hostname = patterns.get("F5N");
-        assertTrue(hostname.getOccurrences() >= 2, "Hostname should appear multiple times");
+        assertThat(hostname.getOccurrences()).as("Hostname should be discovered at least 2 times (Host line and uname line)").isGreaterThanOrEqualTo(2);
 
         // Username should be discovered
-        assertTrue(patterns.contains("alice"), "Should discover username alice");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("alice");
 
         // Whitelisted values should not be discovered
-        assertFalse(patterns.contains("root"), "root should be whitelisted");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .doesNotContain("root", "admin");
     }
 
     @Test
@@ -628,8 +651,9 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        assertTrue(patterns.contains("PRODSERVER01"), "Should extract PRODSERVER01");
-        assertFalse(patterns.contains("LOCALHOST"), "LOCALHOST should be whitelisted");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("PRODSERVER01");
+        assertThat(patterns.contains("LOCALHOST")).as("LOCALHOST should be whitelisted").isFalse();
     }
 
     @Test
@@ -678,13 +702,12 @@ class PatternDiscoveryEngineTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Verify hostname was discovered
-        assertTrue(patterns.contains("F5N"),
-                  "Should discover hostname F5N from Host: line");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+                  .contains("F5N");
 
         DiscoveredPatterns.DiscoveredValue hostname = patterns.get("F5N");
         assertNotNull(hostname, "Hostname should be in discovered patterns");
-        assertTrue(hostname.getOccurrences() >= 2,
-                  "Hostname should be discovered at least 2 times (Host line and uname line)");
+        assertThat(hostname.getOccurrences()).as("Hostname should be discovered at least 2 times (Host line and uname line)").isGreaterThanOrEqualTo(2);
     }
 
     @Test
@@ -726,7 +749,7 @@ class PatternDiscoveryEngineTest {
             "uname: Darwin MACBOOK-PRO-2023 22.6.0 Darwin Kernel Version 22.6.0: Wed Jul  5 22:22:05 PDT 2023; root:xnu-8796.141.3~6/RELEASE_ARM64_T6000 arm64",
             "OS uptime: 3 days 22:33 hours",
             "",
-            "/Users/jdeveloper/workspace/jdk/build/macosx-aarch64/images/jdk/bin/java",
+            "/Users/jdeveloper/workspace/jdk/build/macosx/aarch64/images/jdk/bin/java",
             "",
             "VM Arguments:",
             "java_command: HelloWorld",
@@ -752,16 +775,13 @@ class PatternDiscoveryEngineTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Verify discoveries
-        assertTrue(patterns.contains("MACBOOK-PRO-2023"),
-                  "Should discover hostname MACBOOK-PRO-2023");
-        assertTrue(patterns.contains("jdeveloper"),
-                  "Should discover username jdeveloper");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("MACBOOK-PRO-2023", "jdeveloper");
 
         // Verify hostname was discovered 2 times through the discovery patterns
         DiscoveredPatterns.DiscoveredValue hostnameValue = patterns.get("MACBOOK-PRO-2023");
         assertNotNull(hostnameValue, "Hostname should be discovered");
-        assertTrue(hostnameValue.getOccurrences() >= 2,
-                  "Hostname should be discovered at least 2 times: Host line and uname line");
+        assertThat(hostnameValue.getOccurrences()).as("Hostname should be discovered at least 2 times (Host line and uname line)").isGreaterThanOrEqualTo(2);
 
         // Verify username was discovered 1 time
         DiscoveredPatterns.DiscoveredValue usernameValue = patterns.get("jdeveloper");
@@ -789,42 +809,16 @@ class PatternDiscoveryEngineTest {
         String redactedText = redactedOutput.toString();
 
         // Verify hostname is redacted everywhere (all 5 occurrences)
-        assertFalse(redactedText.contains("MACBOOK-PRO-2023"),
-                   "Hostname should be completely redacted");
-
-        // Verify username is redacted everywhere
-        assertFalse(redactedText.contains("jdeveloper"),
-                   "Username should be completely redacted");
+        assertThat(redactedText).doesNotContain("MACBOOK-PRO-2023", "jdeveloper");
 
         // Verify replacements in specific locations
-        assertTrue(redactedText.contains("Host: ***HOSTNAME***,"),
-                  "Hostname should be redacted in Host line");
-        assertTrue(redactedText.contains("Darwin ***HOSTNAME*** 22.6.0"),
-                  "Hostname should be redacted in uname line");
-        assertTrue(redactedText.contains("HOSTNAME=***HOSTNAME***"),
-                  "Hostname should be redacted in env var line");
-        assertTrue(redactedText.contains("frame on ***HOSTNAME***:"),
-                  "Hostname should be redacted in frame line");
-        assertTrue(redactedText.contains("compiled on ***HOSTNAME***"),
-                  "Hostname should be redacted in native frames line");
-        assertTrue(redactedText.contains("/Users/***USER***/workspace"),
-                  "Username should be redacted in path");
+        assertThat(redactedText)
+            .contains("Host: ***HOSTNAME***,", "Darwin ***HOSTNAME*** 22.6.0", "HOSTNAME=***HOSTNAME***",
+                      "frame on ***HOSTNAME***:", "compiled on ***HOSTNAME***", "/Users/***USER***/workspace");
 
         // Verify that surrounding text is preserved
-        assertTrue(redactedText.contains("\"MacBookPro17,1\""),
-                  "MacBookPro model should be preserved");
-        assertTrue(redactedText.contains("8 cores"),
-                  "Core count should be preserved");
-        assertTrue(redactedText.contains("16G"),
-                  "Memory should be preserved");
-        assertTrue(redactedText.contains("Darwin Kernel Version"),
-                  "Kernel version should be preserved");
-        assertTrue(redactedText.contains("Darwin 22.6.0"),
-                  "Darwin version should be preserved");
-        assertTrue(redactedText.contains("SUN_STANDARD"),
-                  "Launcher type should be preserved");
-        assertTrue(redactedText.contains("HelloWorld"),
-                  "Command should be preserved");
+        assertThat(redactedText).contains("\"MacBookPro17,1\"", "8 cores", "16G", "Darwin Kernel Version",
+                                        "Darwin 22.6.0", "SUN_STANDARD", "HelloWorld");
     }
 
     @Test
@@ -856,8 +850,8 @@ class PatternDiscoveryEngineTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Should discover both hostnames
-        assertTrue(patterns.contains("server-01.corp.com"));
-        assertTrue(patterns.contains("laptop-x1.corp.com"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("server-01.corp.com", "laptop-x1.corp.com");
 
         // Redact
         StringBuilder redacted = new StringBuilder();
@@ -872,10 +866,8 @@ class PatternDiscoveryEngineTest {
         }
 
         String result = redacted.toString();
-        assertFalse(result.contains("SERVER-01"));
-        assertFalse(result.contains("LAPTOP-X1"));
-        assertTrue(result.contains("Host: ***,"));
-        assertTrue(result.contains("from *** to ***"));
+        assertThat(result).doesNotContain("SERVER-01", "LAPTOP-X1")
+            .contains("Host: ***,", "from *** to ***");
     }
 
     @Test
@@ -895,7 +887,8 @@ class PatternDiscoveryEngineTest {
         engine.analyzeLine(line);
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
-        assertTrue(patterns.contains("alice"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("alice");
 
         // Redact
         String redacted = line;
@@ -905,9 +898,8 @@ class PatternDiscoveryEngineTest {
             }
         }
 
-        assertFalse(redacted.contains("alice"));
-        assertTrue(redacted.contains("/Users/***USER***/project/src/Main.java:42"));
-        assertTrue(redacted.contains(":42"), "Line number should be preserved");
+        assertThat(redacted).doesNotContain("alice");
+        assertThat(redacted).contains("/Users/***USER***/project/src/Main.java:42", ":42");
     }
 
     @Test
@@ -937,7 +929,8 @@ class PatternDiscoveryEngineTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Should discover "Bob" (case-insensitively)
-        assertTrue(patterns.contains("Bob") || patterns.contains("bob") || patterns.contains("BOB"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .containsAnyOf("Bob", "bob", "BOB");
 
         // Redact with case-insensitive replacement
         StringBuilder redacted = new StringBuilder();
@@ -952,8 +945,8 @@ class PatternDiscoveryEngineTest {
         }
 
         String result = redacted.toString();
-        assertFalse(result.toLowerCase().contains("bob"), "All variations of 'bob' should be redacted");
-        assertTrue(result.contains("/Users/***/documents"));
+        assertThat(result.toLowerCase()).doesNotContain("bob");
+        assertThat(result).contains("/Users/***/documents");
     }
 
     @Test
@@ -985,9 +978,10 @@ class PatternDiscoveryEngineTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // localhost should NOT be discovered (whitelisted)
-        assertFalse(patterns.contains("localhost"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue).doesNotContain("localhost");
         // PRODUCTION-01 should be discovered
-        assertTrue(patterns.contains("PRODUCTION-01"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("PRODUCTION-01");
 
         // Redact
         StringBuilder redacted = new StringBuilder();
@@ -1002,8 +996,8 @@ class PatternDiscoveryEngineTest {
         }
 
         String result = redacted.toString();
-        assertTrue(result.contains("localhost"), "Whitelisted hostname should be preserved");
-        assertFalse(result.contains("PRODUCTION-01"), "Non-whitelisted hostname should be redacted");
+        assertThat(result).contains("localhost");
+        assertThat(result).doesNotContain("PRODUCTION-01");
     }
 
     // ========================================================================
@@ -1035,7 +1029,8 @@ class PatternDiscoveryEngineTest {
         }
 
         DiscoveredPatterns patterns = discoveryEngine.getDiscoveredPatterns();
-        assertTrue(patterns.contains("alice"), "Should discover username alice");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("alice");
 
         // Redaction phase using RedactionEngine
         me.bechberger.jfrredact.config.RedactionConfig redactionConfig = new me.bechberger.jfrredact.config.RedactionConfig();
@@ -1056,9 +1051,8 @@ class PatternDiscoveryEngineTest {
         }
 
         String result = redacted.toString();
-        assertFalse(result.contains("alice"), "Username should be redacted");
-        // Path might be fully redacted or partially redacted depending on config
-        assertTrue(result.length() > 0, "Result should not be empty");
+        assertThat(result).doesNotContain("alice", "PRODSERVER")
+            .isNotEmpty();
     }
 
     @Test
@@ -1098,8 +1092,8 @@ class PatternDiscoveryEngineTest {
         }
 
         DiscoveredPatterns patterns = discoveryEngine.getDiscoveredPatterns();
-        assertTrue(patterns.contains("MYSERVER"), "Should discover hostname");
-        assertTrue(patterns.contains("jdeveloper"), "Should discover username");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("MYSERVER", "jdeveloper");
 
         // Redaction pass
         me.bechberger.jfrredact.config.RedactionConfig redactionConfig = new me.bechberger.jfrredact.config.RedactionConfig();
@@ -1116,10 +1110,9 @@ class PatternDiscoveryEngineTest {
         }
 
         String result = redacted.toString();
-        assertFalse(result.contains("MYSERVER"), "Hostname should be redacted");
-        assertFalse(result.contains("jdeveloper"), "Username should be redacted");
-        assertTrue(result.contains("Host:"), "Labels should remain");
-        assertTrue(result.contains("MacBookPro18,3"), "Hardware model should remain");
+        assertThat(result).doesNotContain("MYSERVER", "jdeveloper");
+        assertThat(result).contains("Host:");
+        assertThat(result).contains("MacBookPro18,3");
     }
 
     @Test
@@ -1186,14 +1179,13 @@ class PatternDiscoveryEngineTest {
         String result = redacted.toString();
 
         // Verify original usernames are gone
-        assertFalse(result.contains("alice"), "Original username alice should not appear");
-        assertFalse(result.contains("bob"), "Original username bob should not appear");
+        assertThat(result).doesNotContain("alice", "bob");
 
         // Verify pseudonyms are consistent
         if (alicePseudonym != null) {
             // Count occurrences of alice's pseudonym - should appear multiple times
             int aliceCount = countOccurrences(result, alicePseudonym);
-            assertTrue(aliceCount >= 2, "alice's pseudonym should appear multiple times consistently");
+            assertThat(aliceCount).isGreaterThanOrEqualTo(2);
         }
 
         // Verify different users get different pseudonyms
@@ -1251,11 +1243,9 @@ class PatternDiscoveryEngineTest {
             // Read and verify output
             String redactedContent = java.nio.file.Files.readString(tempOutput);
 
-            assertFalse(redactedContent.contains("PRODSERVER"), "Hostname should be completely redacted");
-            assertFalse(redactedContent.contains("devuser"), "Username should be completely redacted");
-            assertTrue(redactedContent.contains("Host:"), "Labels should remain");
-            assertTrue(redactedContent.contains("/Users/"), "Path structure should remain");
-
+            assertThat(redactedContent).doesNotContain("PRODSERVER", "devuser");
+            assertThat(redactedContent).contains("Host:");
+            assertThat(redactedContent).contains("/Users/");
         } finally {
             java.nio.file.Files.deleteIfExists(tempInput);
             java.nio.file.Files.deleteIfExists(tempOutput);
@@ -1309,8 +1299,7 @@ class PatternDiscoveryEngineTest {
             // With fast mode, later occurrences should be redacted
             // (earlier ones might not be if discovered after they appear)
             int server01Count = countOccurrences(redactedContent, "SERVER01");
-            assertTrue(server01Count < 4, "Most occurrences of SERVER01 should be redacted in fast mode");
-
+            assertThat(server01Count).isLessThan(4);
         } finally {
             java.nio.file.Files.deleteIfExists(tempInput);
             java.nio.file.Files.deleteIfExists(tempOutput);
@@ -1359,8 +1348,7 @@ class PatternDiscoveryEngineTest {
 
             String redactedContent = java.nio.file.Files.readString(tempOutput);
 
-            assertFalse(redactedContent.contains("alice"), "Original names should be redacted");
-            assertFalse(redactedContent.contains("bob"), "Original names should be redacted");
+            assertThat(redactedContent).doesNotContain("alice", "bob");
 
             // With counter mode, we should see sequential pseudonyms
             // Note: The actual format depends on the Pseudonymizer implementation
@@ -1414,11 +1402,7 @@ class PatternDiscoveryEngineTest {
             String redactedContent = java.nio.file.Files.readString(tempOutput);
 
             // SERVER-A appears 2 times in Host: context (meets threshold) - should be redacted
-            assertFalse(redactedContent.contains("SERVER-A"), "SERVER-A should be redacted (appears 2 times in Host: context)");
-
-            // SERVER-B appears 2 times in Host: context (meets threshold) - should be redacted
-            assertFalse(redactedContent.contains("SERVER-B"), "SERVER-B should be redacted (appears 2 times in Host: context)");
-
+            assertThat(redactedContent).doesNotContain("SERVER-A", "SERVER-B");
         } finally {
             java.nio.file.Files.deleteIfExists(tempInput);
             java.nio.file.Files.deleteIfExists(tempOutput);
@@ -1466,11 +1450,10 @@ class PatternDiscoveryEngineTest {
             String redactedContent = java.nio.file.Files.readString(tempOutput);
 
             // localhost should be preserved (whitelisted)
-            assertTrue(redactedContent.contains("localhost"), "Whitelisted hostname should be preserved");
+            assertThat(redactedContent).contains("localhost");
 
             // PROD-SERVER should be redacted (not whitelisted)
-            assertFalse(redactedContent.contains("PROD-SERVER"), "Non-whitelisted hostname should be redacted");
-
+            assertThat(redactedContent).doesNotContain("PROD-SERVER");
         } finally {
             java.nio.file.Files.deleteIfExists(tempInput);
             java.nio.file.Files.deleteIfExists(tempOutput);
@@ -1523,13 +1506,11 @@ class PatternDiscoveryEngineTest {
             String redactedContent = java.nio.file.Files.readString(tempOutput);
 
             // Both hostname and username should be redacted
-            assertFalse(redactedContent.contains("MY-LAPTOP"), "Hostname should be redacted");
-            assertFalse(redactedContent.contains("developer"), "Username should be redacted");
+            assertThat(redactedContent).doesNotContain("MY-LAPTOP", "developer");
 
             // Structure should remain
-            assertTrue(redactedContent.contains("Host:"), "Labels should remain");
-            assertTrue(redactedContent.contains("/Users/"), "Path structure should remain");
-
+            assertThat(redactedContent).contains("Host:");
+            assertThat(redactedContent).contains("/Users/");
         } finally {
             java.nio.file.Files.deleteIfExists(tempInput);
             java.nio.file.Files.deleteIfExists(tempOutput);

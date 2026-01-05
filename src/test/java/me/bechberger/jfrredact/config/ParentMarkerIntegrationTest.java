@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Integration tests for $PARENT marker with actual YAML configuration loading.
@@ -22,18 +23,15 @@ public class ParentMarkerIntegrationTest {
         List<String> patterns = config.getProperties().getPatterns();
 
         // From default.yaml
-        assertTrue(patterns.contains("(pass(word|wort|wd)?|pwd)"), "Should contain default password pattern");
-        assertTrue(patterns.contains("secret"), "Should contain default secret pattern");
-        assertTrue(patterns.contains("token"), "Should contain default token pattern");
+        assertThat(patterns).contains("(pass(word|wort|wd)?|pwd)", "secret", "token");
 
         // From strict.yaml (added via $PARENT)
-        assertTrue(patterns.contains("user(name)?"), "Should contain strict username pattern");
-        assertTrue(patterns.contains("login"), "Should contain strict login pattern");
+        assertThat(patterns).contains("user(name)?", "login");
 
         // Verify order: parent first, then child
         int passwordIndex = patterns.indexOf("(pass(word|wort|wd)?|pwd)");
         int usernameIndex = patterns.indexOf("user(name)?");
-        assertTrue(passwordIndex < usernameIndex, "Parent patterns should come before child patterns");
+        assertThat(passwordIndex).as("Parent patterns should come before child patterns").isLessThan(usernameIndex);
     }
 
     @Test
@@ -44,11 +42,10 @@ public class ParentMarkerIntegrationTest {
         List<String> removedTypes = config.getEvents().getRemovedTypes();
 
         // From default.yaml
-        assertTrue(removedTypes.contains("jdk.SystemProcess"), "Should contain default SystemProcess");
+        assertThat(removedTypes).contains("jdk.SystemProcess");
 
         // From strict.yaml (added via $PARENT)
-        assertTrue(removedTypes.contains("jdk.SystemProperty"), "Should contain strict SystemProperty");
-        assertTrue(removedTypes.contains("jdk.NativeLibrary"), "Should contain strict NativeLibrary");
+        assertThat(removedTypes).contains("jdk.SystemProperty", "jdk.NativeLibrary");
     }
 
     @Test
@@ -59,12 +56,10 @@ public class ParentMarkerIntegrationTest {
         List<String> patterns = config.getProperties().getPatterns();
 
         // Should have the default patterns
-        assertTrue(patterns.contains("(pass(word|wort|wd)?|pwd)"));
-        assertTrue(patterns.contains("secret"));
-        assertTrue(patterns.contains("token"));
+        assertThat(patterns).contains("(pass(word|wort|wd)?|pwd)", "secret", "token");
 
         // Should NOT have strict-specific patterns
-        assertFalse(patterns.contains("login"));
+        assertThat(patterns).doesNotContain("login");
     }
 
     @Test
@@ -77,16 +72,14 @@ public class ParentMarkerIntegrationTest {
         List<String> patterns = config.getProperties().getPatterns();
 
         // Verify order: custom_before, then parent patterns, then custom_after
-        assertTrue(patterns.contains("custom_before"));
-        assertTrue(patterns.contains("custom_after"));
-        assertTrue(patterns.contains("secret")); // from default
+        assertThat(patterns).contains("custom_before", "custom_after", "secret"); // from default
 
         int beforeIndex = patterns.indexOf("custom_before");
         int secretIndex = patterns.indexOf("secret");
         int afterIndex = patterns.indexOf("custom_after");
 
-        assertTrue(beforeIndex < secretIndex, "custom_before should come before parent patterns");
-        assertTrue(secretIndex < afterIndex, "Parent patterns should come before custom_after");
+        assertThat(beforeIndex).isLessThan(secretIndex);
+        assertThat(secretIndex).isLessThan(afterIndex);
     }
 
     @Test
@@ -97,11 +90,10 @@ public class ParentMarkerIntegrationTest {
         List<String> removedTypes = config.getEvents().getRemovedTypes();
 
         // From default (via $PARENT)
-        assertTrue(removedTypes.contains("jdk.SystemProcess"));
+        assertThat(removedTypes).contains("jdk.SystemProcess");
 
         // From test config
-        assertTrue(removedTypes.contains("jdk.TestEvent1"));
-        assertTrue(removedTypes.contains("jdk.TestEvent2"));
+        assertThat(removedTypes).contains("jdk.TestEvent1", "jdk.TestEvent2");
     }
 
     @Test
@@ -112,12 +104,11 @@ public class ParentMarkerIntegrationTest {
         List<String> patterns = config.getProperties().getPatterns();
 
         // Should ONLY have the override pattern, not parent patterns
-        assertEquals(1, patterns.size(), "Should have exactly 1 pattern (override behavior)");
-        assertEquals("only_this_pattern", patterns.get(0));
+        assertThat(patterns).hasSize(1);
+        assertThat(patterns.get(0)).isEqualTo("only_this_pattern");
 
         // Should NOT have default patterns
-        assertFalse(patterns.contains("secret"));
-        assertFalse(patterns.contains("password"));
+        assertThat(patterns).doesNotContain("secret", "password");
     }
 
     @Test
@@ -128,11 +119,11 @@ public class ParentMarkerIntegrationTest {
         List<String> removedTypes = config.getEvents().getRemovedTypes();
 
         // Should ONLY have the override event, not parent events
-        assertEquals(1, removedTypes.size(), "Should have exactly 1 event type (override behavior)");
-        assertEquals("only.this.Event", removedTypes.get(0));
+        assertThat(removedTypes).hasSize(1);
+        assertThat(removedTypes.get(0)).isEqualTo("only.this.Event");
 
         // Should NOT have default events
-        assertFalse(removedTypes.contains("jdk.OSInformation"));
+        assertThat(removedTypes).doesNotContain("jdk.OSInformation");
     }
 
     @Test
@@ -144,11 +135,10 @@ public class ParentMarkerIntegrationTest {
         List<String> patterns = config.getProperties().getPatterns();
 
         // Should have patterns from both default and hserr
-        assertFalse(patterns.isEmpty(), "Should have inherited patterns");
+        assertThat(patterns).as("Should have inherited patterns").isNotEmpty();
 
         // Verify some default patterns are present (inherited)
-        assertTrue(patterns.stream().anyMatch(p -> p.contains("pass")),
-            "Should contain password-related pattern from default");
+        assertThat(patterns.stream().anyMatch(p -> p.contains("pass"))).as("Should contain password-related pattern from default").isTrue();
     }
 
     @Test
@@ -159,13 +149,12 @@ public class ParentMarkerIntegrationTest {
         List<String> includeEvents = config.getEvents().getFiltering().getIncludeEvents();
 
         // Should have both test events
-        assertTrue(includeEvents.contains("test.Event1"));
-        assertTrue(includeEvents.contains("test.Event2"));
+        assertThat(includeEvents).contains("test.Event1", "test.Event2");
 
         // Verify order
         int event1Index = includeEvents.indexOf("test.Event1");
         int event2Index = includeEvents.indexOf("test.Event2");
-        assertTrue(event1Index < event2Index, "Events should maintain order with $PARENT expansion");
+        assertThat(event1Index).isLessThan(event2Index);
     }
 
     @Test
@@ -179,9 +168,9 @@ public class ParentMarkerIntegrationTest {
         List<String> patterns = strictConfig.getProperties().getPatterns();
 
         // Should have patterns from default (grandparent)
-        assertTrue(patterns.contains("secret"), "Should inherit from default via strict");
+        assertThat(patterns).contains("secret");
 
         // Should have patterns added by strict (parent)
-        assertTrue(patterns.contains("login"), "Should have strict's own patterns");
+        assertThat(patterns).contains("login");
     }
 }

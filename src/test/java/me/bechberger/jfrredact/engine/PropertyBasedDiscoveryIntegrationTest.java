@@ -14,7 +14,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Integration tests for property-based pattern discovery using actual JFR events.
@@ -124,8 +125,8 @@ class PropertyBasedDiscoveryIntegrationTest {
         System.out.println("All discovered values: " + patterns.getAllValues());
 
         // Verify both usernames were discovered
-        assertTrue(patterns.contains("i560383"), "Should contain i560383");
-        assertTrue(patterns.contains("john.doe"), "Should contain john.doe");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("i560383", "john.doe");
 
         assertEquals(2, patterns.get("i560383").getOccurrences());
         assertEquals(1, patterns.get("john.doe").getOccurrences());
@@ -182,8 +183,8 @@ class PropertyBasedDiscoveryIntegrationTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Verify hostnames were discovered
-        assertTrue(patterns.contains("server01"));
-        assertTrue(patterns.contains("server02"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("server01", "server02");
     }
 
     @Test
@@ -248,10 +249,10 @@ class PropertyBasedDiscoveryIntegrationTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Verify whitelisted usernames were NOT discovered
-        assertTrue(patterns.contains("john"));
-        assertTrue(patterns.contains("jane"));
-        assertFalse(patterns.contains("root"));
-        assertFalse(patterns.contains("admin"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("john", "jane");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .doesNotContain("root", "admin");
     }
 
     @Test
@@ -307,8 +308,10 @@ class PropertyBasedDiscoveryIntegrationTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Verify only "bob" was discovered (2 occurrences)
-        assertFalse(patterns.contains("alice"));
-        assertTrue(patterns.contains("bob"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .doesNotContain("alice");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("bob");
         assertEquals(2, patterns.get("bob").getOccurrences());
     }
 
@@ -375,10 +378,8 @@ class PropertyBasedDiscoveryIntegrationTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // Verify both users and hosts were discovered with correct types
-        assertTrue(patterns.contains("testuser"));
-        assertTrue(patterns.contains("anotheruser"));
-        assertTrue(patterns.contains("testhost"));
-        assertTrue(patterns.contains("anotherhost"));
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("testuser", "anotheruser", "testhost", "anotherhost");
 
         assertEquals(DiscoveredPatterns.PatternType.USERNAME, patterns.get("testuser").getType());
         assertEquals(DiscoveredPatterns.PatternType.HOSTNAME, patterns.get("testhost").getType());
@@ -437,7 +438,10 @@ class PropertyBasedDiscoveryIntegrationTest {
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
         // All should be treated as the same value (case-insensitive)
-        assertTrue(patterns.contains("server"));
+        assertThat(patterns.getValues(1))
+                .extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+                .extracting(String::toLowerCase)
+            .contains("server");
         assertEquals(3, patterns.get("server").getOccurrences());
     }
 
@@ -508,9 +512,10 @@ class PropertyBasedDiscoveryIntegrationTest {
         System.out.println("All discovered values: " + patterns.getAllValues());
 
         // Verify usernames were discovered from key-value pairs
-        assertTrue(patterns.contains("i560383"), "Should contain i560383 from key-value pair");
-        assertTrue(patterns.contains("john.doe"), "Should contain john.doe from key-value pair");
-        assertFalse(patterns.contains("server01"), "Should NOT contain server01 (different key)");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .contains("i560383", "john.doe");
+        assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
+            .doesNotContain("server01");
 
         assertEquals(2, patterns.get("i560383").getOccurrences());
         assertEquals(1, patterns.get("john.doe").getOccurrences());

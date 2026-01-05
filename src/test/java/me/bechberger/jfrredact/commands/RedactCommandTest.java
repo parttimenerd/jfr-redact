@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RedactCommandTest {
@@ -177,14 +178,10 @@ class RedactCommandTest {
         assertEquals(0, exitCode, "Help should exit successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("redact"),
-                "Help should mention command name");
-        assertTrue(output.contains("--dry-run"),
-                "Help should mention --dry-run option");
-        assertTrue(output.contains("--stats"),
-                "Help should mention --stats option");
-        assertTrue(output.contains("--pseudonymize"),
-                "Help should mention --pseudonymize option");
+        assertThat(output).as("Help should mention command name").contains("redact");
+        assertThat(output).as("Help should mention --dry-run option").contains("--dry-run");
+        assertThat(output).as("Help should mention --stats option").contains("--stats");
+        assertThat(output).as("Help should mention --pseudonymize option").contains("--pseudonymize");
     }
 
     @Test
@@ -383,8 +380,7 @@ class RedactCommandTest {
     void testFailingCommandLines(String[] args, int expectedExitCode, String errorMessageSubstring) {
         int exitCode = cmd.execute(args);
 
-        assertTrue(exitCode != 0,
-            "Command should fail with non-zero exit code for args: " + String.join(" ", args));
+        assertThat(exitCode).as("Command should fail with non-zero exit code for args: %s", String.join(" ", args)).isNotEqualTo(0);
 
         // For PicoCLI validation errors, exit code should be 2
         // For application errors, exit code should be 1
@@ -414,8 +410,7 @@ class RedactCommandTest {
         assertEquals(expectedExitCode, exitCode);
 
         String output = baos.toString();
-        assertTrue(output.contains(expectedOutputSubstring),
-            "Output should contain: " + expectedOutputSubstring + "\nActual output: " + output);
+        assertThat(output).as("Output should contain: %s\nActual output: %s", expectedOutputSubstring, output).contains(expectedOutputSubstring);
     }
 
     @ParameterizedTest
@@ -463,7 +458,7 @@ class RedactCommandTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with valid config file");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(Files.exists(outputFile)).as("Output file should be created").isTrue();
     }
 
     @Test
@@ -493,7 +488,7 @@ class RedactCommandTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with config URL");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(Files.exists(outputFile)).as("Output file should be created").isTrue();
     }
 
     // ========== Text File Redaction Tests from MainTestOld ==========
@@ -511,10 +506,10 @@ class RedactCommandTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Text file redaction should succeed");
-        assertTrue(Files.exists(outputFile), "Output file should exist");
+        assertThat(Files.exists(outputFile)).as("Output file should exist").isTrue();
 
         String output = Files.readString(outputFile);
-        assertFalse(output.contains("user@example.com"), "Email should be redacted");
+        assertThat(output).as("Email should be redacted").doesNotContain("user@example.com");
     }
 
     @Test
@@ -530,7 +525,7 @@ class RedactCommandTest {
         assertEquals(0, exitCode, "Should succeed with default output");
 
         Path expectedOutput = inputFile.getParent().resolve("input.redacted.txt");
-        assertTrue(Files.exists(expectedOutput), "Default output file should exist");
+        assertThat(Files.exists(expectedOutput)).as("Default output file should exist").isTrue();
     }
 
     @Test
@@ -547,7 +542,7 @@ class RedactCommandTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with pseudonymize flag");
-        assertTrue(Files.exists(outputFile), "Output file should exist");
+        assertThat(Files.exists(outputFile)).as("Output file should exist").isTrue();
     }
 
     @Test
@@ -610,7 +605,7 @@ class RedactCommandTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with all options combined");
-        assertTrue(Files.exists(outputFile), "Output file should exist");
+        assertThat(Files.exists(outputFile)).as("Output file should exist").isTrue();
     }
 
     // ========== Edge Cases from MainTestOld ==========

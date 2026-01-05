@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for PatternBasedGenerator.
@@ -41,8 +42,8 @@ public class PatternBasedGeneratorTest {
 
         String result = generator.generate("usernames", "original_value");
 
-        assertNotNull(result);
-        assertTrue(result.matches("user\\d{3}"), "Should match pattern: " + result);
+        assertThat(result).isNotNull();
+        assertThat(result).matches("user\\d{3}");
     }
 
     @ParameterizedTest(name = "[{index}] {3}")
@@ -55,9 +56,8 @@ public class PatternBasedGeneratorTest {
 
         String result = generator.generate(patternName, "test_value");
 
-        assertNotNull(result, description);
-        assertTrue(result.matches(validationRegex),
-            description + " - Generated: " + result + " should match: " + validationRegex);
+        assertThat(result).isNotNull();
+        assertThat(result).matches(validationRegex);
     }
 
     // ========== Consistency Tests ==========
@@ -115,9 +115,9 @@ public class PatternBasedGeneratorTest {
 
         PatternBasedGenerator generator = new PatternBasedGenerator(patterns, FIXED_SEED);
 
-        assertTrue(generator.hasPattern("usernames"));
-        assertTrue(generator.hasPattern("emails"));
-        assertFalse(generator.hasPattern("nonexistent"));
+        assertThat(generator.hasPattern("usernames")).isTrue();
+        assertThat(generator.hasPattern("emails")).isTrue();
+        assertThat(generator.hasPattern("nonexistent")).isFalse();
     }
 
     @Test
@@ -129,8 +129,7 @@ public class PatternBasedGeneratorTest {
         PatternBasedGenerator generator = new PatternBasedGenerator(patterns, FIXED_SEED);
 
         assertEquals(2, generator.getPatternNames().size());
-        assertTrue(generator.getPatternNames().contains("pattern1"));
-        assertTrue(generator.getPatternNames().contains("pattern2"));
+        assertThat(generator.getPatternNames()).contains("pattern1", "pattern2");
     }
 
     @Test
@@ -217,7 +216,7 @@ public class PatternBasedGeneratorTest {
 
         PatternBasedGenerator generator = new PatternBasedGenerator(patterns, FIXED_SEED);
 
-        assertFalse(generator.hasPattern("anything"));
+        assertThat(generator.hasPattern("anything")).isFalse();
         assertNull(generator.generate("anything", "value"));
     }
 
@@ -233,8 +232,8 @@ public class PatternBasedGeneratorTest {
         String result = generator.generate("ips", "192.168.1.1");
 
         assertNotNull(result);
-        assertTrue(result.startsWith("10.0."), "Should start with 10.0.: " + result);
-        assertTrue(result.matches("10\\.0\\.\\d{1,3}\\.\\d{1,3}"), "Should match IP pattern: " + result);
+        assertThat(result).startsWith("10.0.");
+        assertThat(result).matches("10\\.0\\.\\d{1,3}\\.\\d{1,3}");
     }
 
     @Test
@@ -247,9 +246,8 @@ public class PatternBasedGeneratorTest {
         String result = generator.generate("emails", "original@company.com");
 
         assertNotNull(result);
-        assertTrue(result.contains("@"), "Should contain @: " + result);
-        assertTrue(result.matches("[a-z]{4,8}@(test|example)\\.(com|org)"),
-            "Should match email pattern: " + result);
+        assertThat(result).contains("@");
+        assertThat(result).matches("[a-z]{4,8}@(test|example)\\.(com|org)");
     }
 
     @Test
@@ -262,9 +260,8 @@ public class PatternBasedGeneratorTest {
         String result = generator.generate("tokens", "original_token");
 
         assertNotNull(result);
-        assertTrue(result.startsWith("tok_"), "Should start with tok_: " + result);
-        assertTrue(result.matches("tok_[A-Z]{2}\\d{6}[a-z]{2}"),
-            "Should match token pattern: " + result);
+        assertThat(result).startsWith("tok_");
+        assertThat(result).matches("tok_[A-Z]{2}\\d{6}[a-z]{2}");
     }
 
     // ========== Multiple Pattern Tests ==========
@@ -282,9 +279,9 @@ public class PatternBasedGeneratorTest {
         String email = generator.generate("emails", "john@example.com");
         String token = generator.generate("tokens", "secret_token");
 
-        assertTrue(username.matches("user\\d{3}"));
-        assertTrue(email.matches("[a-z]+@test\\.com"));
-        assertTrue(token.matches("tok_[a-f0-9]{8}"));
+        assertThat(username).matches("user\\d{3}");
+        assertThat(email).matches("[a-z]+@test\\.com");
+        assertThat(token).matches("tok_[a-f0-9]{8}");
     }
 
     // ========== Real-World Scenario Tests ==========
@@ -302,9 +299,9 @@ public class PatternBasedGeneratorTest {
         String ip = generator.generate("ip_addresses", "10.0.0.1");
         String key = generator.generate("api_keys", "original_api_key_12345");
 
-        assertTrue(host.matches("srv\\d{2}\\.test\\.local"), "Host: " + host);
-        assertTrue(ip.matches("192\\.168\\.\\d{1,3}\\.\\d{1,3}"), "IP: " + ip);
-        assertTrue(key.matches("key_[a-f0-9]{32}"), "Key: " + key);
+        assertThat(host).matches("srv\\d{2}\\.test\\.local");
+        assertThat(ip).matches("192\\.168\\.\\d{1,3}\\.\\d{1,3}");
+        assertThat(key).matches("key_[a-f0-9]{32}");
 
         // Consistency check
         assertEquals(host, generator.generate("ssh_hosts", "prod-server-01.company.local"));

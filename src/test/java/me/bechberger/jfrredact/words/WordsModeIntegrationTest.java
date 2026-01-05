@@ -1,16 +1,21 @@
 package me.bechberger.jfrredact.words;
-import me.bechberger.jfrredact.testutil.JFRRecordingBuilder;
+
 import me.bechberger.jfrredact.testutil.TextFileBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
+
 class WordsModeIntegrationTest {
     @TempDir
     Path tempDir;
+
     @Test
     void testDiscoveryFromTextFile() throws Exception {
         Path textFile = TextFileBuilder.create()
@@ -26,13 +31,9 @@ class WordsModeIntegrationTest {
             discovery.analyzeText(line);
         }
         Set<String> discovered = discovery.getDiscoveredWords();
-        assertTrue(discovered.contains("john_doe"));
-        assertTrue(discovered.contains("secret_pass123"));
-        assertTrue(discovered.contains("production-server-01"));
-        assertTrue(discovered.contains("Admin"));
-        assertTrue(discovered.contains("user"));
-        assertTrue(discovered.contains("logged"));
+        assertThat(discovered).contains("john_doe", "secret_pass123", "production-server-01", "Admin", "user", "logged");
     }
+
     @Test
     void testRedactionWithMultipleRules() throws Exception {
         Path inputFile = TextFileBuilder.create()
@@ -62,12 +63,11 @@ class WordsModeIntegrationTest {
             .toList();
         Files.write(outputFile, outputLines);
         String output = Files.readString(outputFile);
-        assertFalse(output.contains("john_doe"), "john_doe should be redacted");
-        assertFalse(output.contains("jane_smith"), "jane_smith should be redacted");
-        assertFalse(output.contains("secret_api_key_12345"), "secret_ prefix should be redacted");
-        assertTrue(output.contains("Admin"), "Admin should be kept");
-        assertTrue(output.contains("***"), "Redaction markers should be present");
+        assertThat(output).doesNotContain("john_doe", "jane_smith", "secret_api_key_12345");
+        assertThat(output).contains("Admin");
+        assertThat(output).contains("***");
     }
+
     @Test
     void testRegexBasedRedaction() throws Exception {
         Path inputFile = TextFileBuilder.create()
@@ -89,9 +89,10 @@ class WordsModeIntegrationTest {
             .toList();
         assertEquals("*** logged in", outputLines.get(0));
         assertEquals("*** logged out", outputLines.get(1));
-        assertTrue(outputLines.get(2).contains("admin"));
+        assertThat(outputLines.get(2)).contains("admin");
         assertEquals("*** accessed resource", outputLines.get(3));
     }
+
     @Test
     void testReplaceRedaction() throws Exception {
         Path inputFile = TextFileBuilder.create()
@@ -111,10 +112,11 @@ class WordsModeIntegrationTest {
         List<String> outputLines = Files.readAllLines(inputFile).stream()
             .map(redactor::redactText)
             .toList();
-        assertTrue(outputLines.get(0).contains("SERVER_PROD_1"));
-        assertTrue(outputLines.get(1).contains("SERVER_PROD_2"));
-        assertTrue(outputLines.get(2).contains("CACHE_1"));
+        assertThat(outputLines.get(0)).contains("SERVER_PROD_1");
+        assertThat(outputLines.get(1)).contains("SERVER_PROD_2");
+        assertThat(outputLines.get(2)).contains("CACHE_1");
     }
+
     @Test
     void testComplexScenario() throws Exception {
         Path inputFile = TextFileBuilder.create()
@@ -130,8 +132,7 @@ class WordsModeIntegrationTest {
         WordDiscovery discovery = new WordDiscovery();
         Files.readAllLines(inputFile).forEach(discovery::analyzeText);
         Set<String> discovered = discovery.getDiscoveredWords();
-        assertTrue(discovered.contains("i560383"));
-        assertTrue(discovered.contains("db-server-01"));
+        assertThat(discovered).contains("i560383", "db-server-01");
         List<WordRedactionRule> rules = List.of(
             WordRedactionRule.keep("Admin", false),
             WordRedactionRule.keep("customer_db", false),
@@ -148,13 +149,10 @@ class WordsModeIntegrationTest {
         String redactedContent = Files.readString(outputFile);
 
         // Verify redactions happened
-        assertFalse(redactedContent.contains("i560383")); // User ID redacted
-        assertTrue(redactedContent.contains("***")); // Redaction markers present
-        assertTrue(redactedContent.contains("Admin")); // Admin kept
-        assertTrue(redactedContent.contains("customer_db")); // Database name kept
-        assertTrue(redactedContent.contains("DB_SERVER")); // db-server-01 replaced
-        assertTrue(redactedContent.contains("CACHE_SERVER")); // cache-01 replaced
+        assertThat(redactedContent).doesNotContain("i560383"); // User ID redacted
+        assertThat(redactedContent).contains("***", "Admin", "customer_db", "DB_SERVER", "CACHE_SERVER");
     }
+
     @Test
     void testStatistics() throws Exception {
         Path inputFile = TextFileBuilder.create()
@@ -172,8 +170,9 @@ class WordsModeIntegrationTest {
         WordRedactor redactor = new WordRedactor(rules);
         Files.readAllLines(inputFile).forEach(redactor::redactText);
         String stats = redactor.getStatistics();
-        assertTrue(stats.contains("unique"));
+        assertThat(stats).contains("unique");
     }
+
     @Test
     void testPrefixRedaction() throws Exception {
         Path inputFile = TextFileBuilder.create()
@@ -191,8 +190,8 @@ class WordsModeIntegrationTest {
         List<String> output = Files.readAllLines(inputFile).stream()
             .map(redactor::redactText)
             .toList();
-        assertTrue(output.get(0).contains("***"));
-        assertTrue(output.get(1).contains("***"));
-        assertTrue(output.get(2).contains("public_key"));
+        assertThat(output.get(0)).contains("***");
+        assertThat(output.get(1)).contains("***");
+        assertThat(output.get(2)).contains("public_key");
     }
 }

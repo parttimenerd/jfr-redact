@@ -9,6 +9,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import static org.assertj.core.api.Assertions.*;
+
 /**
  * Tests for EventConfig filtering configuration handling.
  */
@@ -22,13 +24,13 @@ class EventFilteringConfigTest {
         void testDefaultFilteringConfig() {
             EventConfig.FilteringConfig filtering = new EventConfig.FilteringConfig();
 
-            assertTrue(filtering.getIncludeEvents().isEmpty());
-            assertTrue(filtering.getExcludeEvents().isEmpty());
-            assertTrue(filtering.getIncludeCategories().isEmpty());
-            assertTrue(filtering.getExcludeCategories().isEmpty());
-            assertTrue(filtering.getIncludeThreads().isEmpty());
-            assertTrue(filtering.getExcludeThreads().isEmpty());
-            assertFalse(filtering.hasAnyFilters());
+            assertThat(filtering.getIncludeEvents()).isEmpty();
+            assertThat(filtering.getExcludeEvents()).isEmpty();
+            assertThat(filtering.getIncludeCategories()).isEmpty();
+            assertThat(filtering.getExcludeCategories()).isEmpty();
+            assertThat(filtering.getIncludeThreads()).isEmpty();
+            assertThat(filtering.getExcludeThreads()).isEmpty();
+            assertThat(filtering.hasAnyFilters()).isFalse();
         }
 
         @Test
@@ -36,7 +38,7 @@ class EventFilteringConfigTest {
             EventConfig.FilteringConfig filtering = new EventConfig.FilteringConfig();
             filtering.getIncludeEvents().add("jdk.*");
 
-            assertTrue(filtering.hasAnyFilters());
+            assertThat(filtering.hasAnyFilters()).isTrue();
         }
 
         @Test
@@ -44,7 +46,7 @@ class EventFilteringConfigTest {
             EventConfig.FilteringConfig filtering = new EventConfig.FilteringConfig();
             filtering.getExcludeEvents().add("jdk.GC*");
 
-            assertTrue(filtering.hasAnyFilters());
+            assertThat(filtering.hasAnyFilters()).isTrue();
         }
 
         @Test
@@ -52,7 +54,7 @@ class EventFilteringConfigTest {
             EventConfig.FilteringConfig filtering = new EventConfig.FilteringConfig();
             filtering.getIncludeCategories().add("Application");
 
-            assertTrue(filtering.hasAnyFilters());
+            assertThat(filtering.hasAnyFilters()).isTrue();
         }
 
         @Test
@@ -60,7 +62,7 @@ class EventFilteringConfigTest {
             EventConfig.FilteringConfig filtering = new EventConfig.FilteringConfig();
             filtering.getExcludeThreads().add("GC Thread*");
 
-            assertTrue(filtering.hasAnyFilters());
+            assertThat(filtering.hasAnyFilters()).isTrue();
         }
     }
 
@@ -89,9 +91,7 @@ class EventFilteringConfigTest {
 
             child.mergeWith(parent);
 
-            assertEquals(2, child.getIncludeEvents().size());
-            assertTrue(child.getIncludeEvents().contains("my.app.*"));
-            assertTrue(child.getIncludeEvents().contains("jdk.*"));
+            assertThat(child.getIncludeEvents()).hasSize(2).contains("my.app.*", "jdk.*");
         }
 
         @Test
@@ -104,9 +104,7 @@ class EventFilteringConfigTest {
 
             child.mergeWith(parent);
 
-            assertEquals(2, child.getExcludeEvents().size());
-            assertTrue(child.getExcludeEvents().contains("test.Debug*"));
-            assertTrue(child.getExcludeEvents().contains("jdk.GC*"));
+            assertThat(child.getExcludeEvents()).hasSize(2).contains("test.Debug*", "jdk.GC*");
         }
 
         @Test
@@ -121,12 +119,8 @@ class EventFilteringConfigTest {
 
             child.mergeWith(parent);
 
-            assertEquals(2, child.getIncludeCategories().size());
-            assertEquals(2, child.getExcludeCategories().size());
-            assertTrue(child.getIncludeCategories().contains("Application"));
-            assertTrue(child.getIncludeCategories().contains("JVM"));
-            assertTrue(child.getExcludeCategories().contains("System"));
-            assertTrue(child.getExcludeCategories().contains("Flight Recorder"));
+            assertThat(child.getIncludeCategories()).hasSize(2).containsExactlyInAnyOrder("Application", "JVM");
+            assertThat(child.getExcludeCategories()).hasSize(2).containsExactlyInAnyOrder("System", "Flight Recorder");
         }
 
         @Test
@@ -141,12 +135,8 @@ class EventFilteringConfigTest {
 
             child.mergeWith(parent);
 
-            assertEquals(2, child.getIncludeThreads().size());
-            assertEquals(2, child.getExcludeThreads().size());
-            assertTrue(child.getIncludeThreads().contains("main"));
-            assertTrue(child.getIncludeThreads().contains("test-*"));
-            assertTrue(child.getExcludeThreads().contains("worker-*"));
-            assertTrue(child.getExcludeThreads().contains("GC Thread*"));
+            assertThat(child.getIncludeThreads()).hasSize(2).containsExactlyInAnyOrder("main", "test-*");
+            assertThat(child.getExcludeThreads()).hasSize(2).containsExactlyInAnyOrder("worker-*", "GC Thread*");
         }
 
         @Test
@@ -162,11 +152,11 @@ class EventFilteringConfigTest {
 
             child.mergeWith(parent);
 
-            assertEquals(2, child.getIncludeEvents().size());
-            assertEquals(1, child.getExcludeEvents().size());
-            assertEquals(1, child.getIncludeCategories().size());
-            assertEquals(1, child.getExcludeThreads().size());
-            assertTrue(child.hasAnyFilters());
+            assertThat(child.getIncludeEvents()).hasSize(2);
+            assertThat(child.getExcludeEvents()).hasSize(1);
+            assertThat(child.getIncludeCategories()).hasSize(1);
+            assertThat(child.getExcludeThreads()).hasSize(1);
+            assertThat(child.hasAnyFilters()).isTrue();
         }
     }
 
@@ -178,10 +168,10 @@ class EventFilteringConfigTest {
         void testDefaultEventConfig() {
             EventConfig config = new EventConfig();
 
-            assertTrue(config.isRemoveEnabled());
-            assertFalse(config.getRemovedTypes().isEmpty());
-            assertNotNull(config.getFiltering());
-            assertFalse(config.getFiltering().hasAnyFilters());
+            assertThat(config.isRemoveEnabled()).isTrue();
+            assertThat(config.getRemovedTypes()).isNotEmpty();
+            assertThat(config.getFiltering()).isNotNull();
+            assertThat(config.getFiltering().hasAnyFilters()).isFalse();
         }
 
         @Test
@@ -201,8 +191,7 @@ class EventFilteringConfigTest {
 
             // Check removed types are merged (parent.Event from $PARENT expansion + child.Event)
             assertEquals(2, child.getRemovedTypes().size());
-            assertTrue(child.getRemovedTypes().contains("child.Event"));
-            assertTrue(child.getRemovedTypes().contains("parent.Event"));
+            assertThat(child.getRemovedTypes()).contains("child.Event", "parent.Event");
 
             // Check filtering is merged (always additive)
             assertEquals(1, child.getFiltering().getIncludeEvents().size());
@@ -216,9 +205,9 @@ class EventFilteringConfigTest {
             config.getRemovedTypes().add("jdk.OSInformation");
             config.getRemovedTypes().add("jdk.SystemProcess");
 
-            assertTrue(config.shouldRemove("jdk.OSInformation"));
-            assertTrue(config.shouldRemove("jdk.SystemProcess"));
-            assertFalse(config.shouldRemove("jdk.ThreadSleep"));
+            assertThat(config.shouldRemove("jdk.OSInformation")).isTrue();
+            assertThat(config.shouldRemove("jdk.SystemProcess")).isTrue();
+            assertThat(config.shouldRemove("jdk.ThreadSleep")).isFalse();
         }
 
         @Test
@@ -227,7 +216,7 @@ class EventFilteringConfigTest {
             config.setRemoveEnabled(false);
             config.getRemovedTypes().add("jdk.OSInformation");
 
-            assertFalse(config.shouldRemove("jdk.OSInformation"));
+            assertThat(config.shouldRemove("jdk.OSInformation")).isFalse();
         }
     }
 
@@ -244,9 +233,7 @@ class EventFilteringConfigTest {
             config.applyCliOptions(cliOptions);
 
             List<String> includeEvents = config.getEvents().getFiltering().getIncludeEvents();
-            assertEquals(2, includeEvents.size());
-            assertTrue(includeEvents.contains("test.*"));
-            assertTrue(includeEvents.contains("my.app.*"));
+            assertThat(includeEvents).hasSize(2).contains("test.*", "my.app.*");
         }
 
         @Test
@@ -258,9 +245,7 @@ class EventFilteringConfigTest {
             config.applyCliOptions(cliOptions);
 
             List<String> excludeEvents = config.getEvents().getFiltering().getExcludeEvents();
-            assertEquals(2, excludeEvents.size());
-            assertTrue(excludeEvents.contains("jdk.GC*"));
-            assertTrue(excludeEvents.contains("*.Debug"));
+            assertThat(excludeEvents).hasSize(2).contains("jdk.GC*", "*.Debug");
         }
 
         @Test
@@ -268,13 +253,13 @@ class EventFilteringConfigTest {
             RedactionConfig config = new RedactionConfig();
             RedactionConfig.CliOptions cliOptions = new RedactionConfig.CliOptions();
             cliOptions.setIncludeCategories(Arrays.asList("Application", "JVM"));
-            cliOptions.setExcludeCategories(Arrays.asList("Flight Recorder"));
+            cliOptions.setExcludeCategories(List.of("Flight Recorder"));
 
             config.applyCliOptions(cliOptions);
 
             EventConfig.FilteringConfig filtering = config.getEvents().getFiltering();
-            assertEquals(2, filtering.getIncludeCategories().size());
-            assertEquals(1, filtering.getExcludeCategories().size());
+            assertThat(filtering.getIncludeCategories()).hasSize(2);
+            assertThat(filtering.getExcludeCategories()).hasSize(1);
         }
 
         @Test
@@ -287,8 +272,8 @@ class EventFilteringConfigTest {
             config.applyCliOptions(cliOptions);
 
             EventConfig.FilteringConfig filtering = config.getEvents().getFiltering();
-            assertEquals(2, filtering.getIncludeThreads().size());
-            assertEquals(2, filtering.getExcludeThreads().size());
+            assertThat(filtering.getIncludeThreads()).hasSize(2);
+            assertThat(filtering.getExcludeThreads()).hasSize(2);
         }
 
         @Test
@@ -297,19 +282,19 @@ class EventFilteringConfigTest {
             RedactionConfig.CliOptions cliOptions = new RedactionConfig.CliOptions();
 
             // Set both removal and filtering
-            cliOptions.setRemoveEvents(Arrays.asList("jdk.OSInformation"));
-            cliOptions.setIncludeEvents(Arrays.asList("jdk.*"));
-            cliOptions.setExcludeEvents(Arrays.asList("jdk.GC*"));
+            cliOptions.setRemoveEvents(List.of("jdk.OSInformation"));
+            cliOptions.setIncludeEvents(List.of("jdk.*"));
+            cliOptions.setExcludeEvents(List.of("jdk.GC*"));
 
             config.applyCliOptions(cliOptions);
 
             // Check removal types
-            assertTrue(config.getEvents().getRemovedTypes().contains("jdk.OSInformation"));
+            assertThat(config.getEvents().getRemovedTypes()).contains("jdk.OSInformation");
 
             // Check filtering
             EventConfig.FilteringConfig filtering = config.getEvents().getFiltering();
-            assertEquals(1, filtering.getIncludeEvents().size());
-            assertEquals(1, filtering.getExcludeEvents().size());
+            assertThat(filtering.getIncludeEvents()).hasSize(1);
+            assertThat(filtering.getExcludeEvents()).hasSize(1);
         }
 
         @Test
@@ -329,7 +314,7 @@ class EventFilteringConfigTest {
 
             // Should not add anything
             EventConfig.FilteringConfig filtering = config.getEvents().getFiltering();
-            assertFalse(filtering.hasAnyFilters());
+            assertThat(filtering.hasAnyFilters()).isFalse();
         }
 
         @Test
@@ -338,19 +323,17 @@ class EventFilteringConfigTest {
 
             // Apply first set of options
             RedactionConfig.CliOptions options1 = new RedactionConfig.CliOptions();
-            options1.setIncludeEvents(Arrays.asList("test.*"));
+            options1.setIncludeEvents(List.of("test.*"));
             config.applyCliOptions(options1);
 
             // Apply second set of options
             RedactionConfig.CliOptions options2 = new RedactionConfig.CliOptions();
-            options2.setIncludeEvents(Arrays.asList("my.app.*"));
+            options2.setIncludeEvents(List.of("my.app.*"));
             config.applyCliOptions(options2);
 
             // Both should be present (accumulative)
             List<String> includeEvents = config.getEvents().getFiltering().getIncludeEvents();
-            assertEquals(2, includeEvents.size());
-            assertTrue(includeEvents.contains("test.*"));
-            assertTrue(includeEvents.contains("my.app.*"));
+            assertThat(includeEvents).hasSize(2).contains("test.*", "my.app.*");
         }
     }
 
@@ -361,10 +344,10 @@ class EventFilteringConfigTest {
         @Test
         void testEmptyPatternLists() {
             EventConfig.FilteringConfig filtering = new EventConfig.FilteringConfig();
-            filtering.setIncludeEvents(Arrays.asList());
-            filtering.setExcludeEvents(Arrays.asList());
+            filtering.setIncludeEvents(List.of());
+            filtering.setExcludeEvents(List.of());
 
-            assertFalse(filtering.hasAnyFilters());
+            assertThat(filtering.hasAnyFilters()).isFalse();
         }
 
         @Test

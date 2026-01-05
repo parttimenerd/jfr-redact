@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for PatternBasedGenerator placeholder support and iterateUnique() usage.
@@ -26,9 +27,9 @@ public class PatternBasedGeneratorPlaceholderTest {
         String result = generator.generate("unix_home", "/home/johndoe");
 
         assertNotNull(result);
-        assertTrue(result.startsWith("/home/"), "Should start with /home/: " + result);
-        assertFalse(result.contains("{users}"), "Should replace {users} placeholder: " + result);
-        assertFalse(result.matches(".*/home/user\\d+"), "Should use realistic names, not numbers: " + result);
+        assertThat(result).as("Should start with /home/: %s", result).startsWith("/home/");
+        assertThat(result).as("Should replace {users} placeholder: %s", result).doesNotContain("{users}");
+        assertThat(result).as("Should use realistic names, not numbers: %s", result).doesNotMatch(".*/home/user\\d+");
     }
 
     @Test
@@ -41,8 +42,8 @@ public class PatternBasedGeneratorPlaceholderTest {
         String result = generator.generate("win_home", "C:\\Users\\JohnDoe");
 
         assertNotNull(result);
-        assertTrue(result.startsWith("C:\\Users\\"), "Should start with C:\\Users\\: " + result);
-        assertFalse(result.contains("{users}"), "Should replace {users} placeholder: " + result);
+        assertThat(result).as("Should start with C:\\Users\\: %s", result).startsWith("C:\\Users\\");
+        assertThat(result).as("Should replace {users} placeholder: %s", result).doesNotContain("{users}");
     }
 
     @Test
@@ -55,9 +56,9 @@ public class PatternBasedGeneratorPlaceholderTest {
         String result = generator.generate("user_docs", "/home/johndoe/documents");
 
         assertNotNull(result);
-        assertTrue(result.startsWith("/home/"), "Should start with /home/");
-        assertTrue(result.endsWith("/documents"), "Should end with /documents");
-        assertFalse(result.contains("{users}"), "Should replace {users} placeholder");
+        assertThat(result).as("Should start with /home/").startsWith("/home/");
+        assertThat(result).as("Should end with /documents").endsWith("/documents");
+        assertThat(result).as("Should replace {users} placeholder").doesNotContain("{users}");
     }
 
     @Test
@@ -70,8 +71,8 @@ public class PatternBasedGeneratorPlaceholderTest {
         String result = generator.generate("email_pattern", "john.doe@company.com");
 
         assertNotNull(result);
-        assertTrue(result.contains("@"), "Should generate email with @: " + result);
-        assertFalse(result.contains("{emails}"), "Should replace {emails} placeholder");
+        assertThat(result).as("Should generate email with @: %s", result).contains("@");
+        assertThat(result).as("Should replace {emails} placeholder: %s", result).doesNotContain("{emails}");
     }
 
     @Test
@@ -84,8 +85,8 @@ public class PatternBasedGeneratorPlaceholderTest {
         String result = generator.generate("name_pattern", "User: johndoe");
 
         assertNotNull(result);
-        assertTrue(result.startsWith("User: "), "Should preserve prefix");
-        assertFalse(result.contains("{names}"), "Should replace {names} placeholder");
+        assertThat(result).as("Should preserve prefix").startsWith("User: ");
+        assertThat(result).as("Should replace {names} placeholder").doesNotContain("{names}");
     }
 
     @Test
@@ -98,9 +99,9 @@ public class PatternBasedGeneratorPlaceholderTest {
         String result = generator.generate("complex", "original");
 
         assertNotNull(result);
-        assertFalse(result.contains("{users}"), "Should replace {users}");
-        assertFalse(result.contains("{names}"), "Should replace {names}");
-        assertTrue(result.contains(" owned by "), "Should preserve text between placeholders");
+        assertThat(result).as("Should replace {users}").doesNotContain("{users}");
+        assertThat(result).as("Should replace {names}").doesNotContain("{names}");
+        assertThat(result).as("Should preserve text between placeholders").contains(" owned by ");
     }
 
     // ========== IterateUnique Tests ==========
@@ -172,14 +173,14 @@ public class PatternBasedGeneratorPlaceholderTest {
         String win = generator.generate("win_home", "C:\\Users\\JohnDoe");
 
         // All should have placeholders replaced
-        assertFalse(unix.contains("{users}"));
-        assertFalse(mac.contains("{users}"));
-        assertFalse(win.contains("{users}"));
+        assertThat(unix).doesNotContain("{users}");
+        assertThat(mac).doesNotContain("{users}");
+        assertThat(win).doesNotContain("{users}");
 
         // Should maintain path structure
-        assertTrue(unix.startsWith("/home/"));
-        assertTrue(mac.startsWith("/Users/"));
-        assertTrue(win.startsWith("C:\\Users\\"));
+        assertThat(unix).startsWith("/home/");
+        assertThat(mac).startsWith("/Users/");
+        assertThat(win).startsWith("C:\\Users\\");
     }
 
     @Test
@@ -191,9 +192,7 @@ public class PatternBasedGeneratorPlaceholderTest {
 
         String result = generator.generate("server_log", "/var/log/server/johndoe/app.log");
 
-        assertNotNull(result);
-        assertTrue(result.matches("srv\\d{2}/[a-z]+/app\\.log"),
-                   "Should match pattern with realistic username: " + result);
+        assertThat(result).as("Should match pattern with realistic username: %s", result).matches("srv\\d{2}/[a-z]+/app\\.log");
     }
 
     @Test
@@ -247,8 +246,8 @@ public class PatternBasedGeneratorPlaceholderTest {
         String result = generator.generate("only_user", "johndoe");
 
         assertNotNull(result);
-        assertFalse(result.isEmpty());
-        assertFalse(result.contains("{users}"));
+        assertThat(result).isNotEmpty();
+        assertThat(result).doesNotContain("{users}");
     }
 
     @Test
@@ -261,7 +260,7 @@ public class PatternBasedGeneratorPlaceholderTest {
         String result = generator.generate("double", "test");
 
         assertNotNull(result);
-        assertFalse(result.contains("{users}"));
-        assertTrue(result.contains("-"), "Should preserve separator");
+        assertThat(result).doesNotContain("{users}");
+        assertThat(result).as("Should preserve separator").contains("-");
     }
 }

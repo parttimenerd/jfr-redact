@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for GenerateSchemaCommand.
@@ -41,10 +42,7 @@ class GenerateSchemaCommandTest {
         assertEquals(0, exitCode, "Should exit successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("\"$schema\""), "Should contain schema version");
-        assertTrue(output.contains("\"type\""), "Should contain type definitions");
-        assertTrue(output.contains("\"properties\""), "Should contain properties");
-        assertTrue(output.length() > 100, "Schema output should be substantial");
+        assertThat(output).contains("\"$schema\"").contains("\"type\"").contains("\"properties\"").hasSizeGreaterThan(100);
     }
 
     @Test
@@ -54,17 +52,13 @@ class GenerateSchemaCommandTest {
         int exitCode = cmd.execute(outputFile.toString());
 
         assertEquals(0, exitCode, "Should exit successfully");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
 
         String content = Files.readString(outputFile);
-        assertTrue(content.contains("\"$schema\""), "File should contain schema version");
-        assertTrue(content.contains("\"type\""), "File should contain type definitions");
-        assertTrue(content.contains("\"properties\""), "File should contain properties");
+        assertThat(content).contains("\"$schema\"").contains("\"type\"").contains("\"properties\"");
 
         String errOutput = errContent.toString();
-        assertTrue(errOutput.contains("Schema written to:"), "Should show success message");
-        assertTrue(errOutput.contains(outputFile.getFileName().toString()),
-                "Should mention output file");
+        assertThat(errOutput).contains("Schema written to:").contains(outputFile.getFileName().toString());
     }
 
     @Test
@@ -75,11 +69,11 @@ class GenerateSchemaCommandTest {
         int exitCode = cmd.execute(outputFile.toString());
 
         assertEquals(0, exitCode, "Should exit successfully");
-        assertTrue(Files.exists(subDir), "Subdirectory should be created");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(subDir).exists();
+        assertThat(outputFile).exists();
 
         String content = Files.readString(outputFile);
-        assertTrue(content.contains("\"$schema\""), "File should contain valid schema");
+        assertThat(content).contains("\"$schema\"");
     }
 
     @Test
@@ -92,8 +86,8 @@ class GenerateSchemaCommandTest {
         assertEquals(0, exitCode, "Should exit successfully");
 
         String content = Files.readString(outputFile);
-        assertFalse(content.contains("old content"), "Should overwrite existing file");
-        assertTrue(content.contains("\"$schema\""), "Should contain new schema");
+        assertThat(content).doesNotContain("old content", "Should overwrite existing file");
+        assertThat(content).contains("\"$schema\"");
     }
 
     @Test
@@ -108,12 +102,10 @@ class GenerateSchemaCommandTest {
 
         // Basic JSON validation - should start with { and end with }
         String trimmed = content.trim();
-        assertTrue(trimmed.startsWith("{"), "Schema should be valid JSON object");
-        assertTrue(trimmed.endsWith("}"), "Schema should be valid JSON object");
+        assertThat(trimmed).startsWith("{").endsWith("}");
 
         // Should not have common JSON errors
-        assertFalse(content.contains(",}"), "Should not have trailing commas");
-        assertFalse(content.contains(",]"), "Should not have trailing commas in arrays");
+        assertThat(content).doesNotContain(",}", ",]");
     }
 
     @Test
@@ -127,14 +119,22 @@ class GenerateSchemaCommandTest {
         String content = Files.readString(outputFile);
 
         // Check for expected RedactionConfig fields
-        assertTrue(content.contains("properties") || content.contains("\"properties\""),
-                "Should contain properties configuration");
-        assertTrue(content.contains("strings") || content.contains("\"strings\""),
-                "Should contain strings configuration");
-        assertTrue(content.contains("events") || content.contains("\"events\""),
-                "Should contain events configuration");
-        assertTrue(content.contains("threads") || content.contains("\"threads\""),
-                "Should contain threads configuration");
+        assertThat(content).satisfiesAnyOf(
+            c -> assertThat(c).contains("properties"),
+            c -> assertThat(c).contains("\"properties\"")
+        );
+        assertThat(content).satisfiesAnyOf(
+            c -> assertThat(c).contains("strings"),
+            c -> assertThat(c).contains("\"strings\"")
+        );
+        assertThat(content).satisfiesAnyOf(
+            c -> assertThat(c).contains("events"),
+            c -> assertThat(c).contains("\"events\"")
+        );
+        assertThat(content).satisfiesAnyOf(
+            c -> assertThat(c).contains("threads"),
+            c -> assertThat(c).contains("\"threads\"")
+        );
     }
 
     @Test
@@ -144,8 +144,7 @@ class GenerateSchemaCommandTest {
         assertEquals(0, exitCode, "Should exit successfully");
 
         String errOutput = errContent.toString();
-        assertFalse(errOutput.contains("Schema written to:"),
-                "Should not show file message when outputting to stdout");
+        assertThat(errOutput).doesNotContain("Schema written to:");
     }
 
     @Test
@@ -155,9 +154,7 @@ class GenerateSchemaCommandTest {
         assertEquals(0, exitCode, "Should show help successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("generate-schema"), "Help should mention command name");
-        assertTrue(output.contains("Generate JSON Schema"), "Help should describe command");
-        assertTrue(output.contains("Examples"), "Help should show examples");
+        assertThat(output).contains("generate-schema", "Generate JSON Schema", "Examples");
     }
 
     @Test
@@ -167,7 +164,7 @@ class GenerateSchemaCommandTest {
         assertEquals(0, exitCode, "Should show version successfully");
 
         String output = outContent.toString();
-        assertFalse(output.isEmpty(), "Version output should not be empty");
+        assertThat(output).isNotEmpty();
     }
 
     @Test
@@ -203,8 +200,8 @@ class GenerateSchemaCommandTest {
         int exitCode2 = cmd.execute(file2.toString());
         assertEquals(0, exitCode2, "Second file generation should succeed");
 
-        assertTrue(Files.exists(file1), "First file should exist");
-        assertTrue(Files.exists(file2), "Second file should exist");
+        assertThat(file1).exists();
+        assertThat(file2).exists();
 
         String content1 = Files.readString(file1);
         String content2 = Files.readString(file2);
@@ -212,15 +209,14 @@ class GenerateSchemaCommandTest {
     }
 
     @Test
-    void testGenerateSchema_RelativePath() throws Exception {
+    void testGenerateSchema_RelativePath() {
         // Create output file path in temp directory
         Path outputFile = tempDir.resolve("schema.json");
 
         int exitCode = cmd.execute(outputFile.toString());
 
         assertEquals(0, exitCode, "Should handle path");
-        assertTrue(Files.exists(outputFile),
-                "File should be created");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -231,9 +227,9 @@ class GenerateSchemaCommandTest {
         int exitCode = cmd.execute(outputFile.toString());
 
         assertEquals(0, exitCode, "Should handle spaces in path");
-        assertTrue(Files.exists(outputFile), "File should be created despite spaces in path");
+        assertThat(outputFile).exists();
 
         String content = Files.readString(outputFile);
-        assertTrue(content.contains("\"$schema\""), "Should contain valid schema");
+        assertThat(content).contains("\"$schema\"");
     }
 }

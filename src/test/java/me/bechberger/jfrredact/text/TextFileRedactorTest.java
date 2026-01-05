@@ -58,16 +58,14 @@ public class TextFileRedactorTest {
 
         RedactionAssertion doesNotContain(String... values) {
             for (String value : values) {
-                assertFalse(result.contains(value),
-                    () -> "Content should NOT contain: " + value + "\nActual: " + result);
+                org.assertj.core.api.Assertions.assertThat(result).as("Content should NOT contain: %s", value).doesNotContain(value);
             }
             return this;
         }
 
         RedactionAssertion contains(String... values) {
             for (String value : values) {
-                assertTrue(result.contains(value),
-                    () -> "Content should contain: " + value + "\nActual: " + result);
+                org.assertj.core.api.Assertions.assertThat(result).as("Content should contain: %s", value).contains(value);
             }
             return this;
         }
@@ -122,13 +120,11 @@ public class TextFileRedactorTest {
     }
 
     private void assertContains(String content, String expected) {
-        assertTrue(content.contains(expected),
-            () -> "Content should contain: " + expected + "\nActual: " + content);
+        org.assertj.core.api.Assertions.assertThat(content).as("Content should contain: %s", expected).contains(expected);
     }
 
     private void assertNotContains(String content, String unexpected) {
-        assertFalse(content.contains(unexpected),
-            () -> "Content should NOT contain: " + unexpected + "\nActual: " + content);
+        org.assertj.core.api.Assertions.assertThat(content).as("Content should NOT contain: %s", unexpected).doesNotContain(unexpected);
     }
 
     // ========== Test Data Providers ==========

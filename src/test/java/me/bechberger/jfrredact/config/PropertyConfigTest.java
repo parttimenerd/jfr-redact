@@ -4,17 +4,16 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 /**
  * Tests for PropertyConfig pattern matching.
  */
 public class PropertyConfigTest {
     private void assertMatches(PropertyConfig config, String key) {
-        assertTrue(config.matches(key),
-            () -> "Expected pattern to match key: '" + key + "'");
+        assertThat(config.matches(key)).withFailMessage("Expected pattern to match key: '%s'", key).isTrue();
     }
     private void assertDoesNotMatch(PropertyConfig config, String key) {
-        assertFalse(config.matches(key),
-            () -> "Expected pattern NOT to match key: '" + key + "'");
+        assertThat(config.matches(key)).withFailMessage("Expected pattern NOT to match key: '%s'", key).isFalse();
     }
     @ParameterizedTest
     @ValueSource(strings = {
@@ -124,9 +123,7 @@ public class PropertyConfigTest {
         child.mergeWith(parent);
         assertAll("merged config should have all unique patterns",
             () -> assertEquals(3, child.getPatterns().size()),
-            () -> assertTrue(child.getPatterns().contains("password")),
-            () -> assertTrue(child.getPatterns().contains("secret")),
-            () -> assertTrue(child.getPatterns().contains("token"))
+            () -> assertThat(child.getPatterns()).contains("password", "secret", "token")
         );
     }
     @ParameterizedTest
@@ -142,8 +139,7 @@ public class PropertyConfigTest {
     })
     public void testRealWorldPropertyNames(String key, boolean shouldMatch) {
         PropertyConfig config = new PropertyConfig();
-        assertEquals(shouldMatch, config.matches(key),
-            () -> "Key '" + key + "' should " + (shouldMatch ? "" : "NOT ") + "match default patterns");
+        assertThat(config.matches(key)).as("Key '%s' should %smatch default patterns", key, shouldMatch ? "" : "NOT ").isEqualTo(shouldMatch);
     }
 
     @Test
@@ -154,13 +150,13 @@ public class PropertyConfigTest {
         config.getPatterns().add("password");
 
         // Exact matches should work
-        assertTrue(config.matches("password"), "Should match exact 'password'");
-        assertTrue(config.matches("PASSWORD"), "Should match 'PASSWORD' (case insensitive)");
+        assertThat(config.matches("password")).as("Should match exact 'password'").isTrue();
+        assertThat(config.matches("PASSWORD")).as("Should match 'PASSWORD' (case insensitive)").isTrue();
 
         // Partial matches should NOT work in full match mode
-        assertFalse(config.matches("user_password"), "Should NOT match 'user_password' in full match mode");
-        assertFalse(config.matches("myPasswordField"), "Should NOT match 'myPasswordField' in full match mode");
-        assertFalse(config.matches("PASSWORD_HASH"), "Should NOT match 'PASSWORD_HASH' in full match mode");
+        assertThat(config.matches("user_password")).as("Should NOT match 'user_password' in full match mode").isFalse();
+        assertThat(config.matches("myPasswordField")).as("Should NOT match 'myPasswordField' in full match mode").isFalse();
+        assertThat(config.matches("PASSWORD_HASH")).as("Should NOT match 'PASSWORD_HASH' in full match mode").isFalse();
     }
 
     @Test
@@ -170,12 +166,12 @@ public class PropertyConfigTest {
         config.getPatterns().add("password");
 
         // fullMatch should be false by default
-        assertFalse(config.isFullMatch(), "fullMatch should be false by default");
+        assertThat(config.isFullMatch()).as("fullMatch should be false by default").isFalse();
 
         // Both exact and partial matches should work
-        assertTrue(config.matches("password"), "Should match exact 'password'");
-        assertTrue(config.matches("user_password"), "Should match 'user_password' in partial mode");
-        assertTrue(config.matches("myPasswordField"), "Should match 'myPasswordField' in partial mode");
+        assertThat(config.matches("password")).as("Should match exact 'password'").isTrue();
+        assertThat(config.matches("user_password")).as("Should match 'user_password' in partial mode").isTrue();
+        assertThat(config.matches("myPasswordField")).as("Should match 'myPasswordField' in partial mode").isTrue();
     }
 
     @Test
@@ -186,10 +182,10 @@ public class PropertyConfigTest {
         config.getPatterns().clear();
         config.getPatterns().add("password");
 
-        assertTrue(config.matches("password"), "Should match exact 'password'");
-        assertFalse(config.matches("PASSWORD"), "Should NOT match 'PASSWORD' (case sensitive)");
-        assertFalse(config.matches("Password"), "Should NOT match 'Password' (case sensitive)");
-        assertFalse(config.matches("user_password"), "Should NOT match partial in full match mode");
+        assertThat(config.matches("password")).as("Should match exact 'password'").isTrue();
+        assertThat(config.matches("PASSWORD")).as("Should NOT match 'PASSWORD' (case sensitive)").isFalse();
+        assertThat(config.matches("Password")).as("Should NOT match 'Password' (case sensitive)").isFalse();
+        assertThat(config.matches("user_password")).as("Should NOT match partial in full match mode").isFalse();
     }
 
     @ParameterizedTest
@@ -220,9 +216,9 @@ public class PropertyConfigTest {
     @Test
     public void testBareKeyNotMatched() {
         PropertyConfig config = new PropertyConfig();
-        assertFalse(config.matches("key"), "Bare 'key' should NOT match default patterns");
-        assertFalse(config.matches("KEY"), "Bare 'KEY' should NOT match default patterns");
-        assertFalse(config.matches("Key"), "Bare 'Key' should NOT match default patterns");
+        assertThat(config.matches("key")).as("Bare 'key' should NOT match default patterns").isFalse();
+        assertThat(config.matches("KEY")).as("Bare 'KEY' should NOT match default patterns").isFalse();
+        assertThat(config.matches("Key")).as("Bare 'Key' should NOT match default patterns").isFalse();
     }
 
     /**
@@ -232,14 +228,14 @@ public class PropertyConfigTest {
     public void testKeyCompoundNamesMatched() {
         PropertyConfig config = new PropertyConfig();
         assertAll("key compound names should match",
-            () -> assertTrue(config.matches("api_key"), "api_key should match"),
-            () -> assertTrue(config.matches("apikey"), "apikey should match"),
-            () -> assertTrue(config.matches("api-key"), "api-key should match"),
-            () -> assertTrue(config.matches("encryption_key"), "encryption_key should match"),
-            () -> assertTrue(config.matches("signing.key"), "signing.key should match"),
-            () -> assertTrue(config.matches("access_key"), "access_key should match"),
-            () -> assertTrue(config.matches("secret_key"), "secret_key should match"),
-            () -> assertTrue(config.matches("privatekey"), "privatekey should match")
-        );
-    }
-}
+            () -> assertThat(config.matches("api_key")).as("api_key should match").isTrue(),
+            () -> assertThat(config.matches("apikey")).as("apikey should match").isTrue(),
+            () -> assertThat(config.matches("api-key")).as("api-key should match").isTrue(),
+            () -> assertThat(config.matches("encryption_key")).as("encryption_key should match").isTrue(),
+            () -> assertThat(config.matches("signing.key")).as("signing.key should match").isTrue(),
+            () -> assertThat(config.matches("access_key")).as("access_key should match").isTrue(),
+            () -> assertThat(config.matches("secret_key")).as("secret_key should match").isTrue(),
+            () -> assertThat(config.matches("privatekey")).as("privatekey should match").isTrue()
+         );
+     }
+ }

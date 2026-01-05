@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for StringConfig pattern parsing including SSH hosts.
@@ -27,18 +28,18 @@ public class StringConfigTest {
     public void testDefaultStringConfig() {
         StringConfig config = defaultConfig.getStrings();
 
-        assertTrue(config.isEnabled());
-        assertFalse(config.isRedactInMethodNames());
-        assertFalse(config.isRedactInClassNames());
-        assertFalse(config.isRedactInThreadNames());
+        assertThat(config.isEnabled()).isTrue();
+        assertThat(config.isRedactInMethodNames()).isFalse();
+        assertThat(config.isRedactInClassNames()).isFalse();
+        assertThat(config.isRedactInThreadNames()).isFalse();
 
         // Verify default patterns
         assertNotNull(config.getPatterns());
-        assertTrue(config.getPatterns().getUser().isEnabled());
-        assertTrue(config.getPatterns().getEmails().isEnabled());
-        assertTrue(config.getPatterns().getIpAddresses().isEnabled());
-        assertFalse(config.getPatterns().getUuids().isEnabled());  // Disabled by default
-        assertTrue(config.getPatterns().getSshHosts().isEnabled());  // Enabled in default preset
+        assertThat(config.getPatterns().getUser().isEnabled()).isTrue();
+        assertThat(config.getPatterns().getEmails().isEnabled()).isTrue();
+        assertThat(config.getPatterns().getIpAddresses().isEnabled()).isTrue();
+        assertThat(config.getPatterns().getUuids().isEnabled()).isFalse();  // Disabled by default
+        assertThat(config.getPatterns().getSshHosts().isEnabled()).isTrue();  // Enabled in default preset
     }
 
     @Test
@@ -46,11 +47,11 @@ public class StringConfigTest {
         StringConfig config = defaultConfig.getStrings();
         var sshConfig = config.getPatterns().getSshHosts();
 
-        assertTrue(sshConfig.isEnabled());  // Enabled in default preset
-        assertEquals(4, sshConfig.getPatterns().size());
+        assertThat(sshConfig.isEnabled()).isTrue();  // Enabled in default preset
+        assertThat(sshConfig.getPatterns()).hasSize(4);
 
         // Verify default patterns are present (patterns have capture groups for hostname extraction)
-        assertTrue(sshConfig.getPatterns().stream().anyMatch(p -> p.contains("ssh://")));
+        assertThat(sshConfig.getPatterns()).anyMatch(p -> p.contains("ssh://"));
     }
 
     @Test
@@ -58,13 +59,13 @@ public class StringConfigTest {
         StringConfig config = defaultConfig.getStrings();
         var homeConfig = config.getPatterns().getUser();
 
-        assertTrue(homeConfig.isEnabled());
-        assertEquals(3, homeConfig.getPatterns().size());
+        assertThat(homeConfig.isEnabled()).isTrue();
+        assertThat(homeConfig.getPatterns()).hasSize(3);
 
         // Verify macOS, Windows, and Linux patterns
-        assertTrue(homeConfig.getPatterns().stream().anyMatch(r -> r.contains("/Users/")));
-        assertTrue(homeConfig.getPatterns().stream().anyMatch(r -> r.contains("C:")));
-        assertTrue(homeConfig.getPatterns().stream().anyMatch(r -> r.contains("/home/")));
+        assertThat(homeConfig.getPatterns()).anyMatch(r -> r.contains("/Users/"));
+        assertThat(homeConfig.getPatterns()).anyMatch(r -> r.contains("C:"));
+        assertThat(homeConfig.getPatterns()).anyMatch(r -> r.contains("/home/"));
     }
 
     @Test
@@ -72,9 +73,9 @@ public class StringConfigTest {
         StringConfig config = defaultConfig.getStrings();
         var emailConfig = config.getPatterns().getEmails();
 
-        assertTrue(emailConfig.isEnabled());
-        assertFalse(emailConfig.getPatterns().isEmpty());
-        assertTrue(emailConfig.getPatterns().get(0).contains("@"));
+        assertThat(emailConfig.isEnabled()).isTrue();
+        assertThat(emailConfig.getPatterns()).isNotEmpty();
+        assertThat(emailConfig.getPatterns().get(0)).contains("@");
     }
 
     @Test
@@ -82,8 +83,8 @@ public class StringConfigTest {
         StringConfig config = defaultConfig.getStrings();
         var ipConfig = config.getPatterns().getIpAddresses();
 
-        assertTrue(ipConfig.isEnabled());
-        assertFalse(ipConfig.getPatterns().isEmpty());
+        assertThat(ipConfig.isEnabled()).isTrue();
+        assertThat(ipConfig.getPatterns()).isNotEmpty();
     }
 
     @Test
@@ -91,9 +92,9 @@ public class StringConfigTest {
         StringConfig config = defaultConfig.getStrings();
         var uuidConfig = config.getPatterns().getUuids();
 
-        assertFalse(uuidConfig.isEnabled());  // Disabled by default
-        assertFalse(uuidConfig.getPatterns().isEmpty());
-        assertTrue(uuidConfig.getPatterns().get(0).contains("-"));
+        assertThat(uuidConfig.isEnabled()).isFalse();  // Disabled by default
+        assertThat(uuidConfig.getPatterns()).isNotEmpty();
+        assertThat(uuidConfig.getPatterns().get(0)).contains("-");
     }
 
     @Test
@@ -102,7 +103,7 @@ public class StringConfigTest {
         var customPatterns = config.getPatterns().getCustom();
 
         assertNotNull(customPatterns);
-        assertTrue(customPatterns.isEmpty());  // Empty by default
+        assertThat(customPatterns).isEmpty();  // Empty by default
     }
 
     @Test
@@ -115,8 +116,8 @@ public class StringConfigTest {
 
         config.getPatterns().getCustom().add(customPattern);
 
-        assertEquals(1, config.getPatterns().getCustom().size());
-        assertEquals("aws_keys", config.getPatterns().getCustom().getFirst().getName());
+        assertThat(config.getPatterns().getCustom()).hasSize(1);
+        assertThat(config.getPatterns().getCustom().getFirst().getName()).isEqualTo("aws_keys");
     }
 
     @Test
@@ -131,8 +132,7 @@ public class StringConfigTest {
         child.mergeWith(parent);
 
         // Should have both parent and child patterns
-        assertTrue(child.getPatterns().getSshHosts().getPatterns().contains("custom_ssh_pattern"));
-        assertTrue(child.getPatterns().getSshHosts().getPatterns().contains("child_ssh_pattern"));
+        assertThat(child.getPatterns().getSshHosts().getPatterns()).contains("custom_ssh_pattern", "child_ssh_pattern");
     }
 
     @Test
@@ -141,7 +141,7 @@ public class StringConfigTest {
         RedactionConfig config = loader.load("default");
 
         assertNotNull(config.getStrings());
-        assertTrue(config.getStrings().isEnabled());
+        assertThat(config.getStrings().isEnabled()).isTrue();
 
         // Verify string patterns are loaded
         assertNotNull(config.getStrings().getPatterns());
@@ -213,9 +213,7 @@ public class StringConfigTest {
             config.getIgnoreExact().add("noreply@example.com");
             config.getIgnoreExact().add("postmaster@localhost");
 
-            assertEquals(2, config.getIgnoreExact().size());
-            assertTrue(config.getIgnoreExact().contains("noreply@example.com"));
-            assertTrue(config.getIgnoreExact().contains("postmaster@localhost"));
+            assertThat(config.getIgnoreExact()).hasSize(2).contains("noreply@example.com", "postmaster@localhost");
         }
 
         @Test
@@ -227,9 +225,7 @@ public class StringConfigTest {
             config.getIgnoreExact().add("::1");
             config.getIgnoreExact().add("::");
 
-            assertEquals(4, config.getIgnoreExact().size());
-            assertTrue(config.getIgnoreExact().contains("127.0.0.1"));
-            assertTrue(config.getIgnoreExact().contains("::1"));
+            assertThat(config.getIgnoreExact()).hasSize(4).contains("127.0.0.1", "::1");
         }
 
         @Test
@@ -240,9 +236,7 @@ public class StringConfigTest {
 
             // Check default values from default.yaml - should be in ignore_exact for literal values
             var ignoreExact = config.getIgnoreExact();
-            assertTrue(ignoreExact.contains("localhost"));
-            assertTrue(ignoreExact.contains("localhost.localdomain"));
-            assertTrue(ignoreExact.contains("127.0.0.1"));
+            assertThat(ignoreExact).contains("localhost", "localhost.localdomain", "127.0.0.1");
         }
 
         @Test
@@ -253,7 +247,7 @@ public class StringConfigTest {
             config.getIgnoreExact().add("C:\\Users\\Public");
             config.getIgnoreExact().add("/home/buildbot");
 
-            assertEquals(3, config.getIgnoreExact().size());
+            assertThat(config.getIgnoreExact()).hasSize(3);
         }
 
         @Test
@@ -265,7 +259,7 @@ public class StringConfigTest {
             config.getIgnoreExact().add("sk_test_12345678901234567890123456789012");
             config.getIgnoreExact().add("sk_example_value_do_not_redact");
 
-            assertEquals(2, config.getIgnoreExact().size());
+            assertThat(config.getIgnoreExact()).hasSize(2).contains("sk_test_12345678901234567890123456789012", "sk_example_value_do_not_redact");
         }
     }
 
@@ -280,8 +274,7 @@ public class StringConfigTest {
             // Ignore all no-reply addresses
             config.getIgnore().add("no-?reply@.*");
 
-            assertEquals(2, config.getIgnore().size());
-            assertTrue(config.getIgnore().contains(".*@example\\.com"));
+            assertThat(config.getIgnore()).hasSize(2).contains(".*@example\\.com");
         }
 
         @Test
@@ -296,7 +289,7 @@ public class StringConfigTest {
             config.getIgnore().add("192\\.168\\..*");
             config.getIgnore().add("10\\..*");
 
-            assertEquals(4, config.getIgnore().size());
+            assertThat(config.getIgnore()).hasSize(4);
         }
 
         @Test
@@ -308,7 +301,7 @@ public class StringConfigTest {
             // Ignore all .test domains
             config.getIgnore().add(".*\\.test");
 
-            assertEquals(2, config.getIgnore().size());
+            assertThat(config.getIgnore()).hasSize(2);
         }
 
         @Test
@@ -320,7 +313,7 @@ public class StringConfigTest {
             config.getIgnore().add("git@gitlab\\.com.*");
             config.getIgnore().add(".*@bitbucket\\.org.*");
 
-            assertEquals(3, config.getIgnore().size());
+            assertThat(config.getIgnore()).hasSize(3);
         }
 
         @Test
@@ -333,7 +326,7 @@ public class StringConfigTest {
             config.getIgnore().add("AKIA.*EXAMPLE.*");
             config.getIgnore().add("AKIA.*TEST.*");
 
-            assertEquals(2, config.getIgnore().size());
+            assertThat(config.getIgnore()).hasSize(2);
         }
     }
 
@@ -348,8 +341,7 @@ public class StringConfigTest {
             // Don't redact emails after "From: "
             config.getIgnoreAfter().add("From:\\s*");
 
-            assertEquals(2, config.getIgnoreAfter().size());
-            assertTrue(config.getIgnoreAfter().contains("mailto:"));
+            assertThat(config.getIgnoreAfter()).hasSize(2).contains("mailto:");
         }
 
         @Test
@@ -361,7 +353,7 @@ public class StringConfigTest {
             config.getIgnoreAfter().add("listen\\s+");
             config.getIgnoreAfter().add("--host=");
 
-            assertEquals(3, config.getIgnoreAfter().size());
+            assertThat(config.getIgnoreAfter()).hasSize(3);
         }
 
         @Test
@@ -372,7 +364,7 @@ public class StringConfigTest {
             config.getIgnoreAfter().add("Host:\\s*");
             config.getIgnoreAfter().add("uname:\\s*Darwin\\s+");
 
-            assertEquals(2, config.getIgnoreAfter().size());
+            assertThat(config.getIgnoreAfter()).hasSize(2);
         }
 
         @Test
@@ -384,7 +376,7 @@ public class StringConfigTest {
             config.getIgnoreAfter().add("--install-dir=");
             config.getIgnoreAfter().add("HOME=");
 
-            assertEquals(3, config.getIgnoreAfter().size());
+            assertThat(config.getIgnoreAfter()).hasSize(3);
         }
 
         @Test
@@ -397,7 +389,7 @@ public class StringConfigTest {
             config.getIgnoreAfter().add("Example:\\s*");
             config.getIgnoreAfter().add("Sample token:\\s*");
 
-            assertEquals(2, config.getIgnoreAfter().size());
+            assertThat(config.getIgnoreAfter()).hasSize(2);
         }
     }
 
@@ -419,9 +411,9 @@ public class StringConfigTest {
             config.getIgnoreAfter().add("--bind-address=");
             config.getIgnoreAfter().add("listen\\s+");
 
-            assertEquals(2, config.getIgnoreExact().size());
-            assertEquals(2, config.getIgnore().size());
-            assertEquals(2, config.getIgnoreAfter().size());
+            assertThat(config.getIgnoreExact()).hasSize(2);
+            assertThat(config.getIgnore()).hasSize(2);
+            assertThat(config.getIgnoreAfter()).hasSize(2);
         }
 
         @Test
@@ -434,9 +426,9 @@ public class StringConfigTest {
             config.getIgnore().add("TICKET-999.*");
             config.getIgnoreAfter().add("Test ticket:\\s*");
 
-            assertEquals(1, config.getIgnoreExact().size());
-            assertEquals(1, config.getIgnore().size());
-            assertEquals(1, config.getIgnoreAfter().size());
+            assertThat(config.getIgnoreExact()).hasSize(1);
+            assertThat(config.getIgnore()).hasSize(1);
+            assertThat(config.getIgnoreAfter()).hasSize(1);
         }
 
         @Test
@@ -453,13 +445,13 @@ public class StringConfigTest {
             config.getPatterns().getUuids().getIgnoreExact().add("00000000-0000-0000-0000-000000000000");
 
             // Verify all were set
-            assertTrue(config.getPatterns().getEmails().getIgnoreExact().contains("noreply@example.com"));
-            assertTrue(config.getPatterns().getIpAddresses().getIgnoreExact().contains("127.0.0.1"));
-            assertTrue(config.getPatterns().getUser().getIgnoreExact().contains("/usr/local"));
-            assertTrue(config.getPatterns().getHostnames().getIgnoreExact().contains("example.com"));
-            assertTrue(config.getPatterns().getSshHosts().getIgnoreExact().contains("git@github.com"));
-            assertTrue(config.getPatterns().getInternalUrls().getIgnoreExact().contains("https://docs.oracle.com"));
-            assertTrue(config.getPatterns().getUuids().getIgnoreExact().contains("00000000-0000-0000-0000-000000000000"));
+            assertThat(config.getPatterns().getEmails().getIgnoreExact()).contains("noreply@example.com");
+            assertThat(config.getPatterns().getIpAddresses().getIgnoreExact()).contains("127.0.0.1");
+            assertThat(config.getPatterns().getUser().getIgnoreExact()).contains("/usr/local");
+            assertThat(config.getPatterns().getHostnames().getIgnoreExact()).contains("example.com");
+            assertThat(config.getPatterns().getSshHosts().getIgnoreExact()).contains("git@github.com");
+            assertThat(config.getPatterns().getInternalUrls().getIgnoreExact()).contains("https://docs.oracle.com");
+            assertThat(config.getPatterns().getUuids().getIgnoreExact()).contains("00000000-0000-0000-0000-000000000000");
         }
     }
 
@@ -489,14 +481,14 @@ public class StringConfigTest {
         @Test
         public void testDefaultEnabledStates() {
             // Test that enabled defaults are preserved
-            assertTrue(new StringConfig.EmailsConfig().isEnabled());
-            assertTrue(new StringConfig.IpAddressesConfig().isEnabled());
-            assertTrue(new StringConfig.UserConfig().isEnabled());
+            assertThat(new StringConfig.EmailsConfig().isEnabled()).isTrue();
+            assertThat(new StringConfig.IpAddressesConfig().isEnabled()).isTrue();
+            assertThat(new StringConfig.UserConfig().isEnabled()).isTrue();
 
-            assertFalse(new StringConfig.UuidsConfig().isEnabled());
-            assertFalse(new StringConfig.SshHostsConfig().isEnabled());
-            assertFalse(new StringConfig.HostnamesConfig().isEnabled());
-            assertFalse(new StringConfig.InternalUrlsConfig().isEnabled());
+            assertThat(new StringConfig.UuidsConfig().isEnabled()).isFalse();
+            assertThat(new StringConfig.SshHostsConfig().isEnabled()).isFalse();
+            assertThat(new StringConfig.HostnamesConfig().isEnabled()).isFalse();
+            assertThat(new StringConfig.InternalUrlsConfig().isEnabled()).isFalse();
         }
     }
 
@@ -509,8 +501,7 @@ public class StringConfigTest {
             config.getIgnoreExact().add("https://bugreport.java.com/bugreport/crash.jsp");
             config.getIgnoreExact().add("https://docs.oracle.com/");
 
-            assertEquals(2, config.getIgnoreExact().size());
-            assertTrue(config.getIgnoreExact().contains("https://bugreport.java.com/bugreport/crash.jsp"));
+            assertThat(config.getIgnoreExact()).hasSize(2).contains("https://bugreport.java.com/bugreport/crash.jsp");
         }
 
         @Test

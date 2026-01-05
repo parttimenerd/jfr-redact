@@ -9,6 +9,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -84,10 +85,8 @@ class HostnameRedactionTest {
     })
     void testHostnameAfterLabel(String input) {
         String result = engine.redact("text", input);
-        assertFalse(result.contains(".corp."), "Corporate domain should be redacted");
-        assertFalse(result.contains(".internal."), "Internal domain should be redacted");
-        assertFalse(result.contains(".example."), "Example domain should be redacted");
-        assertTrue(result.contains("***"), "Should contain redaction marker");
+        assertThat(result).doesNotContain(".corp.", ".internal.", ".example.");
+        assertThat(result).contains("***");
     }
 
     @ParameterizedTest
@@ -111,8 +110,7 @@ class HostnameRedactionTest {
     void testSafeHostnamesNotRedacted(String safeHostname) {
         String input = "Host: " + safeHostname;
         String result = engine.redact("text", input);
-        assertTrue(result.contains(safeHostname),
-            "Safe hostname '" + safeHostname + "' should NOT be redacted");
+        assertThat(result).contains(safeHostname);
     }
 
     @ParameterizedTest
@@ -157,12 +155,10 @@ class HostnameRedactionTest {
         String result = engine.redact("text", input);
 
         if (shouldRedact) {
-            assertFalse(result.contains(hostname),
-                "FQDN '" + hostname + "' should be redacted");
-            assertTrue(result.contains("***"), "Should contain redaction marker");
+            assertThat(result).doesNotContain(hostname);
+            assertThat(result).contains("***");
         } else {
-            assertTrue(result.contains(hostname),
-                "Non-FQDN or safe hostname '" + hostname + "' should NOT be redacted");
+            assertThat(result).contains(hostname);
         }
     }
 
@@ -176,12 +172,11 @@ class HostnameRedactionTest {
         String result = engine.redact("text", input);
 
         // Should redact hostnames
-        assertFalse(result.contains(".corp."), "Corporate hostname should be redacted");
-        assertFalse(result.contains(".internal."), "Internal hostname should be redacted");
+        assertThat(result).doesNotContain(".corp.", ".internal.", ".example.");
 
         // Email patterns are disabled in setUp, so emails won't be redacted in this test
 
         // Should contain redaction markers
-        assertTrue(result.contains("***"), "Should contain redaction markers");
+        assertThat(result).contains("***");
     }
 }

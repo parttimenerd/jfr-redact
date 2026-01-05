@@ -6,6 +6,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Tests for counter mode and port pseudonymization.
@@ -51,9 +52,9 @@ public class PseudonymizerCounterModeTest {
         String pseudo = p.pseudonymize("test", "***");
 
         assertNotEquals("<redacted:1>", pseudo, "Hash mode should not use counter");
-        assertTrue(pseudo.startsWith("<redacted:"));
-        assertTrue(pseudo.endsWith(">"));
-        assertTrue(pseudo.length() > 15, "Hash should be longer than counter");
+        assertThat(pseudo).startsWith("<redacted:");
+        assertThat(pseudo).endsWith(">");
+        assertThat(pseudo.length()).as("Hash should be longer than counter").isGreaterThan(15);
     }
 
     @ParameterizedTest
@@ -120,8 +121,8 @@ public class PseudonymizerCounterModeTest {
 
         int pseudo = p.pseudonymizePort(port);
 
-        assertTrue(pseudo >= 1000, "Pseudonymized port should be >= 1000");
-        assertTrue(pseudo < 2000, "Pseudonymized port should be < 2000 for reasonable test");
+        assertThat(pseudo).as("Pseudonymized port should be >= 1000").isGreaterThanOrEqualTo(1000);
+        assertThat(pseudo).as("Pseudonymized port should be < 2000 for reasonable test").isLessThan(2000);
     }
 
     @Test

@@ -92,10 +92,7 @@ public class WordDiscovery {
         if (ignorePackageNames && (fieldName.equals("package") || fieldName.endsWith("Package"))) {
             return true;
         }
-        if (ignoreModuleNames && (fieldName.equals("module") || fieldName.endsWith("Module"))) {
-            return true;
-        }
-        return false;
+        return ignoreModuleNames && (fieldName.equals("module") || fieldName.endsWith("Module"));
     }
 
     /**

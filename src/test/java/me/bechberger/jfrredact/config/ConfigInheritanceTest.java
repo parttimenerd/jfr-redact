@@ -11,6 +11,8 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
+import static me.bechberger.jfrredact.testutil.PropertiesAssert.assertThatProperties;
 
 /**
  * Tests for configuration inheritance (parent/child relationships and overriding).
@@ -44,18 +46,18 @@ public class ConfigInheritanceTest {
         RedactionConfig config = loader.load(childFile.getAbsolutePath());
 
         // Should have default patterns
-        assertTrue(config.getProperties().matches("password"));
-        assertTrue(config.getProperties().matches("secret"));
+        assertThatProperties(config.getProperties()).matches("password");
+        assertThatProperties(config.getProperties()).matches("secret");
 
         // Should have child patterns
-        assertTrue(config.getProperties().matches("custom_secret"));
-        assertTrue(config.getProperties().matches("my_api_key"));
+        assertThatProperties(config.getProperties()).matches("custom_secret");
+        assertThatProperties(config.getProperties()).matches("my_api_key");
 
         // Should have default events
-        assertTrue(config.getEvents().getRemovedTypes().contains("jdk.SystemProcess"));
+        assertThat(config.getEvents().getRemovedTypes()).contains("jdk.SystemProcess");
 
         // Should have child events
-        assertTrue(config.getEvents().getRemovedTypes().contains("jdk.CustomEvent"));
+        assertThat(config.getEvents().getRemovedTypes()).contains("jdk.CustomEvent");
     }
 
     @Test
@@ -87,9 +89,9 @@ public class ConfigInheritanceTest {
         RedactionConfig config = loader.load(childFile.getAbsolutePath());
 
         // Should have all three levels
-        assertTrue(config.getProperties().matches("password"), "From default");
-        assertTrue(config.getProperties().matches("middle_secret"), "From parent");
-        assertTrue(config.getProperties().matches("child_secret"), "From child");
+        assertThatProperties(config.getProperties()).matches("password");
+        assertThatProperties(config.getProperties()).matches("middle_secret");
+        assertThatProperties(config.getProperties()).matches("child_secret");
     }
 
     @Test
@@ -114,7 +116,7 @@ public class ConfigInheritanceTest {
         ConfigLoader loader = new ConfigLoader();
         RedactionConfig config = loader.load(childFile.getAbsolutePath());
 
-        assertFalse(config.getProperties().isEnabled(), "Child should override");
+        assertThat(config.getProperties().isEnabled()).as("Child should override").isFalse();
     }
 
     @Test
@@ -145,10 +147,7 @@ public class ConfigInheritanceTest {
         RedactionConfig config = loader.load(childFile.getAbsolutePath());
 
         List<String> patterns = config.getProperties().getPatterns();
-        assertTrue(patterns.contains("parent1"));
-        assertTrue(patterns.contains("parent2"));
-        assertTrue(patterns.contains("child1"));
-        assertTrue(patterns.contains("child2"));
+        assertThat(patterns).contains("parent1", "parent2", "child1", "child2");
     }
 
     @Test

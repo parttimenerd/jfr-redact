@@ -172,11 +172,7 @@ public class InteractiveDecisionManager {
         categoryMap.put(normalizedValue, decision);
 
         // Handle global policies
-        if (decision.getAction() == DecisionAction.KEEP_ALL ||
-            decision.getAction() == DecisionAction.REDACT_ALL) {
-            // This is handled at a higher level, but we store it here too
-            return decision;
-        }
+        // This is handled at a higher level, but we store it here too
 
         return decision;
     }

@@ -37,9 +37,7 @@ public class PatternBasedGenerator {
     private final Map<String, String> patternDefinitions;
     private final Map<String, StringIterator> iteratorCache;
     private final Map<String, RgxGen> rgxGenCache;
-    private final Random random;
     private final Map<String, Map<String, String>> patternValueCache;
-    private final RealisticDataGenerator realisticGenerator;
 
     /**
      * Create a new pattern-based generator.
@@ -51,9 +49,9 @@ public class PatternBasedGenerator {
         this.patternDefinitions = new HashMap<>(patternDefinitions);
         this.iteratorCache = new HashMap<>();
         this.rgxGenCache = new HashMap<>();
-        this.random = new Random(seed);
+        Random random = new Random(seed);
         this.patternValueCache = new HashMap<>();
-        this.realisticGenerator = new RealisticDataGenerator(seed);
+        RealisticDataGenerator realisticGenerator = new RealisticDataGenerator(seed);
 
         // Pre-compile all patterns and check cardinality
         for (Map.Entry<String, String> entry : patternDefinitions.entrySet()) {

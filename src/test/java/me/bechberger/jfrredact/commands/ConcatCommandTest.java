@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static me.bechberger.jfrredact.jfr.util.JFRTestEvents.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -55,21 +56,6 @@ class ConcatCommandTest {
         Files.write(jfrFile, new byte[0]);
         return jfrFile;
     }
-
-    /**
-     * Count total events in a JFR file.
-     */
-    private int countEvents(Path jfrFile) throws IOException {
-        int count = 0;
-        try (RecordingFile rf = new RecordingFile(jfrFile)) {
-            while (rf.hasMoreEvents()) {
-                rf.readEvent();
-                count++;
-            }
-        }
-        return count;
-    }
-
 
     // ========== Test Data Providers ==========
 
@@ -122,9 +108,7 @@ class ConcatCommandTest {
                 "Exit code should match expected value for args: " + String.join(" ", args));
 
         String errorOutput = errContent.toString();
-        assertTrue(errorOutput.contains(expectedErrorSubstring),
-                "Error output should contain: '" + expectedErrorSubstring +
-                        "' but was: " + errorOutput);
+        assertThat(errorOutput.contains(expectedErrorSubstring)).as("Error output should contain: '%s' but was: %s", expectedErrorSubstring, errorOutput).isTrue();
     }
 
     @ParameterizedTest
@@ -136,8 +120,7 @@ class ConcatCommandTest {
                 "Exit code should be " + expectedExitCode + " for: " + String.join(" ", args));
 
         String output = outContent.toString();
-        assertTrue(output.contains(expectedOutputSubstring),
-                "Output should contain: '" + expectedOutputSubstring + "' but was: " + output);
+        assertThat(output.contains(expectedOutputSubstring)).as("Output should contain: '%s' but was: %s", expectedOutputSubstring, output).isTrue();
     }
 
     @Test
@@ -173,7 +156,7 @@ class ConcatCommandTest {
 
         // On systems where we can't make files unreadable, this test might pass
         // We just verify the command handles the scenario properly
-        assertTrue(exitCode == 0 || exitCode == 1, "Should handle read permission appropriately");
+        assertThat(exitCode == 0 || exitCode == 1).as("Should handle read permission appropriately").isTrue();
     }
 
     @Test
@@ -296,8 +279,7 @@ class ConcatCommandTest {
         assertEquals(0, exitCode, "Help should display successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("without any redaction") || output.contains("without redaction"),
-                "Help text should mention that concatenation is done without redaction");
+        assertThat(output.contains("without any redaction") || output.contains("without redaction")).as("Help text should mention that concatenation is done without redaction").isTrue();
     }
 
     @Test
@@ -307,10 +289,8 @@ class ConcatCommandTest {
         assertEquals(0, exitCode, "Help should display successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Examples:") || output.contains("examples"),
-                "Help text should include examples");
-        assertTrue(output.contains("concat"),
-                "Help text should show concat command name");
+        assertThat(output.contains("Examples:") || output.contains("examples")).as("Help text should include examples").isTrue();
+        assertThat(output.contains("concat")).as("Help text should show concat command name").isTrue();
     }
 
     @Test
@@ -386,10 +366,8 @@ class ConcatCommandTest {
         assertEquals(0, exitCode, "Help should display successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("-i") || output.contains("--ignore-empty"),
-                "Help text should document the -i/--ignore-empty option");
-        assertTrue(output.contains("empty") && output.contains("ignore"),
-                "Help text should explain ignoring empty files");
+        assertThat(output.contains("-i") || output.contains("--ignore-empty")).as("Help text should document the -i/--ignore-empty option").isTrue();
+        assertThat(output.contains("empty") && output.contains("ignore")).as("Help text should explain ignoring empty files").isTrue();
     }
 
     @Test
@@ -427,8 +405,7 @@ class ConcatCommandTest {
                     "Event value should match expected for event " + i);
             assertEquals("Hello World", events.get(i).getString("message"),
                     "Event message should match expected for event " + i);
-            assertTrue(events.get(i).getBoolean("flag"),
-                    "Event flag should match expected for event " + i);
+            assertThat(events.get(i).getBoolean("flag")).as("Event flag should match expected for event %s", i).isTrue();
         }
     }
 }

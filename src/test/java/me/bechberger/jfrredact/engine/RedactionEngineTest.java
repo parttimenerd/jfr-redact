@@ -9,6 +9,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -71,8 +72,7 @@ public class RedactionEngineTest {
         RedactionConfig config = loadDefaultConfig();
         RedactionEngine engine = new RedactionEngine(config);
 
-        assertTrue(engine.shouldRemoveEvent(eventType),
-            "Event " + eventType + " should be removed by default");
+        assertThat(engine.shouldRemoveEvent(eventType)).as("Event %s should be removed by default", eventType).isTrue();
     }
 
     @ParameterizedTest
@@ -86,8 +86,7 @@ public class RedactionEngineTest {
         RedactionConfig config = loadDefaultConfig();
         RedactionEngine engine = new RedactionEngine(config);
 
-        assertFalse(engine.shouldRemoveEvent(eventType),
-            "Event " + eventType + " should not be removed");
+        assertThat(engine.shouldRemoveEvent(eventType)).as("Event %s should not be removed", eventType).isFalse();
     }
 
     @Test
@@ -98,7 +97,7 @@ public class RedactionEngineTest {
         RedactionEngine engine = new RedactionEngine(config);
 
         // Even sensitive events should not be removed when removal is disabled
-        assertFalse(engine.shouldRemoveEvent("jdk.OSInformation"));
+        assertThat(engine.shouldRemoveEvent("jdk.OSInformation")).isFalse();
     }
 
     @ParameterizedTest
@@ -227,8 +226,7 @@ public class RedactionEngineTest {
         if (shouldRedact) {
             assertNotEquals(port, result,
                 () -> "Port in field '" + fieldName + "' should be pseudonymized");
-            assertTrue(result >= 1000,
-                    "Pseudonymized port should be >= 1000");
+            assertThat(result).as("Pseudonymized port should be >= 1000").isGreaterThanOrEqualTo(1000);
         }
     }
 
@@ -298,8 +296,8 @@ public class RedactionEngineTest {
     public void testBooleanPassThrough() {
         RedactionEngine engine = createDefaultEngine();
 
-        assertTrue(engine.redact("enabled", true));
-        assertFalse(engine.redact("enabled", false));
+        assertThat(engine.redact("enabled", true)).isTrue();
+        assertThat(engine.redact("enabled", false)).isFalse();
     }
 
     @Test
@@ -405,12 +403,12 @@ public class RedactionEngineTest {
         RedactionEngine engine = RedactionEngine.NONE;
 
         // NONE means "no redaction" - no events are removed
-        assertFalse(engine.shouldRemoveEvent("jdk.OSInformation"));
-        assertFalse(engine.shouldRemoveEvent("jdk.SystemProcess"));
-        assertFalse(engine.shouldRemoveEvent("jdk.InitialEnvironmentVariable"));
+        assertThat(engine.shouldRemoveEvent("jdk.OSInformation")).isFalse();
+        assertThat(engine.shouldRemoveEvent("jdk.SystemProcess")).isFalse();
+        assertThat(engine.shouldRemoveEvent("jdk.InitialEnvironmentVariable")).isFalse();
 
         // And doesn't remove normal events either
-        assertFalse(engine.shouldRemoveEvent("jdk.JavaMonitorEnter"));
+        assertThat(engine.shouldRemoveEvent("jdk.JavaMonitorEnter")).isFalse();
     }
 
     // ========== UUID Pattern Tests ==========
@@ -541,7 +539,7 @@ public class RedactionEngineTest {
         RedactionEngine engine = createEngineWithPseudonymization();
 
         assertNotNull(engine.getPseudonymizer());
-        assertTrue(engine.getPseudonymizer().isEnabled());
+        assertThat(engine.getPseudonymizer().isEnabled()).isTrue();
     }
 
     @Test
@@ -597,7 +595,7 @@ public class RedactionEngineTest {
         assertEquals("<redacted:2>", email);
         assertEquals(1000, port);
         assertEquals("johndoe", username);  // Username not redacted by default
-        assertTrue(flag);
+        assertThat(flag).isTrue();
     }
 
     @Test
@@ -605,7 +603,7 @@ public class RedactionEngineTest {
         RedactionEngine engine = createEngineWithPseudonymization();
 
         // Some events should be removed
-        assertTrue(engine.shouldRemoveEvent("jdk.SystemProcess"));
+        assertThat(engine.shouldRemoveEvent("jdk.SystemProcess")).isTrue();
 
         // But fields in kept events should still be redacted
         String password = engine.redact("password", "secret");
@@ -808,8 +806,8 @@ public class RedactionEngineTest {
         assertRedacted(text2, result2);
 
         // Extract the pseudonym from both results
-        assertTrue(result1.contains("<redacted:"));
-        assertTrue(result2.contains("<redacted:"));
+        assertThat(result1).contains("<redacted:");
+        assertThat(result2).contains("<redacted:");
 
         // Both should contain the same pseudonym for ABC-123456
         String pseudonym1 = result1.substring(result1.indexOf("<redacted:"), result1.indexOf(">") + 1);
@@ -897,8 +895,8 @@ public class RedactionEngineTest {
         String result2 = engine.redact("message", text2);
 
         // Both should contain the same redacted value for the same IP
-        assertTrue(result1.contains("<redacted:"));
-        assertTrue(result2.contains("<redacted:"));
+        assertThat(result1).contains("<redacted:");
+        assertThat(result2).contains("<redacted:");
 
         // Extract and compare pseudonyms
         String pseudonym1 = result1.substring(result1.indexOf("<redacted:"), result1.indexOf(">", result1.indexOf("<redacted:")) + 1);

@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 import static me.bechberger.jfrredact.jfr.util.JFRTestEvents.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Comprehensive tests for JFRProcessor using the test framework utilities.
@@ -512,6 +513,8 @@ public class JFRProcessorTest {
         .eventsOfTypeFullyPreserved("test.ComplexEvent");
     }
 
+    // ========== All Events Fully Preserved Tests ==========
+
     @Test
     public void testRoundtrip_AllEventsFullyPreserved() throws IOException {
         helper.roundtrip(() -> {
@@ -537,6 +540,8 @@ public class JFRProcessorTest {
         .eventCountPreserved()
         .allEventsFullyPreserved(); // Verify all events at once
     }
+
+    // ========== Sensitive Data Tests ==========
 
     @Test
     public void testRoundtrip_SensitiveData_WithRedaction() throws IOException {
@@ -579,6 +584,8 @@ public class JFRProcessorTest {
         // Note: Cannot use eventsOfTypeFullyPreserved because pseudonymization changes values
     }
 
+    // ========== ToString and Stack Trace Tests ==========
+
     @Test
     public void testToStringOnParsedEvent() throws IOException {
         Path inputPath = helper.recording()
@@ -605,11 +612,12 @@ public class JFRProcessorTest {
                 .build();
         RecordedEvent event = RecordingFile.readAllEvents(inputPath).getFirst();
         testEventStackTraceFrames(event);
-        RecordingFile recordingFile = new RecordingFile(inputPath);
-        Path path = tempDir.resolve("output.jfr");
-        recordingFile.write(path, e -> true);
-        event = RecordingFile.readAllEvents(path).getFirst();
-        testEventStackTraceFrames(event);
+        try (RecordingFile recordingFile = new RecordingFile(inputPath)) {
+            Path path = tempDir.resolve("output.jfr");
+            recordingFile.write(path, e -> true);
+            event = RecordingFile.readAllEvents(path).getFirst();
+            testEventStackTraceFrames(event);
+        }
     }
 
     private static void testEventStackTraceFrames(RecordedEvent event) {
@@ -731,7 +739,7 @@ public class JFRProcessorTest {
                                 String email = e.getString("email");
                                 return email != null && !email.contains("admin@internal.com");
                             });
-                    Assertions.assertTrue(emailRedacted, "Email should be redacted");
+                    assertThat(emailRedacted).as("Email should be redacted").isTrue();
                 });
     }
 
@@ -777,8 +785,8 @@ public class JFRProcessorTest {
                             })
                             .count();
 
-                    Assertions.assertTrue(frequentRedacted > 0, "frequent_value should be redacted");
-                    Assertions.assertEquals(1, rareNotRedacted, "rare_value should NOT be redacted");
+                    assertThat(frequentRedacted).as("frequent_value should be redacted").isGreaterThan(0);
+                    assertThat(rareNotRedacted).as("rare_value should NOT be redacted").isEqualTo(1);
                 });
     }
 
@@ -821,7 +829,7 @@ public class JFRProcessorTest {
                                 return !msg.contains("admin@example.com") &&
                                        !msg.contains("10.0.0.5");
                             });
-                    Assertions.assertTrue(allRedacted, "All sensitive data should be redacted");
+                    assertThat(allRedacted).as("All sensitive data should be redacted").isTrue();
                 });
     }
 
@@ -855,8 +863,8 @@ public class JFRProcessorTest {
                     boolean johnRedacted = events.stream()
                             .filter(e -> e.getString("message") != null)
                             .filter(e -> e.getString("message").contains("/home/"))
-                            .allMatch(e -> !e.getString("message").contains("john_doe"));
-                    Assertions.assertTrue(johnRedacted, "john_doe in paths should be redacted");
+                            .noneMatch(e -> e.getString("message").contains("john_doe"));
+                    assertThat(johnRedacted).as("john_doe in paths should be redacted").isTrue();
                 });
     }
 
@@ -897,8 +905,8 @@ public class JFRProcessorTest {
                     boolean txnRedacted = events.stream()
                             .filter(e -> e.getString("message") != null)
                             .filter(e -> e.getString("message").contains("Transaction"))
-                            .allMatch(e -> !e.getString("message").contains("TXN-12345-ABC"));
-                    Assertions.assertTrue(txnRedacted, "Transaction ID should be redacted by custom pattern");
+                            .noneMatch(e -> e.getString("message").contains("TXN-12345-ABC"));
+                    assertThat(txnRedacted).as("Transaction ID should be redacted by custom pattern").isTrue();
                 });
     }
 
@@ -949,14 +957,14 @@ public class JFRProcessorTest {
                                 String msg = e.getString("message");
                                 return !msg.contains("api_key_abc123") && !msg.contains("api_key_xyz789");
                             });
-                    Assertions.assertTrue(apiKeysRedacted, "API keys should be redacted by custom pattern");
+                    assertThat(apiKeysRedacted).as("API keys should be redacted by custom pattern").isTrue();
 
                     // service_alpha appears 3 times, should be discovered and redacted
                     boolean serviceRedacted = events.stream()
                             .filter(e -> e.getString("message") != null)
                             .filter(e -> e.getString("message").contains("service"))
-                            .allMatch(e -> !e.getString("message").contains("service_alpha"));
-                    Assertions.assertTrue(serviceRedacted, "service_alpha should be discovered and redacted");
+                            .noneMatch(e -> e.getString("message").contains("service_alpha"));
+                    assertThat(serviceRedacted).as("service_alpha should be discovered and redacted").isTrue();
                 });
     }
 
@@ -998,7 +1006,7 @@ public class JFRProcessorTest {
                             .filter(e -> e.getString("message") != null)
                             .filter(e -> e.getString("message").contains("localhost"))
                             .count();
-                    Assertions.assertEquals(2, localhostCount, "localhost should not be redacted");
+                    assertThat(localhostCount).as("localhost should not be redacted").isEqualTo(2);
                 });
     }
 
@@ -1042,20 +1050,20 @@ public class JFRProcessorTest {
                         String ip = e.getString("ipAddress");
 
                         // admin_user appears 4 times - should be discovered
-                        Assertions.assertNotNull(username);
-                        Assertions.assertNotEquals("admin_user", username, "Username should be redacted");
+                        assertThat(username).isNotNull();
+                        assertThat(username).as("Username should be redacted").isNotEqualTo("admin_user");
 
                         // Passwords matched by custom pattern
-                        Assertions.assertNotNull(password);
-                        Assertions.assertFalse(password.startsWith("secret_"), "Password should be redacted");
+                        assertThat(password).isNotNull();
+                        assertThat(password).as("Password should be redacted").doesNotStartWith("secret_");
 
                         // Email matched by built-in pattern
-                        Assertions.assertNotNull(email);
-                        Assertions.assertNotEquals("admin@company.com", email, "Email should be redacted");
+                        assertThat(email).isNotNull();
+                        assertThat(email).as("Email should be redacted").isNotEqualTo("admin@company.com");
 
                         // IP matched by built-in pattern
-                        Assertions.assertNotNull(ip);
-                        Assertions.assertFalse(ip.startsWith("10.0.0."), "IP should be redacted");
+                        assertThat(ip).isNotNull();
+                        assertThat(ip).as("IP should be redacted").doesNotStartWith("10.0.0.");
                     }
                 });
     }
@@ -1106,7 +1114,7 @@ public class JFRProcessorTest {
                                        !msg.toLowerCase().contains("admin logged") &&
                                        !msg.toLowerCase().contains("admin created");
                             });
-                    Assertions.assertTrue(allRedacted, "All case variants of admin should be redacted");
+                    assertThat(allRedacted).as("All case variants of admin should be redacted").isTrue();
                 });
     }
 }

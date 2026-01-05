@@ -10,6 +10,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Unit tests for the Pseudonymizer class
@@ -25,8 +26,8 @@ public class PseudonymizerTest {
 
         assertNotNull(pseudonym);
         assertNotEquals("***", pseudonym);
-        assertTrue(pseudonym.startsWith("<redacted:"));
-        assertTrue(pseudonym.endsWith(">"));
+        org.assertj.core.api.Assertions.assertThat(pseudonym).startsWith("<redacted:");
+        org.assertj.core.api.Assertions.assertThat(pseudonym).endsWith(">");
     }
 
     @Test
@@ -61,7 +62,7 @@ public class PseudonymizerTest {
         String result = pseudonymizer.pseudonymize(value, "***");
 
         assertEquals("***", result, "Disabled pseudonymizer should return fallback text");
-        assertFalse(pseudonymizer.isEnabled());
+        assertThat(pseudonymizer.isEnabled()).isFalse();
     }
 
     /**
@@ -92,10 +93,8 @@ public class PseudonymizerTest {
         String value = "test@example.com";
         String pseudonym = pseudonymizer.pseudonymize(value, "***");
 
-        assertTrue(pseudonym.startsWith(expectedPrefix),
-            "Format '" + format + "' should start with '" + expectedPrefix + "'");
-        assertTrue(pseudonym.endsWith(expectedSuffix),
-            "Format '" + format + "' should end with '" + expectedSuffix + "'");
+        org.assertj.core.api.Assertions.assertThat(pseudonym).startsWith(expectedPrefix);
+        org.assertj.core.api.Assertions.assertThat(pseudonym).endsWith(expectedSuffix);
     }
 
     // ========== REALISTIC Mode Tests ==========
@@ -114,10 +113,8 @@ public class PseudonymizerTest {
         assertNotEquals("***", result, "Should not use fallback");
 
         // Should look like a real email
-        assertTrue(result.contains("@"), "Result should contain @");
-        assertTrue(result.contains("."), "Result should contain .");
-        assertFalse(result.contains("<"), "Should not have brackets");
-        assertFalse(result.contains("redacted"), "Should not contain 'redacted'");
+        org.assertj.core.api.Assertions.assertThat(result).contains("@", ".");
+        org.assertj.core.api.Assertions.assertThat(result).doesNotContain("<", "redacted");
     }
 
     @Test
@@ -131,8 +128,8 @@ public class PseudonymizerTest {
 
         assertNotNull(result);
         assertNotEquals(path, result, "Should generate different path");
-        assertTrue(result.startsWith("/home/"), "Should preserve path structure");
-        assertFalse(result.contains("redacted"), "Should not contain 'redacted'");
+        org.assertj.core.api.Assertions.assertThat(result).startsWith("/home/");
+        org.assertj.core.api.Assertions.assertThat(result).doesNotContain("redacted");
     }
 
     @Test
@@ -146,8 +143,7 @@ public class PseudonymizerTest {
 
         assertNotNull(result);
         assertNotEquals(username, result, "Should generate different username");
-        assertFalse(result.contains("<"), "Should not have brackets");
-        assertFalse(result.contains("redacted"), "Should not contain 'redacted'");
+        org.assertj.core.api.Assertions.assertThat(result).doesNotContain("<", "redacted");
     }
 
     @Test
@@ -188,8 +184,8 @@ public class PseudonymizerTest {
         String result = pseudonymizer.pseudonymize(path, "***");
 
         assertNotNull(result);
-        assertTrue(result.startsWith("C:\\Users\\"), "Should preserve Windows path structure");
-        assertFalse(result.contains("JohnDoe"), "Should replace username");
+        org.assertj.core.api.Assertions.assertThat(result).startsWith("C:\\Users\\");
+        org.assertj.core.api.Assertions.assertThat(result).doesNotContain("JohnDoe");
     }
 
     @ParameterizedTest
@@ -203,8 +199,8 @@ public class PseudonymizerTest {
         String pseudonym = pseudonymizer.pseudonymize(value, "***");
 
         assertNotNull(pseudonym);
-        assertTrue(pseudonym.startsWith("<redacted:"));
-        assertTrue(pseudonym.endsWith(">"));
+        org.assertj.core.api.Assertions.assertThat(pseudonym).startsWith("<redacted:");
+        org.assertj.core.api.Assertions.assertThat(pseudonym).endsWith(">");
     }
 
     @ParameterizedTest
@@ -225,8 +221,7 @@ public class PseudonymizerTest {
 
         // Extract hash part (between <redacted: and >)
         String hashPart = pseudonym.substring("<redacted:".length(), pseudonym.length() - 1);
-        assertTrue(hashPart.length() >= expectedMinLength,
-            "Hash part should be at least " + expectedMinLength + " characters");
+        org.assertj.core.api.Assertions.assertThat(hashPart.length()).isGreaterThanOrEqualTo(expectedMinLength);
     }
 
     @Test
@@ -247,7 +242,7 @@ public class PseudonymizerTest {
         int hash1Length = pseudonym1.length() - "<redacted:>".length();
         int hash2Length = pseudonym2.length() - "<redacted:>".length();
 
-        assertTrue(hash2Length > hash1Length, "Longer hash length should produce longer identifier");
+        org.assertj.core.api.Assertions.assertThat(hash2Length).isGreaterThan(hash1Length);
     }
 
     @Test
@@ -336,10 +331,10 @@ public class PseudonymizerTest {
             true, false, true, false
         );
 
-        assertTrue(scope.shouldPseudonymizeProperties());
-        assertFalse(scope.shouldPseudonymizeStrings());
-        assertTrue(scope.shouldPseudonymizeNetwork());
-        assertFalse(scope.shouldPseudonymizePaths());
+        assertThat(scope.shouldPseudonymizeProperties()).isTrue();
+        assertThat(scope.shouldPseudonymizeStrings()).isFalse();
+        assertThat(scope.shouldPseudonymizeNetwork()).isTrue();
+        assertThat(scope.shouldPseudonymizePaths()).isFalse();
     }
 
     @Test
@@ -359,8 +354,8 @@ public class PseudonymizerTest {
 
         String stats = pseudonymizer.getStats();
         assertNotNull(stats);
-        assertTrue(stats.contains("enabled"));
-        assertTrue(stats.contains("2"));
+        assertThat(stats).contains("enabled");
+        assertThat(stats).contains("2");
     }
 
     @Test
@@ -377,6 +372,6 @@ public class PseudonymizerTest {
         String value = "test@example.com";
         String pseudonym = pseudonymizer.pseudonymize(value, "***");
 
-        assertTrue(pseudonym.startsWith("<hash:"));
+        assertThat(pseudonym).startsWith("<hash:");
     }
 }

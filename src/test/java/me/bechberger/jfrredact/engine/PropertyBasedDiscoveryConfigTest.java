@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -35,9 +36,9 @@ class PropertyBasedDiscoveryTest {
         assertEquals("user_name", config.getName());
         assertEquals("user\\.name", config.getKeyPattern());
         assertEquals("USERNAME", config.getType());
-        assertFalse(config.isCaseSensitive());
+        assertThat(config.isCaseSensitive()).isFalse();
         assertEquals(1, config.getMinOccurrences());
-        assertTrue(config.isEnabled());
+        assertThat(config.isEnabled()).isTrue();
     }
 
     @Test
@@ -80,8 +81,7 @@ class PropertyBasedDiscoveryTest {
 
         // Verify whitelist is set correctly
         assertEquals(2, propExtraction.getWhitelist().size());
-        assertTrue(propExtraction.getWhitelist().contains("root"));
-        assertTrue(propExtraction.getWhitelist().contains("admin"));
+        assertThat(propExtraction.getWhitelist()).contains("root", "admin");
     }
 
     @Test
@@ -99,7 +99,7 @@ class PropertyBasedDiscoveryTest {
         discoveryConfig.getPropertyExtractions().add(propExtraction);
 
         // Verify min occurrences is set correctly (clamped to minimum of 1)
-        assertTrue(propExtraction.getMinOccurrences() >= 1);
+        assertThat(propExtraction.getMinOccurrences()).isGreaterThanOrEqualTo(1);
         assertEquals(2, propExtraction.getMinOccurrences());
     }
 
@@ -155,7 +155,7 @@ class PropertyBasedDiscoveryTest {
         // Verify statistics can be generated
         String stats = engine.getStatistics();
         assertNotNull(stats);
-        assertTrue(stats.contains("Discovery Statistics"));
+        assertThat(stats).contains("Discovery Statistics");
     }
 
     @Test

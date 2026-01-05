@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -29,15 +30,13 @@ public class MainTestOld {
     Path tempDir;
 
     private CommandLine cmd;
-    private ByteArrayOutputStream outContent;
-    private ByteArrayOutputStream errContent;
 
     @BeforeEach
     void setUp() {
         Main app = new Main();
         cmd = new CommandLine(app);
-        outContent = new ByteArrayOutputStream();
-        errContent = new ByteArrayOutputStream();
+        ByteArrayOutputStream outContent = new ByteArrayOutputStream();
+        ByteArrayOutputStream errContent = new ByteArrayOutputStream();
     }
 
     // ========== Test Data Providers ==========
@@ -104,8 +103,7 @@ public class MainTestOld {
     public void testFailingCommandLines(String[] args, int expectedExitCode, String errorMessageSubstring) {
         int exitCode = cmd.execute(args);
 
-        assertTrue(exitCode != 0,
-            "Command should fail with non-zero exit code for args: " + String.join(" ", args));
+        assertThat(exitCode).isNotEqualTo(0);
 
         // For PicoCLI validation errors, exit code should be 2
         // For application errors, exit code should be 1
@@ -135,8 +133,9 @@ public class MainTestOld {
         assertEquals(expectedExitCode, exitCode);
 
         String output = baos.toString();
-        assertTrue(output.contains(expectedOutputSubstring),
-            "Output should contain: " + expectedOutputSubstring + "\nActual output: " + output);
+        assertThat(output)
+            .as("Output should contain: " + expectedOutputSubstring)
+            .contains(expectedOutputSubstring);
     }
 
     // ========== Preset Tests ==========
@@ -157,7 +156,7 @@ public class MainTestOld {
 
         // May fail due to JFR parsing, but should not fail due to invalid preset
         // Exit code 2 = CLI validation error (bad preset)
-        assertNotEquals(2, exitCode, "Preset should be valid: " + presetName);
+        assertThat(exitCode).isNotEqualTo(2);
     }
 
     // ========== Config File Tests ==========
@@ -186,7 +185,7 @@ public class MainTestOld {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with valid config file");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -216,7 +215,7 @@ public class MainTestOld {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with config URL");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     // ========== Text File Redaction Tests ==========
@@ -234,10 +233,10 @@ public class MainTestOld {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Text file redaction should succeed");
-        assertTrue(Files.exists(outputFile), "Output file should exist");
+        assertThat(outputFile).exists();
 
         String output = Files.readString(outputFile);
-        assertFalse(output.contains("user@example.com"), "Email should be redacted");
+        assertThat(output).doesNotContain("user@example.com");
     }
 
     @Test
@@ -253,7 +252,7 @@ public class MainTestOld {
         assertEquals(0, exitCode, "Should succeed with default output");
 
         Path expectedOutput = inputFile.getParent().resolve("input.redacted.txt");
-        assertTrue(Files.exists(expectedOutput), "Default output file should exist");
+        assertThat(expectedOutput).exists();
     }
 
     // ========== CLI Option Tests ==========
@@ -272,7 +271,7 @@ public class MainTestOld {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with pseudonymize flag");
-        assertTrue(Files.exists(outputFile), "Output file should exist");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -335,7 +334,7 @@ public class MainTestOld {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with all options combined");
-        assertTrue(Files.exists(outputFile), "Output file should exist");
+        assertThat(outputFile).exists();
     }
 
     // ========== Edge Cases ==========
@@ -355,7 +354,7 @@ public class MainTestOld {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should handle empty file");
-        assertTrue(Files.exists(outputFile), "Output file should exist");
+        assertThat(outputFile).exists();
         assertEquals("", Files.readString(outputFile), "Output should be empty");
     }
 
@@ -372,7 +371,7 @@ public class MainTestOld {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed writing to same directory");
-        assertTrue(Files.exists(outputFile), "Output file should exist");
+        assertThat(outputFile).exists();
     }
 
     // ========== Helper Methods ==========

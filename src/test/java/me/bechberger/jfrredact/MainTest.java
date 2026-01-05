@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -41,12 +42,13 @@ class MainTest {
         assertEquals(0, exitCode, "Help should exit successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("Commands:"),
-                "Help should show commands section");
-        assertTrue(output.contains("redact"),
-                "Help should list redact command");
-        assertTrue(output.contains("generate-config"),
-                "Help should list generate-config command");
+        assertThat(output)
+                .as("Help should show commands section")
+                .contains("Commands:")
+                .as("Help should list redact command")
+                .contains("redact")
+                .as("Help should list generate-config command")
+                .contains("generate-config");
     }
 
     @Test
@@ -56,8 +58,9 @@ class MainTest {
         assertEquals(0, exitCode, "Version should exit successfully");
 
         String output = outContent.toString();
-        assertTrue(output.contains("jfr-redact") || output.contains("version"),
-                "Should show version information");
+        assertThat(output)
+                .as("Should show version information")
+                .containsAnyOf("jfr-redact", "version");
     }
 
     @Test
@@ -67,9 +70,9 @@ class MainTest {
         assertNotEquals(0, exitCode, "Should fail with unknown command");
 
         String stderr = errContent.toString();
-        assertTrue(stderr.contains("Unknown") || stderr.contains("not found") ||
-                   stderr.contains("Unmatched"),
-                "Should show error about unknown command");
+        assertThat(stderr)
+                .as("Should show error about unknown command")
+                .containsAnyOf("Unknown", "not found", "Unmatched");
     }
 
     @Test
@@ -78,7 +81,8 @@ class MainTest {
 
         // Should show usage/help information
         String output = outContent.toString() + errContent.toString();
-        assertTrue(output.contains("Usage") || output.contains("Commands"),
-                "Should show usage information");
+        assertThat(output)
+                .as("Should show usage information")
+                .containsAnyOf("Usage", "Commands");
     }
 }

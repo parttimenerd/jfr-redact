@@ -3,6 +3,7 @@ import me.bechberger.jfrredact.testutil.MockInteractiveDecisionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 class InteractiveModeTest {
     @TempDir
@@ -18,8 +19,8 @@ class InteractiveModeTest {
         var val2 = new DiscoveredPatterns.DiscoveredValue("secret123", DiscoveredPatterns.PatternType.CUSTOM);
         var decision2 = manager.getDecision(val2);
         assertEquals(InteractiveDecisionManager.DecisionAction.REDACT, decision2.getAction());
-        assertTrue(manager.wasAsked("john_doe"));
-        assertTrue(manager.wasAsked("secret123"));
+        assertThat(manager.wasAsked("john_doe")).isTrue();
+        assertThat(manager.wasAsked("secret123")).isTrue();
         assertEquals(2, manager.getQuestionCount());
     }
     @Test
@@ -51,10 +52,10 @@ class InteractiveModeTest {
         manager.getDecision(new DiscoveredPatterns.DiscoveredValue("server01", DiscoveredPatterns.PatternType.HOSTNAME));
         manager.getDecision(new DiscoveredPatterns.DiscoveredValue("server02", DiscoveredPatterns.PatternType.HOSTNAME));
         assertEquals(4, manager.getQuestionCount());
-        assertTrue(manager.wasAsked("user1"));
-        assertTrue(manager.wasAsked("user2"));
-        assertTrue(manager.wasAsked("server01"));
-        assertTrue(manager.wasAsked("server02"));
+        assertThat(manager.wasAsked("user1")).isTrue();
+        assertThat(manager.wasAsked("user2")).isTrue();
+        assertThat(manager.wasAsked("server01")).isTrue();
+        assertThat(manager.wasAsked("server02")).isTrue();
     }
     @Test
     void testClearQuestions() {
@@ -64,7 +65,7 @@ class InteractiveModeTest {
         assertEquals(2, manager.getQuestionCount());
         manager.clear();
         assertEquals(0, manager.getQuestionCount());
-        assertFalse(manager.wasAsked("test1"));
+        assertThat(manager.wasAsked("test1")).isFalse();
     }
     @Test
     void testDefaultDecisionAppliedToAll() {

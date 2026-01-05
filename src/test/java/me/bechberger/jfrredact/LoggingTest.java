@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -78,7 +79,7 @@ public class LoggingTest {
 
         // Should complete successfully
         assertEquals(0, exitCode, description + " should be accepted and complete successfully");
-        assertTrue(Files.exists(outputFile), "Output file should be created with " + flag);
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -98,7 +99,7 @@ public class LoggingTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed without logging flags");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     // ========== Output Tests ==========
@@ -122,7 +123,7 @@ public class LoggingTest {
 
         // Should complete successfully with verbose flag
         assertEquals(0, exitCode, "Verbose mode should complete successfully");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -144,7 +145,7 @@ public class LoggingTest {
 
         // Should complete successfully with quiet flag
         assertEquals(0, exitCode, "Quiet mode should complete successfully");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     // ========== Error Logging Tests ==========
@@ -197,7 +198,7 @@ public class LoggingTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with config file and verbose logging");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -230,7 +231,7 @@ public class LoggingTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with config URL and debug logging");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     // ========== ConfigLoader Logging Tests ==========
@@ -318,7 +319,7 @@ public class LoggingTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Full workflow should succeed");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -340,7 +341,7 @@ public class LoggingTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed with combined flags");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     @Test
@@ -363,7 +364,7 @@ public class LoggingTest {
         int exitCode = cmd.execute(args);
 
         assertEquals(0, exitCode, "Should succeed even with multiple logging flags");
-        assertTrue(Files.exists(outputFile), "Output file should be created");
+        assertThat(outputFile).exists();
     }
 
     // ========== Helper Methods ==========

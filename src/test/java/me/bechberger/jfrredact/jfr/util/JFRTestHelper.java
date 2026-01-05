@@ -3,6 +3,7 @@ package me.bechberger.jfrredact.jfr.util;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.Event;
 import me.bechberger.jfrredact.config.RedactionConfig;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
 import java.io.IOException;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  * Test helper utilities for JFR testing.
@@ -228,7 +230,7 @@ public class JFRTestHelper {
                     }
                 }
 
-                fail(diagnosticMsg.toString());
+                Assertions.fail(diagnosticMsg.toString());
             }
             return this;
         }
@@ -324,8 +326,7 @@ public class JFRTestHelper {
             java.util.Set<String> missingTypes = new java.util.HashSet<>(originalTypes);
             missingTypes.removeAll(processedTypes);
 
-            assertTrue(missingTypes.isEmpty(),
-                    "All event types should be preserved. Missing: " + missingTypes);
+            assertThat(missingTypes).as("All event types should be preserved").isEmpty();
             return this;
         }
 
@@ -398,15 +399,13 @@ public class JFRTestHelper {
                 }
             }
 
-            assertTrue(anyChanged,
-                String.format("Field '%s' in '%s' should be changed in at least one event. " +
-                    "Found %d unchanged events.", fieldName, eventTypeName,
-                    originalEventsOfType.size()));
+            assertThat(anyChanged).as(String.format("Field '%s' in '%s' should be changed in at least one event. Found %d unchanged events.",
+                    fieldName, eventTypeName, originalEventsOfType.size())).isTrue();
 
             // Log the changes for debugging
             if (changedCount > 0) {
-                System.out.println(String.format("Field '%s' changed in %d/%d events:%s",
-                    fieldName, changedCount, originalEventsOfType.size(), changeReport));
+                System.out.printf("Field '%s' changed in %d/%d events:%s%n",
+                    fieldName, changedCount, originalEventsOfType.size(), changeReport);
             }
 
             return this;
@@ -428,9 +427,9 @@ public class JFRTestHelper {
             for (int i = 0; i < processedEventsOfType.size(); i++) {
                 final int index = i;
                 final Object value = processedEventsOfType.get(i).getValue(fieldName);
-                assertions.add(() -> assertTrue(predicate.test(value),
-                    String.format("Field '%s' at event[%d] should match '%s', but got: '%s'",
-                        fieldName, index, predicateDescription, value)));
+                assertions.add(() -> assertThat(predicate.test(value))
+                    .as(String.format("Field '%s' at event[%d] should match '%s', but got: '%s'",
+                        fieldName, index, predicateDescription, value)).isTrue());
             }
 
             assertAll("Verifying field '" + fieldName + "' matches predicate: " + predicateDescription,
@@ -589,7 +588,7 @@ public class JFRTestHelper {
                     assertEquals(original.getEventType().getLabel(), processed.getEventType().getLabel(),
                             context + ": Event type label should match");
                 } catch (ArrayIndexOutOfBoundsException e) {
-                    fail(context + ": Failed to retrieve event type label - JFRProcessor may have corrupted annotations: " + e.getMessage());
+                    Assertions.fail(context + ": Failed to retrieve event type label - JFRProcessor may have corrupted annotations: " + e.getMessage());
                 }
             });
 
@@ -598,7 +597,7 @@ public class JFRTestHelper {
                     assertEquals(original.getEventType().getDescription(), processed.getEventType().getDescription(),
                             context + ": Event type description should match");
                 } catch (ArrayIndexOutOfBoundsException e) {
-                    fail(context + ": Failed to retrieve event type description - JFRProcessor may have corrupted annotations: " + e.getMessage());
+                    Assertions.fail(context + ": Failed to retrieve event type description - JFRProcessor may have corrupted annotations: " + e.getMessage());
                 }
             });
 
@@ -607,7 +606,7 @@ public class JFRTestHelper {
                     assertEquals(original.getEventType().getCategoryNames(), processed.getEventType().getCategoryNames(),
                             context + ": Event type categories should match");
                 } catch (ArrayIndexOutOfBoundsException e) {
-                    fail(context + ": Failed to retrieve event type categories - JFRProcessor may have corrupted annotations: " + e.getMessage());
+                    Assertions.fail(context + ": Failed to retrieve event type categories - JFRProcessor may have corrupted annotations: " + e.getMessage());
                 }
             });
 
@@ -617,7 +616,7 @@ public class JFRTestHelper {
                             processed.getEventType().getAnnotationElements(),
                             context + ": Event type annotations");
                 } catch (ArrayIndexOutOfBoundsException e) {
-                    fail(context + ": Failed to verify event type annotations - JFRProcessor may have corrupted annotations: " + e.getMessage());
+                    Assertions.fail(context + ": Failed to verify event type annotations - JFRProcessor may have corrupted annotations: " + e.getMessage());
                 }
             });
 
@@ -667,7 +666,7 @@ public class JFRTestHelper {
                         assertEquals(original.getLabel(), processed.getLabel(),
                                 context + ": Field label should match");
                     } catch (ArrayIndexOutOfBoundsException e) {
-                        fail(context + ": Failed to retrieve field label - JFRProcessor may have corrupted annotations: " + e.getMessage());
+                        Assertions.fail(context + ": Failed to retrieve field label - JFRProcessor may have corrupted annotations: " + e.getMessage());
                     }
                 },
 
@@ -676,7 +675,7 @@ public class JFRTestHelper {
                         assertEquals(original.getDescription(), processed.getDescription(),
                                 context + ": Field description should match");
                     } catch (ArrayIndexOutOfBoundsException e) {
-                        fail(context + ": Failed to retrieve field description - JFRProcessor may have corrupted annotations: " + e.getMessage());
+                        Assertions.fail(context + ": Failed to retrieve field description - JFRProcessor may have corrupted annotations: " + e.getMessage());
                     }
                 },
 
@@ -687,7 +686,7 @@ public class JFRTestHelper {
                         assertEquals(originalTypeName, processedTypeName,
                                 context + ": Field type name should match");
                     } catch (ArrayIndexOutOfBoundsException e) {
-                        fail(context + ": Failed to retrieve field type name - JFRProcessor may have corrupted type information: " + e.getMessage());
+                        Assertions.fail(context + ": Failed to retrieve field type name - JFRProcessor may have corrupted type information: " + e.getMessage());
                     }
                 },
 
@@ -696,7 +695,7 @@ public class JFRTestHelper {
                         assertEquals(original.getContentType(), processed.getContentType(),
                                 context + ": Field content type should match");
                     } catch (ArrayIndexOutOfBoundsException e) {
-                        fail(context + ": Failed to retrieve field content type - JFRProcessor may have corrupted metadata: " + e.getMessage());
+                        Assertions.fail(context + ": Failed to retrieve field content type - JFRProcessor may have corrupted metadata: " + e.getMessage());
                     }
                 },
 
@@ -706,7 +705,7 @@ public class JFRTestHelper {
                                 processed.getAnnotationElements(),
                                 context + ": Field annotations");
                     } catch (ArrayIndexOutOfBoundsException e) {
-                        fail(context + ": Failed to verify field annotations - JFRProcessor may have corrupted annotations: " + e.getMessage());
+                        Assertions.fail(context + ": Failed to verify field annotations - JFRProcessor may have corrupted annotations: " + e.getMessage());
                     }
                 }
             );
@@ -723,7 +722,7 @@ public class JFRTestHelper {
 
             // One null, one not
             if (original == null || processed == null) {
-                fail(context + ": Nullability mismatch\n" +
+                Assertions.fail(context + ": Nullability mismatch\n" +
                      "  Original (before processing): " + formatValue(original) + "\n" +
                      "  Processed (after roundtrip):  " + formatValue(processed));
                 return;
@@ -751,7 +750,7 @@ public class JFRTestHelper {
             }
 
             if (!original.equals(processed)) {
-                fail(context + ": Field value mismatch\n" +
+                Assertions.fail(context + ": Field value mismatch\n" +
                      "  Original (before processing): " + formatValue(original) + "\n" +
                      "  Processed (after roundtrip):  " + formatValue(processed));
             }
@@ -809,7 +808,7 @@ public class JFRTestHelper {
 
             // Check field counts match
             if (originalFields.size() != processedFields.size()) {
-                fail(context + ": Field count mismatch in RecordedObject\n" +
+                Assertions.fail(context + ": Field count mismatch in RecordedObject\n" +
                      "  Original fields: " + originalFields.stream().map(jdk.jfr.ValueDescriptor::getName).toList() + "\n" +
                      "  Processed fields: " + processedFields.stream().map(jdk.jfr.ValueDescriptor::getName).toList());
                 return;
@@ -821,7 +820,7 @@ public class JFRTestHelper {
                 jdk.jfr.ValueDescriptor procField = processedFields.get(i);
 
                 if (!origField.getName().equals(procField.getName())) {
-                    fail(context + ": Field order mismatch at index " + i + "\n" +
+                    Assertions.fail(context + ": Field order mismatch at index " + i + "\n" +
                          "  Original: " + origField.getName() + "\n" +
                          "  Processed: " + procField.getName());
                     continue;
@@ -986,7 +985,7 @@ public class JFRTestHelper {
                 return;
             }
             if (original == null || processed == null) {
-                fail(String.format("%s: one value is null: original=%s, processed=%s",
+                Assertions.fail(String.format("%s: one value is null: original=%s, processed=%s",
                         path, original, processed));
                 return;
             }
@@ -1073,7 +1072,5 @@ public class JFRTestHelper {
                 }
             }
         }
-
-        // ...existing code...
     }
 }
