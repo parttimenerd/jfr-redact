@@ -6,11 +6,12 @@
 
     <groupId>me.bechberger</groupId>
     <artifactId>jfr-redact</artifactId>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 
 
     <name>jfrredact</name>
     <url>https://github.com/parttimenerd/jfr-redact</url>
+    <description>A tool to redact sensitive information from Java Flight Recorder (JFR) recordings and text files</description>
 
     <licenses>
         <license>
