@@ -59,5 +59,11 @@ jobs:
           path: target/jfr-redact.jar
           retention-days: 30
 
+      - name: Upload executable artifact
+        if: matrix.java-version == 21
+        uses: actions/upload-artifact@v4
+        with:
+          name: jfr-redact
+
       - name: Run tests
         run: mvn clean test

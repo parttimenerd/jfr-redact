@@ -93,22 +93,16 @@ Download the standalone JAR or executable from the [releases page](https://githu
 jbang jfr-redact@parttimenerd/jfr-redact
 ```
 
-### As a Library (Maven/Gradle)
+### As a Library
 
 Use jfr-redact as a library to programmatically redact JFR files in your own applications:
 
-**Maven:**
 ```xml
 <dependency>
   <groupId>me.bechberger</groupId>
   <artifactId>jfr-redact</artifactId>
   <version>0.1.2</version>
 </dependency>
-```
-
-**Gradle:**
-```gradle
-implementation 'me.bechberger:jfr-redact:0.1.0'
 ```
 
 ## Usage

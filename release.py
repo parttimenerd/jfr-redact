@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Bump minor version and deploy execjar library.
+Bump minor version and deploy jfr-redact library.
 
 This script:
 1. Reads the current version from pom.xml
 2. Bumps the minor version (e.g., 0.0.0 -> 0.2.0)
-3. Updates pom.xml and Main.java with new version
+3. Updates pom.xml and Version.java with new version
 4. Runs tests
 5. Builds the package
 6. Optionally deploys to Maven Central
@@ -24,11 +24,10 @@ class VersionBumper:
     def __init__(self, project_root: Path):
         self.project_root = project_root
         self.pom_xml = project_root / "pom.xml"
-        self.main_java = project_root / "src/main/java/me/bechberger/execjar/Main.java"
+        self.version_java = project_root / "src/main/java/me/bechberger/jfrredact/Version.java"
         self.readme = project_root / "README.md"
         self.changelog = project_root / "CHANGELOG.md"
         self.jbang_catalog = project_root / "jbang-catalog.json"
-        self.example_pom = project_root / "example-project/pom.xml"
         self.backup_dir = project_root / ".release-backup"
         self.backups_created = False
 
@@ -78,21 +77,21 @@ class VersionBumper:
         self.pom_xml.write_text(content)
         print(f"✓ Updated pom.xml: {old_version} -> {new_version}")
 
-    def update_main_java(self, old_version: str, new_version: str):
-        """Update version in Main.java (picocli format)"""
-        if not self.main_java.exists():
-            print(f"⚠ Main.java not found at {self.main_java}, skipping")
+    def update_version_java(self, old_version: str, new_version: str):
+        """Update version in Version.java"""
+        if not self.version_java.exists():
+            print(f"⚠ Version.java not found at {self.version_java}, skipping")
             return
 
-        content = self.main_java.read_text()
-        # Handle picocli version format: version = "execjar 0.1"
+        content = self.version_java.read_text()
+        # Handle Version.java format: public static final String VERSION = "0.1.0";
         content = re.sub(
-            r'version = "execjar ' + re.escape(old_version) + '"',
-            f'version = "execjar {new_version}"',
+            r'public static final String VERSION = "' + re.escape(old_version) + '";',
+            f'public static final String VERSION = "{new_version}";',
             content
         )
-        self.main_java.write_text(content)
-        print(f"✓ Updated Main.java: {old_version} -> {new_version}")
+        self.version_java.write_text(content)
+        print(f"✓ Updated Version.java: {old_version} -> {new_version}")
 
     def update_readme(self, old_version: str, new_version: str):
         """Update version in README.md"""
@@ -116,10 +115,10 @@ class VersionBumper:
         data = json.loads(content)
 
         # Update the script-ref URL to point to the new version
-        if 'aliases' in data and 'execjar' in data['aliases']:
-            old_url = data['aliases']['execjar']['script-ref']
-            new_url = f'https://github.com/parttimenerd/execjar/releases/download/v{new_version}/execjar.jar'
-            data['aliases']['execjar']['script-ref'] = new_url
+        if 'aliases' in data and 'jfr-redact' in data['aliases']:
+            old_url = data['aliases']['jfr-redact']['script-ref']
+            new_url = f'https://github.com/parttimenerd/jfr-redact/releases/download/v{new_version}/jfr-redact.jar'
+            data['aliases']['jfr-redact']['script-ref'] = new_url
 
             # Write back with proper formatting
             self.jbang_catalog.write_text(json.dumps(data, indent=2) + '\n')
@@ -127,22 +126,6 @@ class VersionBumper:
         else:
             print("⚠ jbang-catalog.json has unexpected structure, skipping update")
 
-    def update_example_project(self, old_version: str, new_version: str):
-        """Update version in example-project/pom.xml"""
-        if not self.example_pom.exists():
-            print(f"⚠ Example project pom.xml not found at {self.example_pom}, skipping")
-            return
-
-        content = self.example_pom.read_text()
-        # Update the execjar plugin version
-        content = re.sub(
-            r'(<groupId>me\.bechberger</groupId>\s*<artifactId>execjar</artifactId>\s*<version>)' + re.escape(old_version) + r'(</version>)',
-            r'\g<1>' + new_version + r'\g<2>',
-            content,
-            flags=re.MULTILINE | re.DOTALL
-        )
-        self.example_pom.write_text(content)
-        print(f"✓ Updated example-project/pom.xml: {old_version} -> {new_version}")
 
     def show_version_diff(self, old_version: str, new_version: str):
         """Show what would change in version files"""
@@ -151,9 +134,9 @@ class VersionBumper:
         print(f"    - <version>{old_version}</version>")
         print(f"    + <version>{new_version}</version>")
 
-        print(f"\n  Main.java:")
-        print(f"    - version = \"execjar {old_version}\"")
-        print(f"    + version = \"execjar {new_version}\"")
+        print(f"\n  Version.java:")
+        print(f"    - public static final String VERSION = \"{old_version}\";")
+        print(f"    + public static final String VERSION = \"{new_version}\";")
 
         print(f"\n  README.md:")
         print(f"    - <version>{old_version}</version>")
@@ -161,13 +144,8 @@ class VersionBumper:
 
         if self.jbang_catalog.exists():
             print(f"\n  jbang-catalog.json:")
-            print(f"    - releases/download/v{old_version}/execjar.jar")
-            print(f"    + releases/download/v{new_version}/execjar.jar")
-
-        if self.example_pom.exists():
-            print(f"\n  example-project/pom.xml:")
-            print(f"    - <version>{old_version}</version>")
-            print(f"    + <version>{new_version}</version>")
+            print(f"    - releases/download/v{old_version}/jfr-redact.jar")
+            print(f"    + releases/download/v{new_version}/jfr-redact.jar")
 
     def show_changelog_diff(self, version: str):
         """Show what would change in CHANGELOG.md"""
@@ -323,7 +301,7 @@ class VersionBumper:
         # Get changelog entry for this specific version (after it's been released in CHANGELOG.md)
         changelog_entry = self.get_version_changelog_entry(version)
         if not changelog_entry:
-            changelog_entry = f"Release {version}\n\nSee [CHANGELOG.md](https://github.com/parttimenerd/execjar/blob/main/CHANGELOG.md) for details."
+            changelog_entry = f"Release {version}\n\nSee [CHANGELOG.md](https://github.com/parttimenerd/jfr-redact/blob/main/CHANGELOG.md) for details."
 
         # Format release notes
         release_notes = f"""# Release {version}
@@ -336,24 +314,23 @@ class VersionBumper:
 ```xml
 <dependency>
     <groupId>me.bechberger</groupId>
-    <artifactId>execjar</artifactId>
+    <artifactId>jfr-redact</artifactId>
     <version>{version}</version>
 </dependency>
 ```
 
 ### Direct Download
 Download from the assets below:
-- `execjar.jar` - Executable JAR file (requires Java 11+)
-- `execjar` - Standalone launcher script (Unix/Linux/macOS)
+- `jfr-redact.jar` - Executable JAR file (requires Java 11+)
+- `jfr-redact` - Standalone binary
 
 **Usage:**
 ```bash
-# Using the script (recommended for Unix-like systems)
-chmod +x execjar
-./execjar myapp.jar
-
 # Using the JAR directly
-java -jar execjar.jar myapp.jar
+java -jar jfr-redact.jar redact recording.jfr
+
+# Redact text files
+java -jar jfr-redact.jar redact-text hs_err.log
 ```
 """
 
@@ -363,19 +340,19 @@ java -jar execjar.jar myapp.jar
 
         try:
             # Build asset paths
-            jar_path = self.project_root / 'target' / 'execjar.jar'
-            script_path = self.project_root / 'target' / 'execjar'
+            jar_path = self.project_root / 'target' / 'jfr-redact.jar'
+            binary_path = self.project_root / 'target' / 'jfr-redact'
 
             assets = []
             if jar_path.exists():
-                assets.append(str(jar_path) + '#execjar.jar')
+                assets.append(str(jar_path) + '#jfr-redact.jar')
             else:
                 print(f"⚠ JAR not found at {jar_path}")
 
-            if script_path.exists():
-                assets.append(str(script_path) + '#execjar')
+            if binary_path.exists():
+                assets.append(str(binary_path) + '#jfr-redact')
             else:
-                print(f"⚠ execjar script not found at {script_path}")
+                print(f"⚠ jfr-redact binary not found at {binary_path}")
 
             if not assets:
                 print("⚠ No assets found, creating release without assets")
@@ -405,7 +382,7 @@ java -jar execjar.jar myapp.jar
 
         files_to_backup = [
             self.pom_xml,
-            self.main_java,
+            self.version_java,
             self.readme,
             self.changelog,
             self.jbang_catalog
@@ -430,7 +407,7 @@ java -jar execjar.jar myapp.jar
 
         files_to_restore = [
             (self.backup_dir / "pom.xml", self.pom_xml),
-            (self.backup_dir / "Main.java", self.main_java),
+            (self.backup_dir / "Version.java", self.version_java),
             (self.backup_dir / "README.md", self.readme),
             (self.backup_dir / "CHANGELOG.md", self.changelog),
             (self.backup_dir / "jbang-catalog.json", self.jbang_catalog)
@@ -472,24 +449,10 @@ java -jar execjar.jar myapp.jar
         return result
 
     def run_tests(self):
-        """Run comprehensive test suite using run-tests.sh"""
-        test_script = self.project_root / "run-tests.sh"
-
-        if not test_script.exists():
-            print(f"⚠ run-tests.sh not found, falling back to mvn test")
-            self.run_command(
-                ['mvn', 'clean', 'test'],
-                "Running tests"
-            )
-            return
-
-        # Make sure the script is executable
-        import os
-        test_script.chmod(test_script.stat().st_mode | 0o111)
-
+        """Run Maven test suite"""
         self.run_command(
-            [str(test_script)],
-            "Running comprehensive test suite (run-tests.sh)"
+            ['mvn', 'clean', 'test'],
+            "Running tests"
         )
 
     def build_package(self):
@@ -498,6 +461,16 @@ java -jar execjar.jar myapp.jar
             ['mvn', 'clean', 'package'],
             "Building package"
         )
+
+        # Sync documentation after building
+        sync_doc_script = self.project_root / 'bin' / 'sync-documentation.py'
+        if sync_doc_script.exists():
+            self.run_command(
+                ['python3', str(sync_doc_script)],
+                "Syncing documentation"
+            )
+        else:
+            print(f"⚠ sync-documentation.py not found at {sync_doc_script}, skipping")
 
     def deploy_release(self):
         """Deploy to Maven Central using release profile"""
@@ -509,7 +482,7 @@ java -jar execjar.jar myapp.jar
     def git_commit(self, version: str):
         """Commit version changes"""
         self.run_command(
-            ['git', 'add', 'pom.xml', 'src/main/java/me/bechberger/execjar/Main.java', 'README.md', 'CHANGELOG.md', 'jbang-catalog.json', 'example-project/pom.xml'],
+            ['git', 'add', 'pom.xml', 'src/main/java/me/bechberger/jfrredact/Version.java', 'README.md', 'CHANGELOG.md', 'jbang-catalog.json'],
             "Staging files"
         )
         self.run_command(
@@ -540,7 +513,7 @@ java -jar execjar.jar myapp.jar
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Bump version and deploy execjar library',
+        description='Bump version and deploy jfr-redact library',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:
@@ -654,16 +627,17 @@ Note: CHANGELOG.md must have content under [Unreleased] section before releasing
         if not args.skip_tests:
             print("  • mvn clean test")
         print("  • mvn clean package")
+        print("  • python3 bin/sync-documentation.py")
         if do_deploy:
             print("  • mvn clean deploy -P release")
-        print(f"  • git add pom.xml Main.java README.md CHANGELOG.md")
+        print(f"  • git add pom.xml Version.java README.md CHANGELOG.md jbang-catalog.json")
         print(f"  • git commit -m 'Bump version to {new_version}'")
         print(f"  • git tag -a v{new_version} -m 'Release {new_version}'")
         if do_push:
             print("  • git push")
             print("  • git push --tags")
         if do_github_release:
-            print(f"  • gh release create v{new_version} (with CHANGELOG entry + execjar.jar)")
+            print(f"  • gh release create v{new_version} (with CHANGELOG entry + jfr-redact.jar)")
 
         print("\n✓ No changes made (dry run)")
         return
@@ -711,10 +685,9 @@ Note: CHANGELOG.md must have content under [Unreleased] section before releasing
         # Update version files
         print("\n=== Updating version files ===")
         bumper.update_pom_xml(current_version, new_version)
-        bumper.update_main_java(current_version, new_version)
+        bumper.update_version_java(current_version, new_version)
         bumper.update_readme(current_version, new_version)
         bumper.update_jbang_catalog(new_version)
-        bumper.update_example_project(current_version, new_version)
         bumper.update_changelog(new_version)
 
         # Run tests
@@ -782,19 +755,19 @@ Note: CHANGELOG.md must have content under [Unreleased] section before releasing
     print(f"  ✓ GitHub release created" if do_github_release else "  ⊘ GitHub release skipped")
 
     print(f"\nArtifacts:")
-    print(f"  • target/execjar.jar (executable JAR)")
-    print(f"  • target/execjar (launcher script)")
-    print(f"  • target/execjar-{new_version}.jar")
-    print(f"  • target/execjar-{new_version}-sources.jar")
-    print(f"  • target/execjar-{new_version}-javadoc.jar")
+    print(f"  • target/jfr-redact.jar (executable JAR)")
+    print(f"  • target/jfr-redact (standalone binary)")
+    print(f"  • target/jfr-redact-{new_version}.jar")
+    print(f"  • target/jfr-redact-{new_version}-sources.jar")
+    print(f"  • target/jfr-redact-{new_version}-javadoc.jar")
 
     if do_github_release:
         print(f"\n📦 GitHub Release:")
-        print(f"  https://github.com/parttimenerd/execjar/releases/tag/v{new_version}")
+        print(f"  https://github.com/parttimenerd/jfr-redact/releases/tag/v{new_version}")
 
     if do_deploy:
         print(f"\n📦 Maven Central:")
-        print(f"  https://central.sonatype.com/artifact/me.bechberger/execjar/{new_version}")
+        print(f"  https://central.sonatype.com/artifact/me.bechberger/jfr-redact/{new_version}")
 
 
 if __name__ == '__main__':
