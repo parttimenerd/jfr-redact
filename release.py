@@ -321,7 +321,7 @@ class VersionBumper:
 
 ### Direct Download
 Download from the assets below:
-- `jfr-redact.jar` - Executable JAR file (requires Java 11+)
+- `jfr-redact.jar` - Executable JAR file (requires Java 21+)
 - `jfr-redact` - Standalone binary
 
 **Usage:**

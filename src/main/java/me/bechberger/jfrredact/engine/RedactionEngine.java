@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -213,7 +214,6 @@ public class RedactionEngine {
         config.getProperties().setEnabled(false);
         config.getEvents().setRemoveEnabled(false);
         config.getStrings().setEnabled(false);
-        config.getNetwork().setEnabled(false);
         config.getPaths().setEnabled(false);
         config.getGeneral().getPseudonymization().setEnabled(false);
         return config;
@@ -232,7 +232,6 @@ public class RedactionEngine {
         logger.debug("RedactionEngine initialized");
         logger.debug("  Properties redaction: {}", config.getProperties().isEnabled());
         logger.debug("  String patterns: {}", config.getStrings().isEnabled());
-        logger.debug("  Network redaction: {}", config.getNetwork().isEnabled());
         logger.debug("  Path redaction: {}", config.getPaths().isEnabled());
         logger.debug("  Pseudonymization: {}", config.getGeneral().getPseudonymization().isEnabled());
         logger.debug("  Event removal: {}", config.getEvents().isRemoveEnabled());
@@ -825,105 +824,91 @@ public class RedactionEngine {
      * Uses two-level cache for optimal performance with early exit optimization.
      */
     private RedactionResult checkStringPatternsWithType(String value) {
-        String result = value;
-        String redactionType = null;
+        RedactionContext context = new RedactionContext(value);
 
         // Check patterns in order of priority (most common first for early exit)
         // IP patterns (very common in JFR)
-        String after = checkPatternKind(PatternKind.IP, result, this::replaceMatches);
-        if (after != result) { // Reference comparison is faster than equals()
-            if (redactionType == null) {
-                redactionType = PatternKind.IP.getRedactionType();
-            }
-            result = after;
-        }
+        context.checkPattern(PatternKind.IP, this::replaceMatches);
 
         // Email patterns
-        after = checkPatternKind(PatternKind.EMAIL, result, this::replaceMatches);
-        if (after != result) {
-            if (redactionType == null) {
-                redactionType = PatternKind.EMAIL.getRedactionType();
-            }
-            result = after;
-        }
+        context.checkPattern(PatternKind.EMAIL, this::replaceMatches);
 
         // User/home directory patterns (common in file paths)
-        after = checkPatternKind(PatternKind.USER, result, (matcher, val, key) ->
+        context.checkPattern(PatternKind.USER, (matcher, val, key) ->
             replaceCaptureGroup(matcher, val, 1, key));
-        if (after != result) {
-            if (redactionType == null) {
-                redactionType = PatternKind.USER.getRedactionType();
-            }
-            result = after;
-        }
 
         // Internal URL patterns BEFORE hostnames (URLs may contain hostnames)
-        after = checkPatternKind(PatternKind.INTERNAL_URL, result, this::replaceMatches);
-        if (after != result) {
-            if (redactionType == null) {
-                redactionType = PatternKind.INTERNAL_URL.getRedactionType();
-            }
-            result = after;
-        }
+        context.checkPattern(PatternKind.INTERNAL_URL, this::replaceMatches);
 
         // Hostname patterns (with safe hostname filtering)
-        after = checkPatternKind(PatternKind.HOSTNAME, result, this::replaceHostnameMatches);
-        if (after != result) {
-            if (redactionType == null) {
-                redactionType = PatternKind.HOSTNAME.getRedactionType();
-            }
-            result = after;
-        }
+        context.checkPattern(PatternKind.HOSTNAME, this::replaceHostnameMatches);
 
         // UUID patterns (less common)
-        after = checkPatternKind(PatternKind.UUID, result, this::replaceMatches);
-        if (after != result) {
-            if (redactionType == null) {
-                redactionType = PatternKind.UUID.getRedactionType();
-            }
-            result = after;
-        }
+        context.checkPattern(PatternKind.UUID, this::replaceMatches);
 
         // SSH host patterns (less common)
-        after = checkPatternKind(PatternKind.SSH, result, this::replaceMatches);
-        if (after != result) {
-            if (redactionType == null) {
-                redactionType = PatternKind.SSH.getRedactionType();
-            }
-            result = after;
-        }
+        context.checkPattern(PatternKind.SSH, this::replaceMatches);
 
         // Custom patterns (including CLI-added patterns)
         Map<String, PatternMatcher> customPatterns = patternCacheByKind.get(PatternKind.CUSTOM);
         if (customPatterns != null && !customPatterns.isEmpty()) {
             for (Map.Entry<String, PatternMatcher> entry : customPatterns.entrySet()) {
-                if (entry.getValue().find(result)) {
-                    Matcher matcher = entry.getValue().getMatcher(result);
-                    after = replaceMatches(matcher, result, entry.getKey());
-                    if (after != result) {
-                        if (redactionType == null) {
-                            redactionType = entry.getKey().startsWith("cli_") ? "custom_cli" : "custom";
-                        }
-                        result = after;
-                    }
+                if (entry.getValue().find(context.result)) {
+                    Matcher matcher = entry.getValue().getMatcher(context.result);
+                    context.updateIfChanged(
+                        replaceMatches(matcher, context.result, entry.getKey()),
+                        entry.getKey().startsWith("cli_") ? "custom_cli" : "custom"
+                    );
                 }
             }
         }
 
         // Check discovered patterns (lower priority - only if not already redacted)
-        if (discoveredPatterns != null && result == value) { // Reference comparison
-            after = applyDiscoveredPatterns(result);
-            if (after != result) {
+        if (discoveredPatterns != null && context.result.equals(value)) {
+            context.updateIfChanged(applyDiscoveredPatterns(context.result), "discovered");
+        }
+
+        return context.toResult(value);
+    }
+
+    /**
+     * Helper class to track redaction state during pattern checking.
+     * Encapsulates the mutable state needed for the checkStringPatternsWithType method.
+     */
+    private class RedactionContext {
+        String result;
+        String redactionType;
+
+        RedactionContext(String initialValue) {
+            this.result = initialValue;
+            this.redactionType = null;
+        }
+
+        void checkPattern(PatternKind kind, ReplacementStrategy replacer) {
+            String after = checkPatternKind(kind, result, replacer);
+            if (!after.equals(result)) {
+                if (redactionType == null) {
+                    redactionType = kind.getRedactionType();
+                }
                 result = after;
-                if (redactionType == null) redactionType = "discovered";
             }
         }
 
-        // Final check: did anything change?
-        if (result != value) { // Reference comparison
-            return RedactionResult.redacted(result, redactionType);
+        void updateIfChanged(String newValue, String type) {
+            if (!newValue.equals(result)) {
+                if (redactionType == null) {
+                    redactionType = type;
+                }
+                result = newValue;
+            }
         }
-        return RedactionResult.noChange(value);
+
+        RedactionResult toResult(String originalValue) {
+            if (!result.equals(originalValue)) {
+                return RedactionResult.redacted(result, redactionType);
+            }
+            return RedactionResult.noChange(originalValue);
+        }
     }
 
     /**
@@ -949,7 +934,7 @@ public class RedactionEngine {
             if (entry.getValue().find(result)) {
                 Matcher matcher = entry.getValue().getMatcher(result);
                 String replaced = replacer.replace(matcher, result, entry.getKey());
-                if (replaced != result) {
+                if (!Objects.equals(replaced, result)) {
                     result = replaced;
                 }
             }
@@ -1191,15 +1176,25 @@ public class RedactionEngine {
     /**
      * Set discovered patterns to be used for redaction.
      * Discovered patterns have lower priority than configured patterns.
+     * If patterns already exist, the new patterns are merged with the existing ones.
      *
      * @param patterns The discovered patterns from the discovery phase (already filtered by min_occurrences)
      */
     public void setDiscoveredPatterns(DiscoveredPatterns patterns) {
-        this.discoveredPatterns = patterns;
-        if (patterns != null) {
-            int count = patterns.getTotalCount();
-            logger.info("Loaded {} discovered patterns for redaction", count);
+        if (patterns == null) {
+            this.discoveredPatterns = null;
+            return;
         }
+
+        if (this.discoveredPatterns == null) {
+            this.discoveredPatterns = patterns;
+        } else {
+            // Merge new patterns with existing ones
+            this.discoveredPatterns.merge(patterns);
+        }
+
+        int count = this.discoveredPatterns.getTotalCount();
+        logger.info("Loaded {} discovered patterns for redaction", count);
     }
 
     /**
@@ -1243,9 +1238,6 @@ public class RedactionEngine {
                 found = result.contains(toFind);
             } else {
                 // Use cached lowercase for comparison
-                if (lowerValue == null) {
-                    lowerValue = result.toLowerCase();
-                }
                 found = lowerValue.contains(toFind.toLowerCase());
             }
 

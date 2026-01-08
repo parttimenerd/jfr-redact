@@ -107,7 +107,9 @@ Use jfr-redact as a library to programmatically redact JFR files in your own app
 
 ## Usage
 
-### JFR File Redaction
+### JFR File Redaction (redact command)
+
+The `redact` command is specifically designed for Java Flight Recorder (JFR) files:
 
 ```bash
 # Use default preset (recommended for most cases)
@@ -117,47 +119,49 @@ java -jar jfr-redact.jar redact recording.jfr redacted.jfr
 java -jar jfr-redact.jar redact recording.jfr redacted.jfr --preset strict
 
 # Use custom configuration file
-java -jar jfr-redact.jar recording.jfr redacted.jfr --config my-config.yaml
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --config my-config.yaml
 
 # Enable pseudonymization to preserve relationships between values
-java -jar jfr-redact.jar recording.jfr redacted.jfr --pseudonymize
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --pseudonymize
 
 # Use pseudonymization with a specific preset
-java -jar jfr-redact.jar recording.jfr redacted.jfr --preset strict --pseudonymize
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --preset strict --pseudonymize
 
 # Filter events (similar to jfr scrub command)
 # Keep only specific events
-java -jar jfr-redact.jar recording.jfr redacted.jfr --include-events "jdk.ThreadSleep,jdk.JavaMonitorWait"
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --include-events "jdk.ThreadSleep,jdk.JavaMonitorWait"
 
 # Exclude specific event patterns
-java -jar jfr-redact.jar recording.jfr redacted.jfr --exclude-events "jdk.GC*"
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --exclude-events "jdk.GC*"
 
 # Filter by category
-java -jar jfr-redact.jar recording.jfr redacted.jfr --include-categories "Java Application"
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --include-categories "Java Application"
 
 # Filter by thread name
-java -jar jfr-redact.jar recording.jfr redacted.jfr --exclude-threads "GC Thread*"
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --exclude-threads "GC Thread*"
 
 # Combine multiple filters
-java -jar jfr-redact.jar recording.jfr redacted.jfr \
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr \
   --include-events "jdk.*" \
   --exclude-categories "Flight Recorder" \
   --exclude-threads "Service Thread"
 
 # Control discovery mode for pattern extraction
 # Two-pass (default): reads file twice, discovers values then redacts everywhere
-java -jar jfr-redact.jar recording.jfr redacted.jfr --discovery-mode=default
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --discovery-mode=default
 
 # Fast mode: single-pass, discovers and redacts on-the-fly
-java -jar jfr-redact.jar recording.jfr redacted.jfr --discovery-mode=fast
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --discovery-mode=fast
 
 # No discovery: only direct pattern matching, faster but less thorough
-java -jar jfr-redact.jar recording.jfr redacted.jfr --discovery-mode=none
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --discovery-mode=none
 ```
 
-### Text File Redaction
+### Text File Redaction (redact-text command)
 
-The tool also works with any text file (not just JFR), applying the same redaction patterns:
+The `redact-text` command applies the same redaction patterns to arbitrary text files 
+(logs, configuration files, error dumps, etc.). **Note:** Use this command for text files, 
+not the `redact` command which only works with JFR files.
 
 ```bash
 # Redact a Java error log file (hs_err_pid*.log)

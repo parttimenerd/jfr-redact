@@ -1,25 +1,22 @@
 package me.bechberger.jfrredact.commands;
 
-import me.bechberger.jfrredact.ConfigLoader;
 import me.bechberger.jfrredact.Preset;
 import me.bechberger.jfrredact.Version;
 import me.bechberger.jfrredact.config.DiscoveryConfig;
 import me.bechberger.jfrredact.config.RedactionConfig;
 import me.bechberger.jfrredact.engine.RedactionEngine;
-import me.bechberger.jfrredact.jfr.JFRProcessor;
-import me.bechberger.jfrredact.text.TextFileRedactor;
+import me.bechberger.jfr.JFRProcessor;
+import me.bechberger.jfrredact.jfr.RedactionModifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
 
 /**
  * Redact command - redacts sensitive information from JFR recordings.
@@ -50,63 +47,9 @@ import java.util.concurrent.Callable;
         ""
     }
 )
-public class RedactCommand implements Callable<Integer> {
+public class RedactCommand extends BaseRedactCommand {
 
-    private static final Logger logger = LoggerFactory.getLogger(RedactCommand.class);
-
-    @Parameters(
-        index = "0",
-        description = "Input JFR file to redact",
-        paramLabel = "<input.jfr>"
-    )
-    private File inputFile;
-
-    @Parameters(
-        index = "1",
-        description = "Output JFR file with redacted data (default: <input>.redacted.jfr)",
-        paramLabel = "<output.jfr>",
-        arity = "0..1"
-    )
-    private File outputFile;
-
-    @Option(
-        names = {"--preset"},
-        description = "Use a predefined configuration preset. Valid values: ${COMPLETION-CANDIDATES} (default: ${DEFAULT-VALUE})",
-        defaultValue = "default"
-    )
-    private Preset preset;
-
-    @Option(
-        names = {"--config"},
-        description = "Load configuration from a YAML file or URL",
-        paramLabel = "<file|url>"
-    )
-    private String configFile;
-
-    @Option(
-        names = {"--pseudonymize"},
-        description = "Enable pseudonymization mode. When enabled, the same sensitive value " +
-                     "always maps to the same pseudonym (e.g., &lt;redacted:a1b2c3&gt;), preserving " +
-                     "relationships across events. Without this flag, all values are redacted to ***."
-    )
-    private boolean pseudonymize;
-
-    @Option(
-        names = {"--pseudonymize-mode"},
-        description = "Pseudonymization mode (requires --pseudonymize). Valid values: " +
-                     "hash (default, stateless deterministic), " +
-                     "counter (sequential numbers), " +
-                     "realistic (plausible alternatives like alice@example.com)",
-        paramLabel = "<mode>"
-    )
-    private String pseudonymizeMode;
-
-    @Option(
-        names = {"--seed"},
-        description = "Seed for reproducible pseudonymization (only with --pseudonymize)",
-        paramLabel = "<seed>"
-    )
-    private Long seed;
+    private static final Logger commandLogger = LoggerFactory.getLogger(RedactCommand.class);
 
     @Option(
         names = {"--discovery-mode"},
@@ -151,14 +94,6 @@ public class RedactCommand implements Callable<Integer> {
     )
     private List<String> removeEvents = new ArrayList<>();
 
-    @Option(
-        names = {"--add-redaction-regex"},
-        description = "Add a custom regular expression pattern for string redaction. " +
-                     "This option can be specified multiple times to add multiple patterns. " +
-                     "Patterns are applied to string fields in events.",
-        paramLabel = "<pattern>"
-    )
-    private List<String> redactionRegexes = new ArrayList<>();
 
     // jfr scrub-style filtering options
     // See: https://docs.oracle.com/en/java/javase/21/docs/specs/man/jfr.html
@@ -211,29 +146,6 @@ public class RedactCommand implements Callable<Integer> {
     )
     private List<String> excludeThreads = new ArrayList<>();
 
-    @Option(
-        names = {"-v", "--verbose"},
-        description = "Enable verbose output (INFO level logging)"
-    )
-    private boolean verbose;
-
-    @Option(
-        names = {"--debug"},
-        description = "Enable debug output (DEBUG level logging)"
-    )
-    private boolean debug;
-
-    @Option(
-        names = {"-q", "--quiet"},
-        description = "Minimize output (only show errors and completion message)"
-    )
-    private boolean quiet;
-
-    @Option(
-        names = {"--stats"},
-        description = "Show statistics after redaction (events processed, removed, redactions applied)"
-    )
-    private boolean showStats;
 
     @Option(
         names = {"--dry-run"},
@@ -257,123 +169,84 @@ public class RedactCommand implements Callable<Integer> {
     private File decisionsFile;
 
     @Override
-    public Integer call() {
-        // Note: Logging is configured early in Main.LoggingAwareExecutionStrategy
-        // before this method is called, so all loggers will use the correct level
+    protected Logger getLogger() {
+        return commandLogger;
+    }
 
-        // Generate default output filename if not provided
-        setOutputIfNeeded();
+    @Override
+    protected Preset getDefaultPreset() {
+        return Preset.DEFAULT;
+    }
 
-        // Validate input file exists
-        if (!inputFile.exists()) {
-            logger.error("Input file not found: {}", inputFile.getAbsolutePath());
-            return 1;
-        }
+    @Override
+    protected String getDefaultExtension() {
+        return ".jfr";
+    }
 
-        logger.info("JFR-Redact v{}", Version.VERSION);
-        logger.info("================");
-        logger.info("");
-        logger.info("Input file:  {}", inputFile.getAbsolutePath());
-        if (!dryRun) {
-            logger.info("Output file: {}", outputFile.getAbsolutePath());
-        } else {
-            logger.info("Mode:        DRY RUN (no output will be written)");
-        }
-        logger.info("Preset:      {}", preset.getName());
+    @Override
+    protected String getCommandName() {
+        return "JFR-Redact";
+    }
 
-        if (configFile != null) {
-            logger.info("Config: {}", configFile);
-        }
+    @Override
+    protected void setOutputIfNeeded() {
+        super.setOutputIfNeeded();
 
-        logger.info("Pseudonymize: {}", pseudonymize ? "enabled" : "disabled");
+        // Set default decisions file if interactive mode is enabled and not specified
+        if (interactive && decisionsFile == null) {
+            String inputPath = inputFile.getAbsolutePath();
+            String decisionsPath;
 
-        if (!removeEvents.isEmpty()) {
-            logger.info("Remove events: {}", removeEvents);
-        }
-
-        if (!redactionRegexes.isEmpty()) {
-            logger.info("Custom regexes: {}", redactionRegexes);
-        }
-
-        logger.info("");
-
-        try {
-            // Load configuration
-            RedactionConfig config = loadConfiguration();
-
-            // Create redaction engine
-            RedactionEngine engine = new RedactionEngine(config);
-
-            // Determine file type and process accordingly
-            if (isJfrFile(inputFile)) {
-                processJfrFile(engine, config);
+            // Find the last dot for extension
+            int lastDot = inputPath.lastIndexOf('.');
+            if (lastDot > 0) {
+                // Insert .decisions before the extension
+                decisionsPath = inputPath.substring(0, lastDot) + ".decisions.yaml";
             } else {
-                processTextFile(engine, config);
+                // No extension, just append .decisions.yaml
+                decisionsPath = inputPath + ".decisions.yaml";
             }
 
-            if (!dryRun) {
-                logger.info("✓ Redaction complete!");
-                logger.info("Output written to: {}", outputFile.getAbsolutePath());
-            } else {
-                logger.info("✓ Dry run complete!");
-            }
-
-            // Show statistics if requested
-            if (showStats) {
-                engine.getStats().print();
-            }
-
-            return 0;
-
-        } catch (ConfigLoader.ConfigurationException e) {
-            // Configuration errors - show detailed message without stack trace
-            System.err.println("\n" + "=".repeat(70));
-            System.err.println("Configuration Error");
-            System.err.println("=".repeat(70));
-            System.err.println(e.getMessage());
-            System.err.println("=".repeat(70));
-            System.err.println("\nFor help, see:");
-            System.err.println("  - config-template.yaml in the project root");
-            System.err.println("  - https://github.com/parttimenerd/jfrredact#configuration");
-            logger.debug("Configuration error details", e);
-            return 1;
-        } catch (IOException e) {
-            // I/O errors - show message without full stack trace
-            logger.error("I/O Error: {}", e.getMessage());
-            if (debug) {
-                logger.error("Details:", e);
-            }
-            return 1;
-        } catch (Exception e) {
-            // Unexpected errors - show full details
-            logger.error("Unexpected error during redaction: {}", e.getMessage(), e);
-            return 1;
+            decisionsFile = new File(decisionsPath);
         }
     }
 
-    /**
-     * Load configuration from preset or config file/URL, then apply CLI options.
-     */
-    private RedactionConfig loadConfiguration() throws IOException {
-        ConfigLoader loader = new ConfigLoader();
-
-        // Load base configuration from preset or custom config
-        RedactionConfig config;
-        if (configFile != null) {
-            // Load from custom config file or URL
-            config = loader.load(configFile);
+    @Override
+    protected void logConfiguration() {
+        getLogger().info("{} v{}", getCommandName(), Version.VERSION);
+        getLogger().info("================");
+        getLogger().info("");
+        getLogger().info("Input file:  {}", inputFile.getAbsolutePath());
+        if (!dryRun) {
+            getLogger().info("Output file: {}", outputFile.getAbsolutePath());
         } else {
-            // Load from preset
-            config = loader.load(preset.getName());
+            getLogger().info("Mode:        DRY RUN (no output will be written)");
+        }
+        getLogger().info("Preset:      {}", preset.getName());
+
+        if (configFile != null) {
+            getLogger().info("Config: {}", configFile);
         }
 
-        // Apply CLI options
-        RedactionConfig.CliOptions cliOptions = new RedactionConfig.CliOptions();
-        cliOptions.setPseudonymize(pseudonymize);
-        cliOptions.setPseudonymizeMode(pseudonymizeMode);
-        cliOptions.setSeed(seed);
+        getLogger().info("Pseudonymize: {}", pseudonymize ? "enabled" : "disabled");
+
+        if (!removeEvents.isEmpty()) {
+            getLogger().info("Remove events: {}", removeEvents);
+        }
+
+        if (!redactionRegexes.isEmpty()) {
+            getLogger().info("Custom regexes: {}", redactionRegexes);
+        }
+
+        getLogger().info("");
+    }
+
+    @Override
+    protected RedactionConfig.CliOptions createCliOptions() {
+        RedactionConfig.CliOptions cliOptions = super.createCliOptions();
+
+        // Add JFR-specific options
         cliOptions.setRemoveEvents(removeEvents);
-        cliOptions.setRedactionRegexes(redactionRegexes);
         cliOptions.setIncludeEvents(includeEvents);
         cliOptions.setExcludeEvents(excludeEvents);
         cliOptions.setIncludeCategories(includeCategories);
@@ -393,9 +266,33 @@ public class RedactCommand implements Callable<Integer> {
             }
         }
 
-        config.applyCliOptions(cliOptions);
+        return cliOptions;
+    }
 
-        return config;
+    @Override
+    protected void performRedaction(RedactionConfig config) throws IOException {
+        // Create redaction engine
+        RedactionEngine engine = new RedactionEngine(config);
+
+        // Determine file type and process accordingly
+        if (isJfrFile(inputFile)) {
+            processJfrFile(engine, config);
+        } else {
+            getLogger().error("Unsupported input file type: {}", inputFile.getName());
+            throw new IOException("Unsupported input file type: " + inputFile.getName());
+        }
+
+        if (!dryRun) {
+            getLogger().info("✓ Redaction complete!");
+            getLogger().info("Output written to: {}", outputFile.getAbsolutePath());
+        } else {
+            getLogger().info("✓ Dry run complete!");
+        }
+
+        // Show statistics if requested
+        if (showStats) {
+            engine.getStats().print();
+        }
     }
 
     /**
@@ -410,9 +307,15 @@ public class RedactCommand implements Callable<Integer> {
      * Process a JFR file using JFRProcessor.
      */
     private void processJfrFile(RedactionEngine engine, RedactionConfig config) throws IOException {
-        logger.info("Processing JFR file...");
+        getLogger().info("Processing JFR file...");
 
-        JFRProcessor processor = new JFRProcessor(engine, config, inputFile.toPath());
+        RedactionModifier modifier =
+            new RedactionModifier(engine, inputFile.toPath());
+
+        // Perform any setup (e.g., discovery passes)
+        modifier.beforeProcessing();
+
+        JFRProcessor processor = new JFRProcessor(modifier, inputFile.toPath());
 
         if (!dryRun) {
             try (FileOutputStream fos = new FileOutputStream(outputFile)) {
@@ -424,53 +327,6 @@ public class RedactCommand implements Callable<Integer> {
                 System.getProperty("os.name").toLowerCase().contains("win") ? "NUL" : "/dev/null")) {
                 processor.process(fos);
             }
-        }
-    }
-
-    /**
-     * Process a text file using TextFileRedactor.
-     */
-    private void processTextFile(RedactionEngine engine, RedactionConfig config) throws IOException {
-        logger.info("Processing text file...");
-
-        TextFileRedactor redactor = new TextFileRedactor(engine, config);
-        redactor.redactFile(inputFile.toPath(), outputFile.toPath());
-    }
-
-    private void setOutputIfNeeded() {
-        if (outputFile == null) {
-            String inputPath = inputFile.getAbsolutePath();
-            String outputPath;
-
-            // Find the last dot for extension
-            int lastDot = inputPath.lastIndexOf('.');
-            if (lastDot > 0) {
-                // Insert .redacted before the extension
-                outputPath = inputPath.substring(0, lastDot) + ".redacted" + inputPath.substring(lastDot);
-            } else {
-                // No extension, just append .redacted.jfr
-                outputPath = inputPath + ".redacted.jfr";
-            }
-
-            outputFile = new File(outputPath);
-        }
-
-        // Set default decisions file if interactive mode is enabled and not specified
-        if (interactive && decisionsFile == null) {
-            String inputPath = inputFile.getAbsolutePath();
-            String decisionsPath;
-
-            // Find the last dot for extension
-            int lastDot = inputPath.lastIndexOf('.');
-            if (lastDot > 0) {
-                // Insert .decisions before the extension
-                decisionsPath = inputPath.substring(0, lastDot) + ".decisions.yaml";
-            } else {
-                // No extension, just append .decisions.yaml
-                decisionsPath = inputPath + ".decisions.yaml";
-            }
-
-            decisionsFile = new File(decisionsPath);
         }
     }
 }

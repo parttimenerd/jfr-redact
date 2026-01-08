@@ -138,12 +138,6 @@ strings:
         - '.corp'
         - '.local'
         - '.intranet'
-
-network:
-  enabled: true
-  redact_ports: true
-  redact_addresses: true
-  keep_local_addresses: false
 paths:
   enabled: true
   mode: keep_filename
@@ -161,5 +155,4 @@ general:
     scope:
       properties: true
       strings: true
-      network: true
       paths: true

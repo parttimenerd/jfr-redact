@@ -224,7 +224,6 @@ public class TestCommand implements Callable<Integer> {
             out.println("Configuration Summary:");
             out.println("  Properties redaction: " + config.getProperties().isEnabled());
             out.println("  String redaction: " + config.getStrings().isEnabled());
-            out.println("  Network redaction: " + config.getNetwork().isEnabled());
             out.println("  Path redaction: " + config.getPaths().isEnabled());
             out.println("  Event removal: " + config.getEvents().isRemoveEnabled());
             out.println("  Pseudonymization: " + config.getGeneral().getPseudonymization().isEnabled());

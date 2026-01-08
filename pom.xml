@@ -47,6 +47,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>21</maven.compiler.release>
     </properties>
 
     <dependencyManagement>
@@ -299,9 +300,9 @@
             <version>2.17.2</version>
         </dependency>
         <dependency>
-            <groupId>org.openjdk.jmc</groupId>
-            <artifactId>flightrecorder.writer</artifactId>
-            <version>9.1.1</version>
+            <groupId>me.bechberger</groupId>
+            <artifactId>basic-jfr-processor</artifactId>
+            <version>0.1.2</version>
         </dependency>
         <dependency>
             <groupId>com.github.curious-odd-man</groupId>

@@ -110,16 +110,6 @@ public class JFRTestHelper {
         }
 
         /**
-         * Process without redaction and verify the roundtrip preserves data.
-         */
-        public RoundtripVerifier withoutRedaction() throws IOException {
-            JFRTestProcessor processor = new JFRTestProcessor(tempDir);
-            Path processedPath = processor.from(originalPath).withNoRedaction().process();
-            this.processedEvents = new JFREventVerifier(processedPath).getAllEvents();
-            return this;
-        }
-
-        /**
          * Process with default redaction.
          */
         public RoundtripVerifier withDefaultRedaction() throws IOException {

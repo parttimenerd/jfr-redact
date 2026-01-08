@@ -57,9 +57,6 @@ public class RedactionConfig {
     @JsonProperty("strings")
     private StringConfig strings = new StringConfig();
 
-    @JsonProperty("network")
-    private NetworkConfig network = new NetworkConfig();
-
     @JsonProperty("paths")
     private PathConfig paths = new PathConfig();
 
@@ -130,9 +127,6 @@ public class RedactionConfig {
     public StringConfig getStrings() { return strings; }
     public void setStrings(StringConfig strings) { this.strings = strings; }
 
-    public NetworkConfig getNetwork() { return network; }
-    public void setNetwork(NetworkConfig network) { this.network = network; }
-
     public PathConfig getPaths() { return paths; }
     public void setPaths(PathConfig paths) { this.paths = paths; }
 
@@ -155,7 +149,6 @@ public class RedactionConfig {
         properties.mergeWith(parentConfig.getProperties());
         events.mergeWith(parentConfig.getEvents());
         strings.mergeWith(parentConfig.getStrings());
-        network.mergeWith(parentConfig.getNetwork());
         paths.mergeWith(parentConfig.getPaths());
         general.getPseudonymization().mergeWith(
             parentConfig.getGeneral().getPseudonymization()
@@ -235,7 +228,6 @@ public class RedactionConfig {
         Pseudonymizer.PseudonymizationScope scope = new Pseudonymizer.PseudonymizationScope(
             pConfig.getScope().isProperties(),
             pConfig.getScope().isStrings(),
-            pConfig.getScope().isNetwork(),
             pConfig.getScope().isPaths(),
             pConfig.getScope().isPorts()
         );

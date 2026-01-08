@@ -27,6 +27,9 @@ jobs:
           distribution: 'sapmachine'
           cache: maven
 
+      - name: Run tests
+        run: mvn clean test
+
       - name: Build package
         run: mvn package -DskipTests
 
@@ -66,6 +69,3 @@ jobs:
           name: jfr-redact
           path: target/jfr-redact
           retention-days: 30
-
-      - name: Run tests
-        run: mvn clean test

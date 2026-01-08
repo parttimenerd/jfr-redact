@@ -1,10 +1,11 @@
 package me.bechberger.jfrredact.commands;
 
 import jdk.jfr.consumer.RecordingFile;
+import me.bechberger.jfr.JFREventModifier;
 import me.bechberger.jfrredact.Version;
 import me.bechberger.jfrredact.config.RedactionConfig;
 import me.bechberger.jfrredact.engine.RedactionEngine;
-import me.bechberger.jfrredact.jfr.JFRProcessor;
+import me.bechberger.jfr.JFRProcessor;
 import org.openjdk.jmc.flightrecorder.writer.RecordingImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ import picocli.CommandLine.Parameters;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -76,14 +78,17 @@ public class ConcatCommand implements Callable<Integer> {
     public Integer call() {
         // Validate input files and filter out empty ones if requested
         List<File> validFiles = new ArrayList<>();
+        boolean shouldFail = false;
         for (File inputFile : inputFiles) {
             if (!inputFile.exists()) {
                 logger.error("Input file does not exist: {}", inputFile);
-                return 1;
+                shouldFail = true;
+                continue;
             }
             if (!inputFile.canRead()) {
                 logger.error("Cannot read input file: {}", inputFile);
-                return 1;
+                shouldFail = true;
+                continue;
             }
 
             // Check for empty files
@@ -93,11 +98,27 @@ public class ConcatCommand implements Callable<Integer> {
                     continue;
                 } else {
                     logger.error("Input file is empty: {}. Use -i to ignore empty files.", inputFile);
-                    return 1;
+                    shouldFail = true;
+                    continue;
                 }
+            }
+            try {
+                if (inputFile.getCanonicalPath().equals(outputFile.getCanonicalPath())) {
+                    logger.error("Output file cannot be the same as an input file: {}", outputFile);
+                    shouldFail = true;
+                    continue;
+                }
+            } catch (IOException e) {
+                logger.error("Error checking file paths: {}", e.getMessage());
+                shouldFail = true;
+                continue;
             }
 
             validFiles.add(inputFile);
+        }
+
+        if (shouldFail) {
+            return 1;
         }
 
         // Check if we have any valid files left after filtering
@@ -106,26 +127,10 @@ public class ConcatCommand implements Callable<Integer> {
             return 1;
         }
 
-        // Update inputFiles to only contain valid files
-        inputFiles = validFiles;
-
-        // Check that we're not writing to an input file
-        for (File inputFile : inputFiles) {
-            try {
-                if (inputFile.getCanonicalPath().equals(outputFile.getCanonicalPath())) {
-                    logger.error("Output file cannot be the same as an input file: {}", outputFile);
-                    return 1;
-                }
-            } catch (IOException e) {
-                logger.error("Error checking file paths: {}", e.getMessage());
-                return 1;
-            }
-        }
-
         logger.info("Concatenating {} JFR file(s) into {}", inputFiles.size(), outputFile);
 
         try {
-            concatenate();
+            concatenate(validFiles);
             logger.info("Successfully created concatenated JFR file: {}", outputFile);
             return 0;
         } catch (IOException e) {
@@ -137,20 +142,18 @@ public class ConcatCommand implements Callable<Integer> {
         }
     }
 
-    private void concatenate() throws IOException {
+    private void concatenate(List<File> files) throws IOException {
         // Create a no-op redaction engine (doesn't redact anything)
         RedactionConfig config = new RedactionConfig();
         // Disable all redaction features
         config.getStrings().setEnabled(false);
         config.getProperties().setEnabled(false);
-        config.getNetwork().setEnabled(false);
         config.getPaths().setEnabled(false);
         config.getEvents().setRemoveEnabled(false);
 
-        RedactionEngine redactionEngine = new RedactionEngine(config);
-
         // Create a JFRProcessor with the first input file path (just for initialization)
-        JFRProcessor processor = new JFRProcessor(redactionEngine, config, inputFiles.get(0).toPath());
+        // Use empty modifier since concat doesn't modify events (all default methods return unchanged values)
+        JFRProcessor processor = new JFRProcessor(new JFREventModifier() {}, files.getFirst().toPath());
 
         // Open all input files as RecordingFile objects
         List<RecordingFile> recordingFiles = new ArrayList<>();

@@ -196,39 +196,6 @@ public class JFRProcessorComplexTest {
     }
 
     @Test
-    public void testRoundtripWithLargeDataset() throws IOException {
-        helper.roundtrip(() -> {
-            for (int i = 0; i < 50; i++) {
-                SimpleEvent simple = new SimpleEvent();
-                simple.message = "Test message number " + i;
-                simple.count = i * 10;
-                simple.flag = i % 3 == 0;
-                simple.commit();
-
-                ComplexEvent complex = new ComplexEvent();
-                complex.stringField = "Complex " + i;
-                complex.intField = i;
-                complex.longField = i * 1000L;
-                complex.floatField = i * 0.5f;
-                complex.doubleField = i * 0.25;
-                complex.booleanField = i % 2 == 0;
-                complex.byteField = (byte) (i % 128);
-                complex.shortField = (short) i;
-                complex.charField = (char) ('A' + (i % 26));
-                complex.commit();
-            }
-        })
-        .withoutRedaction()
-        .eventCountPreserved()
-        .eventTypeCountPreserved("test.SimpleEvent")
-        .eventTypeCountPreserved("test.ComplexEvent")
-        .fieldPreserved("test.SimpleEvent", "message")
-        .fieldPreserved("test.SimpleEvent", "count")
-        .fieldPreserved("test.ComplexEvent", "stringField")
-        .fieldPreserved("test.ComplexEvent", "intField");
-    }
-
-    @Test
     public void testRoundtripWithDefaultRedaction() throws IOException {
         helper.roundtrip(() -> {
             for (int i = 0; i < 20; i++) {

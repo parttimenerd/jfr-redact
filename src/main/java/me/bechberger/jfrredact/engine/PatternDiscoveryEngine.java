@@ -27,7 +27,6 @@ public class PatternDiscoveryEngine {
 
     private final DiscoveryConfig discoveryConfig;
     private final StringConfig stringConfig;
-    private InteractiveDecisionManager interactiveDecisionManager;
 
     // Per-pattern discovered patterns with their own settings
     private final List<PatternExtractor> extractors = new ArrayList<>();
@@ -99,13 +98,6 @@ public class PatternDiscoveryEngine {
         this.discoveryConfig = discoveryConfig;
         this.stringConfig = stringConfig;
         compilePatterns();
-    }
-
-    /**
-     * Set interactive decision manager for interactive mode
-     */
-    public void setInteractiveDecisionManager(InteractiveDecisionManager manager) {
-        this.interactiveDecisionManager = manager;
     }
 
     private void compilePatterns() {
@@ -630,109 +622,5 @@ public class PatternDiscoveryEngine {
         }
 
         return sb.toString();
-    }
-
-    /**
-     * Apply interactive decisions to discovered patterns.
-     * Prompts user for each discovered value and filters based on their decisions.
-     * In interactive mode, ignore lists from config are ignored.
-     *
-     * @param patterns The discovered patterns to filter
-     * @return A new DiscoveredPatterns with only values the user wants to redact
-     */
-    public DiscoveredPatterns applyInteractiveDecisions(DiscoveredPatterns patterns) {
-        if (interactiveDecisionManager == null || !interactiveDecisionManager.isInteractive()) {
-            return patterns;
-        }
-
-        logger.info("Entering interactive mode - prompting for redaction decisions...");
-        logger.info("Note: Ignore lists from config are bypassed in interactive mode");
-
-        DiscoveredPatterns filtered = new DiscoveredPatterns(patterns.isCaseSensitive(), List.of());
-        List<DiscoveredPatterns.DiscoveredValue> allValues = patterns.getAllValues();
-
-        // Track global policies
-        boolean keepAllUsernames = false;
-        boolean redactAllUsernames = false;
-        boolean keepAllHostnames = false;
-        boolean redactAllHostnames = false;
-
-        for (DiscoveredPatterns.DiscoveredValue value : allValues) {
-            // Check for global policies
-            if (value.getType() == DiscoveredPatterns.PatternType.USERNAME) {
-                if (keepAllUsernames) {
-                    continue; // Skip - keeping all usernames
-                }
-                if (redactAllUsernames) {
-                    // Add to filtered list for redaction
-                    for (int i = 0; i < value.getOccurrences(); i++) {
-                        filtered.addValue(value.getValue(), value.getType(), value.getCustomTypeName());
-                    }
-                    continue;
-                }
-            } else if (value.getType() == DiscoveredPatterns.PatternType.HOSTNAME) {
-                if (keepAllHostnames) {
-                    continue; // Skip - keeping all hostnames
-                }
-                if (redactAllHostnames) {
-                    // Add to filtered list for redaction
-                    for (int i = 0; i < value.getOccurrences(); i++) {
-                        filtered.addValue(value.getValue(), value.getType(), value.getCustomTypeName());
-                    }
-                    continue;
-                }
-            }
-
-            // Get decision for this value
-            InteractiveDecisionManager.Decision decision = interactiveDecisionManager.getDecision(value);
-
-            // Handle global policy decisions
-            if (decision.getAction() == InteractiveDecisionManager.DecisionAction.KEEP_ALL) {
-                if (value.getType() == DiscoveredPatterns.PatternType.USERNAME) {
-                    keepAllUsernames = true;
-                    logger.info("Policy set: Keep all usernames");
-                } else if (value.getType() == DiscoveredPatterns.PatternType.HOSTNAME) {
-                    keepAllHostnames = true;
-                    logger.info("Policy set: Keep all hostnames");
-                }
-                continue; // Don't add to redaction list
-            }
-
-            if (decision.getAction() == InteractiveDecisionManager.DecisionAction.REDACT_ALL) {
-                if (value.getType() == DiscoveredPatterns.PatternType.USERNAME) {
-                    redactAllUsernames = true;
-                    logger.info("Policy set: Redact all usernames");
-                } else if (value.getType() == DiscoveredPatterns.PatternType.HOSTNAME) {
-                    redactAllHostnames = true;
-                    logger.info("Policy set: Redact all hostnames");
-                }
-                // Add this one and continue
-                for (int i = 0; i < value.getOccurrences(); i++) {
-                    filtered.addValue(value.getValue(), value.getType(), value.getCustomTypeName());
-                }
-                continue;
-            }
-
-            // Handle individual decisions
-            switch (decision.getAction()) {
-                case KEEP:
-                    // Don't add to redaction list
-                    logger.debug("Keeping: {}", value.getValue());
-                    break;
-                case REDACT:
-                case REPLACE:
-                    // Add to redaction list (replacement is handled elsewhere)
-                    for (int i = 0; i < value.getOccurrences(); i++) {
-                        filtered.addValue(value.getValue(), value.getType(), value.getCustomTypeName());
-                    }
-                    logger.debug("Will redact: {}", value.getValue());
-                    break;
-            }
-        }
-
-        logger.info("Interactive decisions complete: {} values to redact (from {} discovered)",
-                   filtered.getTotalCount(), allValues.size());
-
-        return filtered;
     }
 }

@@ -301,6 +301,15 @@ network:
   event_types:
     - jdk.SocketRead
     - jdk.SocketWrite
+# Network event redaction - redact addresses/ports in socket events
+network:
+  enabled: true
+  redact_ports: true
+  redact_addresses: true
+  keep_local_addresses: false  # Set to true to preserve localhost/127.0.0.1
+  event_types:
+    - jdk.SocketRead
+    - jdk.SocketWrite
 
 # Path redaction - control how file paths are redacted
 paths:
@@ -351,6 +360,7 @@ general:
     format: "redacted"  # Options: "redacted", "hash", "custom"
     # - redacted: <redacted:abc123>
     # - hash: <hash:abc123>
+      network: true         # Network addresses
     # - custom: use custom_prefix and custom_suffix
     custom_prefix: "<redacted:"  # Used when format is "custom"
     custom_suffix: ">"

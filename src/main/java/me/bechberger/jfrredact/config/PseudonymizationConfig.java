@@ -86,9 +86,6 @@ public class PseudonymizationConfig {
         @JsonProperty("strings")
         private boolean strings = true;
 
-        @JsonProperty("network")
-        private boolean network = true;
-
         @JsonProperty("paths")
         private boolean paths = true;
 
@@ -106,8 +103,6 @@ public class PseudonymizationConfig {
         public boolean isStrings() { return strings; }
         public void setStrings(boolean strings) { this.strings = strings; }
 
-        public boolean isNetwork() { return network; }
-        public void setNetwork(boolean network) { this.network = network; }
 
         public boolean isPaths() { return paths; }
         public void setPaths(boolean paths) { this.paths = paths; }

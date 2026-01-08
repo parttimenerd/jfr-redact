@@ -4,7 +4,8 @@ import jdk.jfr.consumer.RecordingFile;
 import me.bechberger.jfrredact.ConfigLoader;
 import me.bechberger.jfrredact.config.RedactionConfig;
 import me.bechberger.jfrredact.engine.RedactionEngine;
-import me.bechberger.jfrredact.jfr.JFRProcessor;
+import me.bechberger.jfr.JFRProcessor;
+import me.bechberger.jfrredact.jfr.RedactionModifier;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -113,10 +114,15 @@ public class JFRTestProcessor {
     public Path process() throws IOException {
         Path outputPath = tempDir.resolve(outputName + ".jfr");
         try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            RedactionModifier modifier = new RedactionModifier(engine, inputPath);
 
-            JFRProcessor processor = new JFRProcessor(engine, engine.getConfig(), inputPath);
+            // Perform any setup (e.g., discovery passes)
+            modifier.beforeProcessing();
+
+            JFRProcessor processor = new JFRProcessor(modifier, inputPath);
             var recording = processor.process(output);
             recording.close(); // Must close to flush data to output stream
+
             Files.write(outputPath, output.toByteArray());
         }
         return outputPath;
@@ -126,16 +132,20 @@ public class JFRTestProcessor {
         return new JFREventVerifier(process());
     }
 
-    private static RedactionEngine createDefaultEngine() {
+    private static RedactionConfig createDefaultConfig() {
         try {
-            return new RedactionEngine(new me.bechberger.jfrredact.ConfigLoader().load("default"));
+            return new ConfigLoader().load("default");
         } catch (IOException e) {
             throw new RuntimeException("Failed to load default config", e);
         }
     }
 
+    private static RedactionEngine createDefaultEngine() {
+        return new RedactionEngine(createDefaultConfig());
+    }
+
     private static RedactionEngine createStrictEngine() throws IOException {
-        RedactionConfig config = new me.bechberger.jfrredact.ConfigLoader().load("strict");
+        RedactionConfig config = new ConfigLoader().load("strict");
         return new RedactionEngine(config);
     }
 }

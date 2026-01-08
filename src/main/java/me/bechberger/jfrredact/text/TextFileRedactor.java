@@ -26,7 +26,6 @@ public class TextFileRedactor {
 
     private final RedactionEngine redactionEngine;
     private final RedactionConfig config;
-    private me.bechberger.jfrredact.engine.InteractiveDecisionManager interactiveDecisionManager;
 
     public TextFileRedactor(RedactionEngine redactionEngine) {
         this(redactionEngine, null);
@@ -35,13 +34,6 @@ public class TextFileRedactor {
     public TextFileRedactor(RedactionEngine redactionEngine, RedactionConfig config) {
         this.redactionEngine = redactionEngine;
         this.config = config;
-    }
-
-    /**
-     * Set the interactive decision manager for interactive mode
-     */
-    public void setInteractiveDecisionManager(me.bechberger.jfrredact.engine.InteractiveDecisionManager manager) {
-        this.interactiveDecisionManager = manager;
     }
 
     /**
@@ -165,11 +157,6 @@ public class TextFileRedactor {
             config.getStrings()
         );
 
-        // Set interactive decision manager if available
-        if (interactiveDecisionManager != null) {
-            discoveryEngine.setInteractiveDecisionManager(interactiveDecisionManager);
-        }
-
         int discoveryLines = 0;
         try (BufferedReader reader = Files.newBufferedReader(inputPath, StandardCharsets.UTF_8)) {
             String line;
@@ -186,12 +173,6 @@ public class TextFileRedactor {
         DiscoveredPatterns patterns = discoveryEngine.getDiscoveredPatterns();
         logger.info("Discovery Pass complete: analyzed {} lines", discoveryLines);
         logger.info(discoveryEngine.getStatistics());
-
-        // Apply interactive decisions and save them
-        if (interactiveDecisionManager != null) {
-            patterns = discoveryEngine.applyInteractiveDecisions(patterns);
-            interactiveDecisionManager.saveDecisions();
-        }
 
         // Set discovered patterns in the redaction engine
         redactionEngine.setDiscoveredPatterns(patterns);

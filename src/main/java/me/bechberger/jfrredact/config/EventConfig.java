@@ -24,7 +24,7 @@ public class EventConfig {
 
     /**
      * Filtering options similar to jfr scrub command.
-     * See: https://docs.oracle.com/en/java/javase/21/docs/specs/man/jfr.html
+     * See: <a href="https://docs.oracle.com/en/java/javase/21/docs/specs/man/jfr.html">jfr</a>
      */
     @JsonProperty("filtering")
     private FilteringConfig filtering = new FilteringConfig();

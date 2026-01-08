@@ -5,6 +5,7 @@ import me.bechberger.jfrredact.words.WordDiscovery;
 import picocli.CommandLine;
 
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -130,7 +131,7 @@ public class WordsDiscoverCommand implements Callable<Integer> {
     }
 
     private static void discoverFromText(Path inputFile, WordDiscovery discovery, PrintWriter out, PrintWriter err) throws Exception {
-        try (var reader = java.nio.file.Files.newBufferedReader(inputFile)) {
+        try (var reader = Files.newBufferedReader(inputFile)) {
             String line;
             while ((line = reader.readLine()) != null) {
                 discovery.analyzeText(line);

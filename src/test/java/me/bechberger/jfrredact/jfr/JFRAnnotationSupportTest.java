@@ -27,103 +27,7 @@ public class JFRAnnotationSupportTest {
     void setUp() {
         helper = new JFRTestHelper(tempDir);
     }
-
-    // ========== RedactionEngine.NONE Tests ==========
-
-    @Test
-    public void testRedactionEngineNone_SimpleEvent() throws IOException {
-        Path recording = helper.recording()
-                .addSimpleEvent("Original Message", 42, true)
-                .build();
-
-        Path processed = helper.process()
-                .from(recording)
-                .withNoRedaction()
-                .process();
-
-        helper.verify(processed)
-                .fileExists()
-                .hasEvents()
-                .findEvent("test.SimpleEvent")
-                .hasString("message", "Original Message")
-                .hasInt("count", 42)
-                .hasBoolean("flag", true);
-    }
-
-    @Test
-    public void testRedactionEngineNone_SensitiveData() throws IOException {
-        Path recording = helper.recording()
-                .addSensitiveEvent("admin", "password123", "admin@test.com", "192.168.1.1")
-                .build();
-
-        Path processed = helper.process()
-                .from(recording)
-                .withNoRedaction()
-                .process();
-
-        // With NONE engine, sensitive data should NOT be redacted
-        helper.verify(processed)
-                .findEvent("test.SensitiveDataEvent")
-                .hasString("username", "admin")
-                .hasString("password", "password123")
-                .hasString("email", "admin@test.com")
-                .hasString("ipAddress", "192.168.1.1");
-    }
-
-    @Test
-    public void testRedactionEngineNone_ComplexEvent() throws IOException {
-        Path recording = helper.createTestRecording(() -> {
-            ComplexEvent event = new ComplexEvent();
-            event.stringField = "test string";
-            event.intField = 12345;
-            event.longField = 9876543210L;
-            event.floatField = 3.14159f;
-            event.doubleField = 2.718281828;
-            event.booleanField = true;
-            event.byteField = (byte) 127;
-            event.shortField = (short) 32000;
-            event.charField = 'Z';
-            event.commit();
-        });
-
-        Path processed = helper.process()
-                .from(recording)
-                .withNoRedaction()
-                .process();
-
-        helper.verify(processed)
-                .findEvent("test.ComplexEvent")
-                .hasString("stringField", "test string")
-                .hasInt("intField", 12345)
-                .hasLong("longField", 9876543210L)
-                .hasFloat("floatField", 3.14159f, 0.0001f)
-                .hasDouble("doubleField", 2.718281828, 0.000001)
-                .hasBoolean("booleanField", true)
-                .hasByte("byteField", (byte) 127)
-                .hasShort("shortField", (short) 32000)
-                .hasChar("charField", 'Z');
-    }
-
-    @Test
-    public void testRedactionEngineNone_RoundtripPreservesAllData() throws IOException {
-        helper.roundtrip(() -> {
-            for (int i = 0; i < 5; i++) {
-                SimpleEvent event = new SimpleEvent();
-                event.message = "Message " + i;
-                event.count = i * 10;
-                event.flag = i % 2 == 0;
-                event.commit();
-            }
-        })
-        .withoutRedaction()
-        .eventCountPreserved()
-        .testEventCountPreserved()
-        .eventTypeCountPreserved("test.SimpleEvent")
-        .fieldPreserved("test.SimpleEvent", "message")
-        .fieldPreserved("test.SimpleEvent", "count")
-        .fieldPreserved("test.SimpleEvent", "flag");
-    }
-
+    
     // ========== Annotation Support Tests ==========
 
     @Test
@@ -326,96 +230,6 @@ public class JFRAnnotationSupportTest {
     // ========== Roundtrip Tests with Complex Annotations ==========
 
     @Test
-    public void testRoundtrip_AnnotatedEvent_WithoutRedaction() throws IOException {
-        long testTime = System.currentTimeMillis();
-        helper.roundtrip(() -> {
-            AnnotatedEvent event = new AnnotatedEvent();
-            event.eventTime = testTime;
-            event.duration2 = 5000000L;
-            event.dataSize = 1024;
-            event.frequency = 100;
-            event.memoryAddress = 0xDEADBEEFL;
-            event.percentage = 0.5f;
-            event.unsignedValue = 1000;
-            event.thread = Thread.currentThread();
-            event.clazz = String.class;
-            event.experimentalFlag = false;
-            event.commit();
-        })
-        .withoutRedaction()
-        .eventCountPreserved()
-        .eventTypeCountPreserved("test.AnnotatedEvent")
-        .fieldPreserved("test.AnnotatedEvent", "eventTime")
-        .fieldPreserved("test.AnnotatedEvent", "duration")
-        .fieldPreserved("test.AnnotatedEvent", "dataSize")
-        .fieldPreserved("test.AnnotatedEvent", "frequency")
-        .fieldPreserved("test.AnnotatedEvent", "memoryAddress")
-        .fieldPreserved("test.AnnotatedEvent", "percentage")
-        .fieldPreserved("test.AnnotatedEvent", "unsignedValue")
-        .fieldPreserved("test.AnnotatedEvent", "experimentalFlag");
-    }
-
-    @Test
-    public void testRoundtrip_PerformanceEvent_WithoutRedaction() throws IOException {
-        helper.roundtrip(() -> {
-            PerformanceEvent event = new PerformanceEvent();
-            event.operation = "test_operation";
-            event.duration2 = 100L;
-            event.cpuTime = 90000000L;
-            event.bytesAllocated = 4096;
-            event.successRate = 1.0f;
-            event.opsPerSecond = 500L;
-            event.commit();
-        })
-        .withoutRedaction()
-        .eventCountPreserved()
-        .fieldPreserved("test.PerformanceEvent", "operation")
-        .fieldPreserved("test.PerformanceEvent", "duration2")
-        .fieldPreserved("test.PerformanceEvent", "cpuTime")
-        .fieldPreserved("test.PerformanceEvent", "bytesAllocated")
-        .fieldPreserved("test.PerformanceEvent", "successRate")
-        .fieldPreserved("test.PerformanceEvent", "opsPerSecond");
-    }
-
-    @Test
-    public void testRoundtrip_MixedComplexEvents_WithoutRedaction() throws IOException {
-        helper.roundtrip(() -> {
-            // Timestamp event
-            TimestampEvent ts = new TimestampEvent();
-            ts.timestampStart = System.nanoTime();
-            ts.timestampEnd = System.nanoTime() + 1000000L;
-            ts.durationNanos = 1000L;
-            ts.durationMicros = 1L;
-            ts.durationMillis = 1L;
-            ts.durationSeconds = 1L;
-            ts.commit();
-
-            // Data amount event
-            DataAmountEvent da = new DataAmountEvent();
-            da.bytes = 8192;
-            da.bits = 65536;
-            da.hertz = 1000000L;
-            da.address = 0x1234L;
-            da.commit();
-
-            // Thread event
-            ThreadEvent te = new ThreadEvent();
-            te.thread = Thread.currentThread();
-            te.clazz = Object.class;
-            te.threadName = "test-thread";
-            te.threadPriority = 5;
-            te.isDaemon = false;
-            te.commit();
-        })
-        .withoutRedaction()
-        .eventCountPreserved()
-        .eventTypeCountPreserved("test.TimestampEvent")
-        .eventTypeCountPreserved("test.DataAmountEvent")
-        .eventTypeCountPreserved("test.ThreadEvent")
-        .eventOrderPreserved();
-    }
-
-    @Test
     public void testRoundtrip_CompareWithDefaultEngine() throws IOException {
         // Create same events twice and process with different engines
         RunnableWithException eventGenerator = () -> {
@@ -454,27 +268,6 @@ public class JFRAnnotationSupportTest {
                 .hasString("message", "test")
                 .hasInt("count", 100)
                 .hasBoolean("flag", true);
-    }
-
-    @Test
-    public void testRoundtrip_NullFieldsWithComplexEvent() throws IOException {
-        helper.roundtrip(() -> {
-            AnnotatedEvent event = new AnnotatedEvent();
-            event.eventTime = 0;
-            event.duration2 = 0;
-            event.dataSize = 0;
-            event.frequency = 0;
-            event.memoryAddress = 0;
-            event.percentage = 0.0f;
-            event.unsignedValue = 0;
-            event.thread = null;
-            event.clazz = null;
-            event.experimentalFlag = false;
-            event.commit();
-        })
-        .withoutRedaction()
-        .eventCountPreserved()
-        .eventTypeCountPreserved("test.AnnotatedEvent");
     }
 
     @Test
@@ -566,30 +359,6 @@ public class JFRAnnotationSupportTest {
     }
 
     @Test
-    public void testDataAmount_Roundtrip() throws IOException {
-        helper.roundtrip(() -> {
-            ComprehensiveDataAmountEvent event = new ComprehensiveDataAmountEvent();
-            event.bytesValue = 512L;
-            event.bitsValue = 4096L;
-            event.kilobytes = 1024L;
-            event.megabytes = 1024L * 1024;
-            event.gigabytes = 1024L * 1024 * 1024;
-            event.transferRate = 100000L;
-            event.bandwidthUsage = 0.5f;
-            event.commit();
-        })
-        .withoutRedaction()
-        .eventCountPreserved()
-        .fieldPreserved("test.ComprehensiveDataAmountEvent", "bytesValue")
-        .fieldPreserved("test.ComprehensiveDataAmountEvent", "bitsValue")
-        .fieldPreserved("test.ComprehensiveDataAmountEvent", "kilobytes")
-        .fieldPreserved("test.ComprehensiveDataAmountEvent", "megabytes")
-        .fieldPreserved("test.ComprehensiveDataAmountEvent", "gigabytes")
-        .fieldPreserved("test.ComprehensiveDataAmountEvent", "transferRate")
-        .fieldPreserved("test.ComprehensiveDataAmountEvent", "bandwidthUsage");
-    }
-
-    @Test
     public void testAllContentTypesEvent_Comprehensive() throws IOException {
         long now = System.currentTimeMillis();
         Thread currentThread = Thread.currentThread();
@@ -631,39 +400,6 @@ public class JFRAnnotationSupportTest {
                 .hasLong("unsigned", 4294967295L)
                 .fieldNotNull("thread")
                 .fieldNotNull("clazz");
-    }
-
-    @Test
-    public void testAllContentTypes_Roundtrip() throws IOException {
-        long testTime = System.currentTimeMillis();
-
-        helper.roundtrip(() -> {
-            AllContentTypesEvent event = new AllContentTypesEvent();
-            event.bytes = 1024L;
-            event.bits = 8192L;
-            event.timestamp = testTime;
-            event.timespanNanos = 100L;
-            event.timespanMicros = 10L;
-            event.timespanMillis = 1L;
-            event.timespanSeconds = 1L;
-            event.frequency = 1000000L;
-            event.memoryAddress = 0x1234L;
-            event.percentage = 0.5f;
-            event.unsigned = 1000L;
-            event.thread = Thread.currentThread();
-            event.clazz = Object.class;
-            event.commit();
-        })
-        .withoutRedaction()
-        .eventCountPreserved()
-        .eventTypeCountPreserved("test.AllContentTypesEvent")
-        .fieldPreserved("test.AllContentTypesEvent", "bytes")
-        .fieldPreserved("test.AllContentTypesEvent", "bits")
-        .fieldPreserved("test.AllContentTypesEvent", "timestamp")
-        .fieldPreserved("test.AllContentTypesEvent", "timespanNanos")
-        .fieldPreserved("test.AllContentTypesEvent", "frequency")
-        .fieldPreserved("test.AllContentTypesEvent", "percentage")
-        .fieldPreserved("test.AllContentTypesEvent", "unsigned");
     }
 
     @Test

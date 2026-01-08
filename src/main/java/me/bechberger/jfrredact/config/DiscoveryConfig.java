@@ -281,7 +281,7 @@ public class DiscoveryConfig {
      * @param enabled If true, sets mode to FAST; if false, sets mode to NONE
      */
     public void setEnabled(boolean enabled) {
-        this.mode = enabled ? DiscoveryMode.FAST : DiscoveryMode.NONE;
+        this.mode = enabled ? DiscoveryMode.TWO_PASS : DiscoveryMode.NONE;
     }
 
     /**
