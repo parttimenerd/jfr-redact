@@ -25,18 +25,18 @@ import java.io.OutputStream;
     footerHeading = "%nExamples:%n",
     footer = {
         "",
-        "  Redact a log file with default preset:",
+        "  Redact a log file with default config (hserr preset):",
         "    jfr-redact redact-text application.log",
         "    (creates application.redacted.log)",
         "",
-        "  Use hserr preset for Java crash reports:",
+        "  Redact Java crash reports (uses hserr preset by default):",
         "    jfr-redact redact-text hs_err_pid12345.log",
         "",
         "  Read from stdin, write to stdout:",
         "    cat hs_err_pid12345.log | jfr-redact redact-text - -",
         "",
         "  Use strict preset:",
-        "    jfr-redact redact-text application.log --preset strict",
+        "    jfr-redact redact-text app.log --config strict",
         "",
         "  Custom config with pseudonymization:",
         "    jfr-redact redact-text app.log --config my-config.yaml --pseudonymize",
@@ -90,10 +90,11 @@ public class RedactTextCommand extends BaseRedactCommand {
         getLogger().info("");
         getLogger().info("Input file:  {}", "-".equals(inputFile.getName()) ? "<stdin>" : inputFile.getAbsolutePath());
         getLogger().info("Output file: {}", (outputFile == null ? "<auto>" : ("-".equals(outputFile.getName()) ? "<stdout>" : outputFile.getAbsolutePath())));
-        getLogger().info("Preset:      {}", preset.getName());
 
         if (configFile != null) {
             getLogger().info("Config: {}", configFile);
+        } else {
+            getLogger().info("Config: {} preset (default)", getDefaultPreset().getName());
         }
 
         getLogger().info("Pseudonymize: {}", pseudonymize ? "enabled" : "disabled");

@@ -43,7 +43,7 @@ import java.util.concurrent.Callable;
         "    jfr-redact test --config my-config.yaml --thread 'MyThread-1'",
         "",
         "  Test string redaction:",
-        "    jfr-redact test --preset strict --value 'user@example.com'",
+        "    jfr-redact test --config strict --value 'user@example.com'",
         ""
     }
 )
@@ -55,18 +55,14 @@ public class TestCommand implements Callable<Integer> {
     private CommandSpec spec;
 
     @Option(
-        names = {"--preset"},
-        description = "Use a predefined configuration preset. Valid values: ${COMPLETION-CANDIDATES} (default: ${DEFAULT-VALUE})",
-        defaultValue = "default"
+            names = {"--config"},
+            description = "Load configuration from a preset name (default, strict, hserr), YAML file, or URL. " +
+                          "If not specified, uses the default preset. " +
+                          "You can also create a config file that inherits from a preset using 'parent: <preset-name>'.",
+            paramLabel = "<preset|file|url>",
+            defaultValue = "default"
     )
-    private Preset preset;
-
-    @Option(
-        names = {"--config"},
-        description = "Load configuration from a YAML file or URL",
-        paramLabel = "<file|url>"
-    )
-    private String configFile;
+    protected String configFile;
 
     @Option(
         names = {"--event"},
@@ -163,11 +159,7 @@ public class TestCommand implements Callable<Integer> {
             out.println("=".repeat(70));
             out.println();
 
-            if (configFile != null) {
-                out.println("Config: " + configFile);
-            } else {
-                out.println("Preset: " + preset.getName());
-            }
+            out.println("Config: " + configFile);
             out.println("Pseudonymize: " + (pseudonymize ? "enabled" : "disabled"));
             out.println();
 
@@ -256,12 +248,7 @@ public class TestCommand implements Callable<Integer> {
     private RedactionConfig loadConfiguration() throws IOException {
         ConfigLoader loader = new ConfigLoader();
 
-        RedactionConfig config;
-        if (configFile != null) {
-            config = loader.load(configFile);
-        } else {
-            config = loader.load(preset.getName());
-        }
+        RedactionConfig config = loader.load(configFile);
 
         // Apply pseudonymize options
         if (pseudonymize || pseudonymizeMode != null || seed != null) {

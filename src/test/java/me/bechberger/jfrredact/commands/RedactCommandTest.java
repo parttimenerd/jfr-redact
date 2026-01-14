@@ -96,11 +96,11 @@ class RedactCommandTest {
                 "Input file not found"
             ),
 
-            // Invalid preset
+            // Invalid config (preset/file doesn't exist)
             Arguments.of(
-                new String[]{"test.jfr", "--preset", "invalid-preset"},
-                2,
-                "Invalid value for option '--preset'"
+                new String[]{"test.jfr", "--config", "invalid-preset"},
+                1,
+                "Configuration not found"
             )
         );
     }
@@ -201,7 +201,7 @@ class RedactCommandTest {
 
         int exitCode = cmd.execute(
             inputFile.toString(),
-            "--preset", "strict"
+            "--config", "strict"
         );
 
         // Processing will fail with empty file (exit code 1), but not with CLI error (exit code 2)
@@ -422,7 +422,7 @@ class RedactCommandTest {
         String[] args = {
             inputFile.toString(),
             outputFile.toString(),
-            "--preset", presetName
+            "--config", presetName
         };
 
         int exitCode = cmd.execute(args);

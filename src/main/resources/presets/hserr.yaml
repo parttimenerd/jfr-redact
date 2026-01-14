@@ -13,7 +13,7 @@
 # - Process and system information
 #
 # Usage:
-#   jfr-redact redact-text hs_err_pid12345.log --preset hserr
+#   jfr-redact redact-text hs_err_pid12345.log
 #
 parent: default
 

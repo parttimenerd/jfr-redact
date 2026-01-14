@@ -44,18 +44,18 @@ class TestCommandTest {
 
         String output = outContent.toString();
         assertThat(output.contains("Configuration Validation") || output.contains("Configuration is valid")).as("Should show validation confirmation").isTrue();
-        assertThat(output).as("Should show default preset").contains("Preset: default");
+        assertThat(output).as("Should show default preset").contains("Config: default");
     }
 
     @Test
     void testValidateMode_StrictPreset() {
-        int exitCode = cmd.execute("--preset", "strict");
+        int exitCode = cmd.execute("--config", "strict");
 
         assertEquals(0, exitCode, "Validation should succeed");
 
         String output = outContent.toString();
         assertThat(output.contains("Configuration Validation") || output.contains("Configuration is valid")).as("Should show validation confirmation").isTrue();
-        assertThat(output).as("Should show strict preset").contains("Preset: strict");
+        assertThat(output).as("Should show strict preset").contains("Config: strict");
     }
 
     @Test
@@ -154,12 +154,12 @@ class TestCommandTest {
 
     @Test
     void testTestMode_WithStrictPreset() {
-        int exitCode = cmd.execute("--preset", "strict", "--value", "user@example.com");
+        int exitCode = cmd.execute("--config", "strict", "--value", "user@example.com");
 
         assertEquals(0, exitCode, "Test should succeed");
 
         String output = outContent.toString();
-        assertThat(output).as("Should show strict preset").contains("Preset: strict");
+        assertThat(output).as("Should show strict preset").contains("Config: strict");
         assertThat(output).as("Should show value being tested").contains("user@example.com");
     }
 

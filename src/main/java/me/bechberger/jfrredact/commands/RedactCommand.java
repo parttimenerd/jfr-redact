@@ -29,17 +29,20 @@ import java.util.List;
     footerHeading = "%nExamples:%n",
     footer = {
         "",
-        "  Simple redaction with default preset:",
+        "  Simple redaction with default config:",
         "    jfr-redact redact recording.jfr",
-        "    (creates recording.redacted.jfr)",
+        "    (creates recording.redacted.jfr using default preset)",
         "",
         "  Specify output file:",
         "    jfr-redact redact recording.jfr output.jfr",
         "",
-        "  Strict preset with pseudonymization:",
-        "    jfr-redact redact recording.jfr --preset strict --pseudonymize",
+        "  Use strict preset:",
+        "    jfr-redact redact recording.jfr --config strict",
         "",
-        "  Custom config with additional event removal:",
+        "  Use strict preset with pseudonymization:",
+        "    jfr-redact redact recording.jfr --config strict --pseudonymize",
+        "",
+        "  Custom config file with additional event removal:",
         "    jfr-redact redact recording.jfr --config my-config.yaml --remove-event jdk.CustomEvent",
         "",
         "  Add custom redaction pattern:",
@@ -222,7 +225,6 @@ public class RedactCommand extends BaseRedactCommand {
         } else {
             getLogger().info("Mode:        DRY RUN (no output will be written)");
         }
-        getLogger().info("Preset:      {}", preset.getName());
 
         if (configFile != null) {
             getLogger().info("Config: {}", configFile);

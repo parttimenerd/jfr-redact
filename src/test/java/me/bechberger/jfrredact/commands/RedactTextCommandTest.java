@@ -42,7 +42,7 @@ class RedactTextCommandTest {
         assertEquals(0, exitCode, "Help should exit successfully");
 
         String output = outContent.toString();
-        assertThat(output).contains("redact-text", "Redact sensitive information from text files", "--preset", "--pseudonymize");
+        assertThat(output).contains("redact-text", "Redact sensitive information from text files", "--config", "--pseudonymize");
     }
 
     @Test
@@ -106,7 +106,7 @@ class RedactTextCommandTest {
         Path inputFile = tempDir.resolve("test.log");
         Files.writeString(inputFile, "Email: user@example.com\nData\n");
 
-        int exitCode = cmd.execute(inputFile.toString(), "--preset", "strict");
+        int exitCode = cmd.execute(inputFile.toString(), "--config", "strict");
 
         assertEquals(0, exitCode, "Should exit successfully with strict preset");
 
@@ -124,7 +124,7 @@ class RedactTextCommandTest {
                 """;
         Files.writeString(inputFile, content);
 
-        int exitCode = cmd.execute(inputFile.toString(), "--preset", "strict");
+        int exitCode = cmd.execute(inputFile.toString(), "--config", "strict");
 
         assertEquals(0, exitCode, "Should exit successfully");
 

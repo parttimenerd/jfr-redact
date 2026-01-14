@@ -37,15 +37,12 @@ public abstract class BaseRedactCommand implements Callable<Integer> {
     protected File outputFile;
 
     @Option(
-        names = {"--preset"},
-        description = "Use a predefined configuration preset. Valid values: ${COMPLETION-CANDIDATES}"
-    )
-    protected Preset preset;
-
-    @Option(
         names = {"--config"},
-        description = "Load configuration from a YAML file or URL",
-        paramLabel = "<file|url>"
+        description = "Load configuration from a preset name (default, strict, hserr), YAML file, or URL. " +
+                     "If not specified, uses the default preset. " +
+                     "You can also create a config file that inherits from a preset using 'parent: <preset-name>'.",
+        paramLabel = "<preset|file|url>",
+        defaultValue = "default"
     )
     protected String configFile;
 
@@ -137,10 +134,6 @@ public abstract class BaseRedactCommand implements Callable<Integer> {
         // before this method is called, so all loggers will use the correct level
 
         try {
-            // Initialize preset if not set
-            if (preset == null) {
-                preset = getDefaultPreset();
-            }
 
             // Prepare input/output
             prepareInputOutput();
@@ -206,12 +199,8 @@ public abstract class BaseRedactCommand implements Callable<Integer> {
         getLogger().info("");
         getLogger().info("Input file:  {}", inputFile.getAbsolutePath());
         getLogger().info("Output file: {}", outputFile.getAbsolutePath());
-        getLogger().info("Preset:      {}", preset.getName());
 
-        if (configFile != null) {
-            getLogger().info("Config: {}", configFile);
-        }
-
+        getLogger().info("Config: {}", configFile);
         getLogger().info("Pseudonymize: {}", pseudonymize ? "enabled" : "disabled");
 
         if (!redactionRegexes.isEmpty()) {
@@ -228,15 +217,8 @@ public abstract class BaseRedactCommand implements Callable<Integer> {
     protected RedactionConfig loadConfiguration() throws IOException {
         ConfigLoader loader = new ConfigLoader();
 
-        // Load base configuration from preset or custom config
-        RedactionConfig config;
-        if (configFile != null) {
-            // Load from custom config file or URL
-            config = loader.load(configFile);
-        } else {
-            // Load from preset
-            config = loader.load(preset.getName());
-        }
+        // Load base configuration from custom config or default preset
+        RedactionConfig config = loader.load(configFile);
 
         // Apply CLI options
         RedactionConfig.CliOptions cliOptions = createCliOptions();

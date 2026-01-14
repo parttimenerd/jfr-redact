@@ -34,11 +34,16 @@ import java.util.concurrent.Callable;
         "  Generate template to file:",
         "    jfr-redact generate-config -o my-config.yaml",
         "",
-        "  Generate from preset:",
-        "    jfr-redact generate-config --preset strict -o my-config.yaml",
+        "  Generate config from a preset (default, strict, or hserr):",
+        "    jfr-redact generate-config default -o my-config.yaml",
+        "    jfr-redact generate-config strict -o strict.yaml",
         "",
         "  Generate minimal config:",
         "    jfr-redact generate-config --minimal -o minimal-config.yaml",
+        "",
+        "  Quick way to use a preset:",
+        "    echo 'parent: strict' > strict.yaml",
+        "    jfr-redact redact recording.jfr --config strict.yaml",
         ""
     }
 )
@@ -49,11 +54,12 @@ public class GenerateConfigCommand implements Callable<Integer> {
 
     @Parameters(
         index = "0",
-        description = "Output file for the configuration (default: stdout)",
-        paramLabel = "<output.yaml>",
+        description = "Preset name to generate config from (default, strict, hserr), or output file path. " +
+                     "If not specified or is a preset name, generates full template.",
+        paramLabel = "<preset|output.yaml>",
         arity = "0..1"
     )
-    private String outputFile;
+    private String presetOrOutputFile;
 
     @Option(
         names = {"-o", "--output"},
@@ -62,12 +68,6 @@ public class GenerateConfigCommand implements Callable<Integer> {
     )
     private String outputFileOption;
 
-    @Option(
-        names = {"--preset"},
-        description = "Base the configuration on a preset. Valid values: ${COMPLETION-CANDIDATES}",
-        paramLabel = "<preset>"
-    )
-    private Preset preset;
 
     @Option(
         names = {"--minimal"},
@@ -99,11 +99,24 @@ public class GenerateConfigCommand implements Callable<Integer> {
         PrintWriter err = spec.commandLine().getErr();
 
         try {
+            // Parse presetOrOutputFile to determine if it's a preset name or output file
+            Preset preset = null;
+            String outputFile = null;
+
+            if (presetOrOutputFile != null) {
+                // Try to parse as preset name
+                preset = Preset.fromName(presetOrOutputFile);
+                if (preset == null) {
+                    // Not a preset, treat as output file
+                    outputFile = presetOrOutputFile;
+                }
+            }
+
             String config;
 
             if (preset != null) {
                 // Generate from preset
-                config = generateFromPreset(err);
+                config = generateFromPreset(err, preset);
             } else if (minimal) {
                 // Generate minimal config
                 config = generateMinimal();
@@ -112,7 +125,7 @@ public class GenerateConfigCommand implements Callable<Integer> {
                 config = generateTemplate();
             }
 
-            // Determine output location
+            // Determine output location (priority: --output option, then parsed output file)
             String output = outputFileOption != null ? outputFileOption : outputFile;
 
             if (output != null) {
@@ -136,7 +149,7 @@ public class GenerateConfigCommand implements Callable<Integer> {
         }
     }
 
-    private String generateFromPreset(PrintWriter err) throws IOException {
+    private String generateFromPreset(PrintWriter err, Preset preset) throws IOException {
         ConfigLoader loader = new ConfigLoader();
         String presetYaml = loader.loadRawYaml(preset.getName());
 

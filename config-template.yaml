@@ -5,9 +5,20 @@
 # Copy this file and modify it to suit your needs
 # Save as: my-config.yaml
 
-# You can base your configuration on a preset and override specific options
-# Or build from scratch by commenting out the parent line
-#   parent: default
+# ============================================================================
+# QUICK START: Using Presets
+# ============================================================================
+# You can use presets directly with --config:
+#   jfr-redact redact recording.jfr --config strict
+#   jfr-redact redact-text app.log --config default
+#
+# Available presets: default, strict, hserr
+#
+# Or inherit from a preset and override specific options using 'parent':
+#   parent: strict
+#
+# Or build from scratch by leaving parent commented out (shown below)
+# ============================================================================
 
 # ============================================================================
 # Pattern Discovery - Automatically discover and redact sensitive values
@@ -484,8 +495,8 @@ general:
 # Use this custom config:
 #   java -jar jfr-redact.jar input.jfr output.jfr --config my-config.yaml
 #
-# Start with a preset and override:
-#   java -jar jfr-redact.jar input.jfr output.jfr --preset strict --keep-local-addresses
+# Start with a config and override:
+#   java -jar jfr-redact.jar input.jfr output.jfr --config strict --keep-local-addresses
 #
 # Enable pseudonymization to preserve relationships:
 #   java -jar jfr-redact.jar input.jfr output.jfr --config my-config.yaml --pseudonymize

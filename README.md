@@ -33,7 +33,7 @@ java -jar jfr-redact.jar redact recording.jfr redacted.jfr
 java -jar jfr-redact.jar redact-text hs_err_pid12345.log hs_err_redacted.log
 
 # Use the hserr preset optimized for crash reports:
-java -jar jfr-redact.jar redact-text hs_err_pid12345.log --preset hserr
+java -jar jfr-redact.jar redact-text hs_err_pid12345.log --config hserr
 ```
 
 That's it! The tool will automatically redact:
@@ -112,11 +112,11 @@ Use jfr-redact as a library to programmatically redact JFR files in your own app
 The `redact` command is specifically designed for Java Flight Recorder (JFR) files:
 
 ```bash
-# Use default preset (recommended for most cases)
+# Use default config (recommended for most cases)
 java -jar jfr-redact.jar redact recording.jfr redacted.jfr
 
 # Use strict preset (maximum redaction)
-java -jar jfr-redact.jar redact recording.jfr redacted.jfr --preset strict
+java -jar jfr-redact.jar redact recording.jfr redacted.jfr --config strict
 
 # Use custom configuration file
 java -jar jfr-redact.jar redact recording.jfr redacted.jfr --config my-config.yaml

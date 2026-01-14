@@ -76,7 +76,7 @@ class GenerateConfigCommandTest {
 
     @Test
     void testGenerateFromPreset_Default() {
-        int exitCode = cmd.execute("--preset", "default");
+        int exitCode = cmd.execute("default");
 
         assertEquals(0, exitCode, "Should exit successfully");
 
@@ -89,7 +89,7 @@ class GenerateConfigCommandTest {
 
     @Test
     void testGenerateFromPreset_Strict() {
-        int exitCode = cmd.execute("--preset", "strict");
+        int exitCode = cmd.execute("strict");
 
         assertEquals(0, exitCode, "Should exit successfully");
 
@@ -104,7 +104,7 @@ class GenerateConfigCommandTest {
     void testGenerateFromPreset_ToFile() throws Exception {
         Path outputFile = tempDir.resolve("strict-config.yaml");
 
-        int exitCode = cmd.execute("--preset", "strict", "-o", outputFile.toString());
+        int exitCode = cmd.execute("strict", "-o", outputFile.toString());
 
         assertEquals(0, exitCode, "Should exit successfully");
         assertThat(outputFile).exists();
@@ -137,12 +137,12 @@ class GenerateConfigCommandTest {
         assertEquals(0, exitCode, "Help should exit successfully");
 
         String output = outContent.toString();
-        assertThat(output).contains("generate-config", "--preset", "--minimal");
+        assertThat(output).contains("generate-config", "preset", "--minimal");
     }
 
     @Test
     void testInvalidPreset() {
-        int exitCode = cmd.execute("--preset", "nonexistent");
+        int exitCode = cmd.execute("--config", "nonexistent");
 
         assertNotEquals(0, exitCode, "Should fail with invalid preset");
 
@@ -157,7 +157,7 @@ class GenerateConfigCommandTest {
     @Test
     void testBothPresetAndMinimal_PresetTakesPrecedence() {
         // When both are specified, preset should take precedence
-        int exitCode = cmd.execute("--preset", "default", "--minimal");
+        int exitCode = cmd.execute("default", "--minimal");
 
         assertEquals(0, exitCode, "Should exit successfully");
 
