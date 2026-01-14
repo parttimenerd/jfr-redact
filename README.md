@@ -1,7 +1,7 @@
 jfr-redact
 ==========
 
-[![CI](https://github.com/parttimenerd/jfr-redact/actions/workflows/ci.yml/badge.svg)](https://github.com/parttimenerd/jfr-redact/actions/workflows/ci.yml)
+[![CI](https://github.com/parttimenerd/jfr-redact/actions/workflows/ci.yml/badge.svg)](https://github.com/parttimenerd/jfr-redact/actions/workflows/ci.yml) [![Maven Central Version](https://img.shields.io/maven-central/v/me.bechberger/jfr-redact)](https://search.maven.org/artifact/me.bechberger/jfr-redact)
 
 __This is an early prototype of the SapMachine team, use at your own risk.__
 __We don't provide any guarantees regarding functionality or security.__
