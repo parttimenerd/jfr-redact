@@ -124,9 +124,6 @@ java -jar jfr-redact.jar redact recording.jfr redacted.jfr --config my-config.ya
 # Enable pseudonymization to preserve relationships between values
 java -jar jfr-redact.jar redact recording.jfr redacted.jfr --pseudonymize
 
-# Use pseudonymization with a specific preset
-java -jar jfr-redact.jar redact recording.jfr redacted.jfr --preset strict --pseudonymize
-
 # Filter events (similar to jfr scrub command)
 # Keep only specific events
 java -jar jfr-redact.jar redact recording.jfr redacted.jfr --include-events "jdk.ThreadSleep,jdk.JavaMonitorWait"
@@ -145,16 +142,6 @@ java -jar jfr-redact.jar redact recording.jfr redacted.jfr \
   --include-events "jdk.*" \
   --exclude-categories "Flight Recorder" \
   --exclude-threads "Service Thread"
-
-# Control discovery mode for pattern extraction
-# Two-pass (default): reads file twice, discovers values then redacts everywhere
-java -jar jfr-redact.jar redact recording.jfr redacted.jfr --discovery-mode=default
-
-# Fast mode: single-pass, discovers and redacts on-the-fly
-java -jar jfr-redact.jar redact recording.jfr redacted.jfr --discovery-mode=fast
-
-# No discovery: only direct pattern matching, faster but less thorough
-java -jar jfr-redact.jar redact recording.jfr redacted.jfr --discovery-mode=none
 ```
 
 ### Text File Redaction (redact-text command)
@@ -165,13 +152,8 @@ not the `redact` command which only works with JFR files.
 
 ```bash
 # Redact a Java error log file (hs_err_pid*.log)
+# Uses the preset hserr by default
 java -jar jfr-redact.jar redact-text hs_err_pid12345.log hs_err_pid12345.redacted.log
-
-# Use the hserr preset optimized for crash reports
-java -jar jfr-redact.jar redact-text hs_err_pid12345.log --preset hserr
-
-# Redact an application log file
-java -jar jfr-redact.jar redact-text app.log app.redacted.log --preset strict
 
 # Redact any text file with pseudonymization
 java -jar jfr-redact.jar redact-text debug-output.txt debug-output.redacted.txt --pseudonymize
