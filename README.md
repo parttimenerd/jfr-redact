@@ -1170,21 +1170,6 @@ To install as a git pre-commit hook (auto-syncs on commit):
 ./sync-documentation.py --install
 ```
 
-### Publishing to Maven Central
-
-For maintainers publishing to Maven Central, use the `bin/update_gh_secrets.sh` script to configure GitHub Actions secrets:
-
-```bash
-./bin/update_gh_secrets.sh
-```
-
-This script:
-- Reads Maven credentials from `~/.m2/settings.xml` (or prompts for them)
-- Exports your GPG private key
-- Updates GitHub repository secrets required for Maven Central deployment:
-  - `MAVEN_USERNAME` and `MAVEN_PASSWORD` (OSSRH credentials)
-  - `GPG_KEYNAME`, `GPG_PASSPHRASE`, and `GPG_PRIVATE_KEY`
-
 Requires: [GitHub CLI (gh)](https://cli.github.com/)
 
 ### Git Hooks Setup
@@ -1212,7 +1197,7 @@ To skip the hook temporarily: `git commit --no-verify`
 ### Deployment
 
 To release a new version to Maven Central and GitHub Releases,
-run `release.py`.
+run `release.py` (requires [GitHub CLI (gh)](https://cli.github.com/)).
 
 ### IDE Support for Configuration Files
 
