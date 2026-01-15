@@ -61,7 +61,7 @@ strings:
         enabled: true
         capture_group: 1
         min_occurrences: 1
-        whitelist:
+        allowlist:
           - root
           - admin
           - test
@@ -106,7 +106,7 @@ strings:
         enabled: true
         capture_group: 1
         min_occurrences: 1
-        whitelist:
+        allowlist:
           - localhost
 
     # Hostnames (for hs_err files and bug reports)

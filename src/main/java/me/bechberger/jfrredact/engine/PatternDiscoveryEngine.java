@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
  * to build a set of patterns that should be redacted.
  * <p>
  * Each pattern type has its own DiscoveredPatterns instance with individual settings
- * for min_occurrences, case_sensitive, and whitelist.
+ * for min_occurrences, case_sensitive, and allowlist.
  */
 public class PatternDiscoveryEngine {
 
@@ -47,11 +47,11 @@ public class PatternDiscoveryEngine {
         final Pattern eventTypeFilter;  // null means all events
         final DiscoveredPatterns discoveredPatterns;
         final int minOccurrences;
-        final List<String> whitelist;
+        final List<String> allowlist;
 
         PropertyExtractor(String name, DiscoveredPatterns.PatternType type, Pattern keyPattern,
                          String keyPropertyPattern, Pattern valuePattern, String valuePropertyPattern,
-                         Pattern eventTypeFilter, boolean caseSensitive, List<String> whitelist,
+                         Pattern eventTypeFilter, boolean caseSensitive, List<String> allowlist,
                          int minOccurrences) {
             this.name = name;
             this.type = type;
@@ -60,9 +60,9 @@ public class PatternDiscoveryEngine {
             this.valuePattern = valuePattern;
             this.valuePropertyPattern = valuePropertyPattern != null ? valuePropertyPattern : "value";
             this.eventTypeFilter = eventTypeFilter;
-            this.discoveredPatterns = new DiscoveredPatterns(caseSensitive, whitelist != null ? whitelist : List.of());
+            this.discoveredPatterns = new DiscoveredPatterns(caseSensitive, allowlist != null ? allowlist : List.of());
             this.minOccurrences = minOccurrences;
-            this.whitelist = whitelist != null ? whitelist : List.of();
+            this.allowlist = allowlist != null ? allowlist : List.of();
         }
     }
 
@@ -80,13 +80,13 @@ public class PatternDiscoveryEngine {
         final List<Pattern> ignorePatterns;  // From ignore in pattern config
 
         PatternExtractor(String name, DiscoveredPatterns.PatternType type, Pattern pattern,
-                        int captureGroup, boolean caseSensitive, List<String> whitelist,
+                        int captureGroup, boolean caseSensitive, List<String> allowlist,
                         int minOccurrences, List<String> ignoreExact, List<String> ignoreRegexes) {
             this.name = name;
             this.type = type;
             this.pattern = pattern;
             this.captureGroup = captureGroup;
-            this.discoveredPatterns = new DiscoveredPatterns(caseSensitive, whitelist);
+            this.discoveredPatterns = new DiscoveredPatterns(caseSensitive, allowlist);
             this.minOccurrences = minOccurrences;
             this.ignoreExact = ignoreExact != null ? ignoreExact : List.of();
             this.ignorePatterns = ignoreRegexes != null ?
@@ -136,7 +136,7 @@ public class PatternDiscoveryEngine {
                         propExtraction.getValuePropertyPattern(),
                         eventTypeFilter,
                         propExtraction.isCaseSensitive(),
-                        propExtraction.getWhitelist(),
+                        propExtraction.getAllowlist(),
                         propExtraction.getMinOccurrences()
                     ));
                     logger.debug("Compiled property extraction '{}' for key pattern '{}' (type: {}, kv: {}/{}, value pattern: {}, event filter: {})",
@@ -276,7 +276,7 @@ public class PatternDiscoveryEngine {
                         pattern,
                         custom.getCaptureGroup(),
                         custom.isCaseSensitive(),
-                        custom.getWhitelist(),
+                        custom.getAllowlist(),
                         custom.getMinOccurrences(),
                         List.of(), // no ignore_exact (not applicable to custom extractions)
                         List.of()  // no ignore patterns
@@ -317,7 +317,7 @@ public class PatternDiscoveryEngine {
                 pattern,
                 config.getDiscoveryCaptureGroup(),
                 config.isDiscoveryCaseSensitive(),
-                config.getDiscoveryWhitelist(),
+                config.getDiscoveryAllowlist(),
                 config.getDiscoveryMinOccurrences(),
                 config.getIgnoreExact(),
                 config.getIgnore()
@@ -373,8 +373,8 @@ public class PatternDiscoveryEngine {
                         String stringValue = (String) value;
 
                         if (stringValue != null && !stringValue.isEmpty()) {
-                            // Check whitelist
-                            if (!isWhitelisted(stringValue, extractor)) {
+                            // Check allowlist
+                            if (!isAllowlisted(stringValue, extractor)) {
                                 extractor.discoveredPatterns.addValue(
                                     stringValue,
                                     extractor.type,
@@ -401,8 +401,8 @@ public class PatternDiscoveryEngine {
                     if (extractor.keyPattern.matcher(keyStr).matches() &&
                         extractor.valuePattern.matcher(valueStr).matches()) {
                         if (valueStr != null && !valueStr.isEmpty()) {
-                            // Check whitelist
-                            if (!isWhitelisted(valueStr, extractor)) {
+                            // Check allowlist
+                            if (!isAllowlisted(valueStr, extractor)) {
                                 extractor.discoveredPatterns.addValue(
                                     valueStr,
                                     extractor.type,
@@ -422,11 +422,11 @@ public class PatternDiscoveryEngine {
     }
 
     /**
-     * Check if a value is whitelisted
+     * Check if a value is allowlisted
      */
-    private boolean isWhitelisted(String value, PropertyExtractor extractor) {
-        for (String whitelistItem : extractor.whitelist) {
-            if (value.equalsIgnoreCase(whitelistItem)) {
+    private boolean isAllowlisted(String value, PropertyExtractor extractor) {
+        for (String allowlistItem : extractor.allowlist) {
+            if (value.equalsIgnoreCase(allowlistItem)) {
                 return true;
             }
         }

@@ -27,7 +27,7 @@ discovery:
       capture_group: 1
       type: USERNAME
       min_occurrences: 1
-      whitelist:
+      allowlist:
         - jenkins
       enabled: true
 
@@ -57,7 +57,7 @@ strings:
         enabled: true
         capture_group: 1
         min_occurrences: 1
-        whitelist:
+        allowlist:
           - root
           - admin
           - test
@@ -102,7 +102,7 @@ strings:
         enabled: true
         capture_group: 1
         min_occurrences: 1
-        whitelist:
+        allowlist:
           - localhost
       patterns:
         - 'ssh://([a-zA-Z0-9.-]+)'
@@ -200,7 +200,7 @@ strings:
           enabled: true
           capture_group: 0
           min_occurrences: 1
-          whitelist:
+          allowlist:
             - localhost
             - x86_64
 
@@ -212,7 +212,7 @@ strings:
           enabled: true
           capture_group: 0
           min_occurrences: 1
-          whitelist:
+          allowlist:
             - jenkins
 
 # Path redaction - aggressive for hs_err

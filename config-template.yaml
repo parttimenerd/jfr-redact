@@ -24,7 +24,7 @@
 # Pattern Discovery - Automatically discover and redact sensitive values
 # ============================================================================
 # Discovery mode controls HOW discovery is performed (globally)
-# Per-pattern settings (min_occurrences, case_sensitive, whitelist) are configured
+# Per-pattern settings (min_occurrences, case_sensitive, allowlist) are configured
 # individually for each pattern type under strings.patterns
 discovery:
   mode: default  # Options: none, fast, default (two-pass)
@@ -61,8 +61,8 @@ discovery:
   #   value_pattern: ".*@company\\.com"    # Only extract @company.com emails
   #   type: EMAIL_LOCAL_PART
 
-  # Note: Whitelists are handled by discovery_whitelist in strings.patterns
-  # The property extractor respects the same whitelist as the pattern type
+  # Note: Allowlists are handled by discovery_allowlist in strings.patterns
+  # The property extractor respects the same allowlist as the pattern type
 
   # Custom extraction patterns - define your own patterns to discover
   # These are independent from strings.patterns and can extract any type of value
@@ -76,7 +76,7 @@ discovery:
   #   type: USERNAME           # Categorize as USERNAME (options: USERNAME, HOSTNAME, EMAIL_LOCAL_PART, CUSTOM)
   #   case_sensitive: false    # Treat "Alice", "alice", "ALICE" as same
   #   min_occurrences: 2       # Only redact if appears 2+ times
-  #   whitelist:               # Never redact these usernames
+  #   allowlist:               # Never redact these usernames
   #     - root
   #     - admin
   #     - git
@@ -90,7 +90,7 @@ discovery:
   #   type: USERNAME
   #   case_sensitive: false
   #   min_occurrences: 1
-  #   whitelist:
+  #   allowlist:
   #     - jenkins
   #   enabled: true
 
@@ -102,7 +102,7 @@ discovery:
   #   type: HOSTNAME
   #   case_sensitive: false
   #   min_occurrences: 1
-  #   whitelist:
+  #   allowlist:
   #     - localhost
   #     - example.com
   #   enabled: true
@@ -224,9 +224,9 @@ strings:
         # If false, "Alice", "alice", and "ALICE" are treated as the same value
         case_sensitive: false
 
-        # Whitelist of values that should NEVER be discovered/redacted by this pattern
+        # Allowlist of values that should NEVER be discovered/redacted by this pattern
         # Useful for common/generic usernames
-        whitelist:
+        allowlist:
           - root
           - admin
           - test

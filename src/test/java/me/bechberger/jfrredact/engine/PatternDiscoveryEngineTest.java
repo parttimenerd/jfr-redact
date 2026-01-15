@@ -86,7 +86,7 @@ class PatternDiscoveryEngineTest {
     }
 
     @Test
-    void testWhitelist() {
+    void testAllowlist() {
         RedactionConfig config = loadDefaultConfig();
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
@@ -94,7 +94,7 @@ class PatternDiscoveryEngineTest {
         var homeDir = stringConfig.getPatterns().getUser();
         homeDir.setEnabled(true);
         homeDir.setEnableDiscovery(true);
-        homeDir.setDiscoveryWhitelist(List.of("root", "admin"));
+        homeDir.setDiscoveryAllowlist(List.of("root", "admin"));
 
         PatternDiscoveryEngine engine = new PatternDiscoveryEngine(discoveryConfig, stringConfig);
 
@@ -224,7 +224,7 @@ class PatternDiscoveryEngineTest {
         hostnames.setDiscoveryCaptureGroup(0);
         hostnames.setDiscoveryMinOccurrences(1);
         hostnames.setDiscoveryCaseSensitive(false);
-        hostnames.setDiscoveryWhitelist(List.of("localhost", "localhost.localdomain"));
+        hostnames.setDiscoveryAllowlist(List.of("localhost", "localhost.localdomain"));
 
         PatternDiscoveryEngine engine = new PatternDiscoveryEngine(discoveryConfig, stringConfig);
 
@@ -256,7 +256,7 @@ class PatternDiscoveryEngineTest {
         hostnames.setEnableDiscovery(true);
         hostnames.setDiscoveryCaptureGroup(0);
         hostnames.setDiscoveryMinOccurrences(1);  // Discover after 1 occurrence
-        hostnames.setDiscoveryWhitelist(List.of("localhost", "localhost.localdomain"));
+        hostnames.setDiscoveryAllowlist(List.of("localhost", "localhost.localdomain"));
 
         PatternDiscoveryEngine engine = new PatternDiscoveryEngine(discoveryConfig, stringConfig);
 
@@ -479,7 +479,7 @@ class PatternDiscoveryEngineTest {
     }
 
     @Test
-    void testEmptyWhitelist() {
+    void testEmptyAllowlist() {
         RedactionConfig config = loadDefaultConfig();
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
@@ -487,7 +487,7 @@ class PatternDiscoveryEngineTest {
         var homeDir = stringConfig.getPatterns().getUser();
         homeDir.setEnabled(true);
         homeDir.setEnableDiscovery(true);
-        homeDir.setDiscoveryWhitelist(List.of());  // Empty whitelist
+        homeDir.setDiscoveryAllowlist(List.of());  // Empty allowlist
 
         PatternDiscoveryEngine engine = new PatternDiscoveryEngine(discoveryConfig, stringConfig);
 
@@ -496,9 +496,9 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        // With empty whitelist, everything should be discovered
+        // With empty allowlist, everything should be discovered
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
-            .as("root and admin should be discovered (no whitelist)")
+            .as("root and admin should be discovered (no allowlist)")
             .contains("root", "admin");
     }
 
@@ -590,14 +590,14 @@ class PatternDiscoveryEngineTest {
         hostnames.setDiscoveryCaptureGroup(0);
         hostnames.setDiscoveryMinOccurrences(1);
         hostnames.setDiscoveryCaseSensitive(false);
-        hostnames.setDiscoveryWhitelist(List.of("localhost", "localhost.localdomain"));
+        hostnames.setDiscoveryAllowlist(List.of("localhost", "localhost.localdomain"));
         hostnames.setIgnoreExact(List.of("x86_64"));
 
         var homeDir = stringConfig.getPatterns().getUser();
         homeDir.setEnabled(true);
         homeDir.setEnableDiscovery(true);
         homeDir.setDiscoveryCaptureGroup(1);
-        homeDir.setDiscoveryWhitelist(List.of("root", "admin", "test", "user", "guest", "system", "build", "jenkins"));
+        homeDir.setDiscoveryAllowlist(List.of("root", "admin", "test", "user", "guest", "system", "build", "jenkins"));
 
         PatternDiscoveryEngine engine = new PatternDiscoveryEngine(discoveryConfig, stringConfig);
 
@@ -619,7 +619,7 @@ class PatternDiscoveryEngineTest {
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
             .contains("alice");
 
-        // Whitelisted values should not be discovered
+        // Allowlisted values should not be discovered
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
             .doesNotContain("root", "admin");
     }
@@ -637,7 +637,7 @@ class PatternDiscoveryEngineTest {
         customExtraction.setType("HOSTNAME");
         customExtraction.setCaseSensitive(false);
         customExtraction.setMinOccurrences(1);
-        customExtraction.setWhitelist(List.of("LOCALHOST"));
+        customExtraction.setAllowlist(List.of("LOCALHOST"));
         customExtraction.setEnabled(true);
 
         discoveryConfig.setCustomExtractions(List.of(customExtraction));
@@ -653,7 +653,7 @@ class PatternDiscoveryEngineTest {
 
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
             .contains("PRODSERVER01");
-        assertThat(patterns.contains("LOCALHOST")).as("LOCALHOST should be whitelisted").isFalse();
+        assertThat(patterns.contains("LOCALHOST")).as("LOCALHOST should be allowlisted").isFalse();
     }
 
     @Test
@@ -680,7 +680,7 @@ class PatternDiscoveryEngineTest {
         hostnames.setDiscoveryCaptureGroup(0);
         hostnames.setDiscoveryMinOccurrences(1);
         hostnames.setDiscoveryCaseSensitive(false);
-        hostnames.setDiscoveryWhitelist(List.of("localhost"));
+        hostnames.setDiscoveryAllowlist(List.of("localhost"));
         // Set specific patterns for this test (only Host: and Darwin patterns)
         hostnames.setPatterns(List.of(
             "(?<=Host:\\s)[a-zA-Z0-9][a-zA-Z0-9._-]*",
@@ -950,8 +950,8 @@ class PatternDiscoveryEngineTest {
     }
 
     @Test
-    void testRedactionDoesNotAffectWhitelistedValues() {
-        // Test that whitelisted values are not redacted
+    void testRedactionDoesNotAffectAllowlistedValues() {
+        // Test that allowlisted values are not redacted
         RedactionConfig config = loadHsErrConfig();  // Use hserr for single-word hostname support
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
@@ -960,7 +960,7 @@ class PatternDiscoveryEngineTest {
         hostnames.setEnabled(true);
         hostnames.setEnableDiscovery(true);
         hostnames.setDiscoveryMinOccurrences(1);  // Discover after 1 occurrence
-        hostnames.setDiscoveryWhitelist(List.of("localhost"));
+        hostnames.setDiscoveryAllowlist(List.of("localhost"));
 
         PatternDiscoveryEngine engine = new PatternDiscoveryEngine(discoveryConfig, stringConfig);
 
@@ -977,7 +977,7 @@ class PatternDiscoveryEngineTest {
 
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        // localhost should NOT be discovered (whitelisted)
+        // localhost should NOT be discovered (allowlisted)
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue).doesNotContain("localhost");
         // PRODUCTION-01 should be discovered
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
@@ -1067,12 +1067,12 @@ class PatternDiscoveryEngineTest {
         hostnames.setEnabled(true);
         hostnames.setEnableDiscovery(true);
         hostnames.setDiscoveryCaptureGroup(0);
-        hostnames.setDiscoveryWhitelist(List.of("localhost"));
+        hostnames.setDiscoveryAllowlist(List.of("localhost"));
 
         var homeDir = stringConfig.getPatterns().getUser();
         homeDir.setEnabled(true);
         homeDir.setEnableDiscovery(true);
-        homeDir.setDiscoveryWhitelist(List.of("root", "admin"));
+        homeDir.setDiscoveryAllowlist(List.of("root", "admin"));
 
         PatternDiscoveryEngine discoveryEngine = new PatternDiscoveryEngine(discoveryConfig, stringConfig);
 
@@ -1410,8 +1410,8 @@ class PatternDiscoveryEngineTest {
     }
 
     @Test
-    void testDiscoveryWithWhitelist_Integration() throws Exception {
-        // Test that whitelist works in integrated scenario
+    void testDiscoveryWithAllowlist_Integration() throws Exception {
+        // Test that allowlist works in integrated scenario
         RedactionConfig config = loadHsErrConfig();  // Use hserr for single-word hostname support
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         discoveryConfig.setMode(DiscoveryConfig.DiscoveryMode.TWO_PASS);
@@ -1420,7 +1420,7 @@ class PatternDiscoveryEngineTest {
         var hostnames = stringConfig.getPatterns().getHostnames();
         hostnames.setEnabled(true);
         hostnames.setEnableDiscovery(true);
-        hostnames.setDiscoveryWhitelist(List.of("localhost", "127.0.0.1"));
+        hostnames.setDiscoveryAllowlist(List.of("localhost", "127.0.0.1"));
 
         me.bechberger.jfrredact.config.RedactionConfig redactionConfig = new me.bechberger.jfrredact.config.RedactionConfig();
         redactionConfig.setDiscovery(discoveryConfig);
@@ -1449,10 +1449,10 @@ class PatternDiscoveryEngineTest {
 
             String redactedContent = java.nio.file.Files.readString(tempOutput);
 
-            // localhost should be preserved (whitelisted)
+            // localhost should be preserved (allowlisted)
             assertThat(redactedContent).contains("localhost");
 
-            // PROD-SERVER should be redacted (not whitelisted)
+            // PROD-SERVER should be redacted (not allowlisted)
             assertThat(redactedContent).doesNotContain("PROD-SERVER");
         } finally {
             java.nio.file.Files.deleteIfExists(tempInput);

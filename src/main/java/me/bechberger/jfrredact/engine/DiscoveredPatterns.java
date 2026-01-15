@@ -65,14 +65,14 @@ public class DiscoveredPatterns {
     // Case sensitivity setting
     private final boolean caseSensitive;
 
-    // Whitelist of values to never redact
-    private final Set<String> whitelist;
+    // Allowlist of values to never redact
+    private final Set<String> allowlist;
 
-    public DiscoveredPatterns(boolean caseSensitive, Collection<String> whitelist) {
+    public DiscoveredPatterns(boolean caseSensitive, Collection<String> allowlist) {
         this.caseSensitive = caseSensitive;
-        this.whitelist = new HashSet<>();
-        for (String value : whitelist) {
-            this.whitelist.add(normalize(value));
+        this.allowlist = new HashSet<>();
+        for (String value : allowlist) {
+            this.allowlist.add(normalize(value));
         }
     }
 
@@ -103,8 +103,8 @@ public class DiscoveredPatterns {
 
         String normalized = normalize(value);
 
-        // Check whitelist
-        if (whitelist.contains(normalized)) {
+        // Check allowlist
+        if (allowlist.contains(normalized)) {
             return;
         }
 

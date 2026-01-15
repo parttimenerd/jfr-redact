@@ -61,8 +61,8 @@ class PropertyBasedDiscoveryTest {
     }
 
     @Test
-    void testPropertyExtractionWithWhitelist() {
-        // Setup config with whitelist
+    void testPropertyExtractionWithAllowlist() {
+        // Setup config with allowlist
         DiscoveryConfig discoveryConfig = new DiscoveryConfig();
         DiscoveryConfig.PropertyExtractionConfig propExtraction = new DiscoveryConfig.PropertyExtractionConfig();
         propExtraction.setName("user_name");
@@ -71,17 +71,17 @@ class PropertyBasedDiscoveryTest {
         propExtraction.setCaseSensitive(false);
         propExtraction.setMinOccurrences(1);
 
-        List<String> whitelist = new ArrayList<>();
-        whitelist.add("root");
-        whitelist.add("admin");
-        propExtraction.setWhitelist(whitelist);
+        List<String> allowlist = new ArrayList<>();
+        allowlist.add("root");
+        allowlist.add("admin");
+        propExtraction.setAllowlist(allowlist);
         propExtraction.setEnabled(true);
 
         discoveryConfig.getPropertyExtractions().add(propExtraction);
 
-        // Verify whitelist is set correctly
-        assertEquals(2, propExtraction.getWhitelist().size());
-        assertThat(propExtraction.getWhitelist()).contains("root", "admin");
+        // Verify allowlist is set correctly
+        assertEquals(2, propExtraction.getAllowlist().size());
+        assertThat(propExtraction.getAllowlist()).contains("root", "admin");
     }
 
     @Test

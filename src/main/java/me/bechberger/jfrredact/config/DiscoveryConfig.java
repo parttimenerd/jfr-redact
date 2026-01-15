@@ -102,11 +102,11 @@ public class DiscoveryConfig {
         private int minOccurrences = 1;
 
         /**
-         * Whitelist of values that should never be discovered/redacted by this pattern.
+         * Allowlist of values that should never be discovered/redacted by this pattern.
          * Useful for common/generic values.
          */
-        @JsonProperty("whitelist")
-        private List<String> whitelist = new ArrayList<>();
+        @JsonProperty("allowlist")
+        private List<String> allowlist = new ArrayList<>();
 
         @JsonProperty("enabled")
         private boolean enabled = true;
@@ -133,8 +133,8 @@ public class DiscoveryConfig {
         public int getMinOccurrences() { return minOccurrences; }
         public void setMinOccurrences(int minOccurrences) { this.minOccurrences = Math.max(1, minOccurrences); }
 
-        public List<String> getWhitelist() { return whitelist; }
-        public void setWhitelist(List<String> whitelist) { this.whitelist = whitelist; }
+        public List<String> getAllowlist() { return allowlist; }
+        public void setAllowlist(List<String> allowlist) { this.allowlist = allowlist; }
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -212,10 +212,10 @@ public class DiscoveryConfig {
         private int minOccurrences = 1;
 
         /**
-         * Whitelist of values that should never be discovered/redacted.
+         * Allowlist of values that should never be discovered/redacted.
          */
-        @JsonProperty("whitelist")
-        private List<String> whitelist = new ArrayList<>();
+        @JsonProperty("allowlist")
+        private List<String> allowlist = new ArrayList<>();
 
         @JsonProperty("enabled")
         private boolean enabled = true;
@@ -251,8 +251,8 @@ public class DiscoveryConfig {
         public int getMinOccurrences() { return minOccurrences; }
         public void setMinOccurrences(int minOccurrences) { this.minOccurrences = Math.max(1, minOccurrences); }
 
-        public List<String> getWhitelist() { return whitelist; }
-        public void setWhitelist(List<String> whitelist) { this.whitelist = whitelist; }
+        public List<String> getAllowlist() { return allowlist; }
+        public void setAllowlist(List<String> allowlist) { this.allowlist = allowlist; }
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }

@@ -62,11 +62,11 @@ public class StringConfig {
         private boolean caseSensitive = false;
 
         /**
-         * Whitelist of values that should never be discovered/redacted by this pattern.
+         * Allowlist of values that should never be discovered/redacted by this pattern.
          * Useful for common/generic values like "root", "admin", "test".
          */
-        @JsonProperty("whitelist")
-        private List<String> whitelist = new ArrayList<>();
+        @JsonProperty("allowlist")
+        private List<String> allowlist = new ArrayList<>();
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -82,8 +82,8 @@ public class StringConfig {
         public boolean isCaseSensitive() { return caseSensitive; }
         public void setCaseSensitive(boolean caseSensitive) { this.caseSensitive = caseSensitive; }
 
-        public List<String> getWhitelist() { return whitelist; }
-        public void setWhitelist(List<String> whitelist) { this.whitelist = whitelist; }
+        public List<String> getAllowlist() { return allowlist; }
+        public void setAllowlist(List<String> allowlist) { this.allowlist = allowlist; }
     }
 
     /**
@@ -137,8 +137,8 @@ public class StringConfig {
         public boolean isDiscoveryCaseSensitive() { return discovery.isCaseSensitive(); }
         public void setDiscoveryCaseSensitive(boolean caseSensitive) { discovery.setCaseSensitive(caseSensitive); }
 
-        public List<String> getDiscoveryWhitelist() { return discovery.getWhitelist(); }
-        public void setDiscoveryWhitelist(List<String> whitelist) { discovery.setWhitelist(whitelist); }
+        public List<String> getDiscoveryAllowlist() { return discovery.getAllowlist(); }
+        public void setDiscoveryAllowlist(List<String> allowlist) { discovery.setAllowlist(allowlist); }
 
         public List<String> getIgnoreExact() { return ignoreExact; }
         public void setIgnoreExact(List<String> ignoreExact) { this.ignoreExact = ignoreExact; }

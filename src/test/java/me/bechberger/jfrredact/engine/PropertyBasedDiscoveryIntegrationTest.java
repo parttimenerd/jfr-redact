@@ -188,8 +188,8 @@ class PropertyBasedDiscoveryIntegrationTest {
     }
 
     @Test
-    void testPropertyExtractionWithWhitelist() throws IOException {
-        Path jfrFile = tempDir.resolve("test-whitelist.jfr");
+    void testPropertyExtractionWithAllowlist() throws IOException {
+        Path jfrFile = tempDir.resolve("test-allowlist.jfr");
 
         // Create JFR recording
         try (Recording recording = new Recording()) {
@@ -200,11 +200,11 @@ class PropertyBasedDiscoveryIntegrationTest {
             event1.commit();
 
             UserEvent event2 = new UserEvent();
-            event2.userName = "root";  // Should be whitelisted
+            event2.userName = "root";  // Should be allowlisted
             event2.commit();
 
             UserEvent event3 = new UserEvent();
-            event3.userName = "admin";  // Should be whitelisted
+            event3.userName = "admin";  // Should be allowlisted
             event3.commit();
 
             UserEvent event4 = new UserEvent();
@@ -215,7 +215,7 @@ class PropertyBasedDiscoveryIntegrationTest {
             recording.dump(jfrFile);
         }
 
-        // Setup discovery config with whitelist
+        // Setup discovery config with allowlist
         DiscoveryConfig discoveryConfig = new DiscoveryConfig();
         DiscoveryConfig.PropertyExtractionConfig propExtraction = new DiscoveryConfig.PropertyExtractionConfig();
         propExtraction.setName("user_name");
@@ -224,10 +224,10 @@ class PropertyBasedDiscoveryIntegrationTest {
         propExtraction.setCaseSensitive(false);
         propExtraction.setMinOccurrences(1);
 
-        List<String> whitelist = new ArrayList<>();
-        whitelist.add("root");
-        whitelist.add("admin");
-        propExtraction.setWhitelist(whitelist);
+        List<String> allowlist = new ArrayList<>();
+        allowlist.add("root");
+        allowlist.add("admin");
+        propExtraction.setAllowlist(allowlist);
         propExtraction.setEnabled(true);
 
         discoveryConfig.getPropertyExtractions().add(propExtraction);
@@ -248,7 +248,7 @@ class PropertyBasedDiscoveryIntegrationTest {
         // Get discovered patterns
         DiscoveredPatterns patterns = engine.getDiscoveredPatterns();
 
-        // Verify whitelisted usernames were NOT discovered
+        // Verify allowlisted usernames were NOT discovered
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
             .contains("john", "jane");
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
