@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Factor out JFRProcessor into its own library
 - Merge `--preset` and `--config` into a single `--config` option
+- Rewrite word redaction
 
 ## [0.1.2] - 2026-01-05
 

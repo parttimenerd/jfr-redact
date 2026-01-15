@@ -52,11 +52,15 @@ class WordsDiscoverCommandTest {
                 .addSimpleEvent("Another Event", 200, true)
                 .build();
 
-        int exitCode = cmd.execute(jfrFile.toString());
+        Path outputFile = tempDir.resolve("stdout-words.txt");
+
+        int exitCode = cmd.execute(jfrFile.toString(), outputFile.toString());
 
         assertEquals(0, exitCode, "Command should succeed");
 
-        String output = outContent.toString();
+        // Check the output file instead of stdout
+        assertThat(outputFile).exists();
+        String output = Files.readString(outputFile);
         // Should contain discovered words from the events
         assertThat(output).satisfiesAnyOf(
             o -> assertThat(o).contains("Hello"),
@@ -75,8 +79,7 @@ class WordsDiscoverCommandTest {
         Path outputFile = tempDir.resolve("words.txt");
 
         int exitCode = cmd.execute(
-                jfrFile.toString(),
-                "-o", outputFile.toString()
+                jfrFile.toString(), outputFile.toString()
         );
 
         assertEquals(0, exitCode, "Command should succeed");
@@ -100,7 +103,7 @@ class WordsDiscoverCommandTest {
 
         int exitCode = cmd.execute(
                 jfrFile.toString(),
-                "-o", outputFile.toString(),
+                outputFile.toString(),
                 "--ignore-methods=false",
                 "--ignore-classes=false"
         );
@@ -121,7 +124,7 @@ class WordsDiscoverCommandTest {
 
         int exitCode = cmd.execute(
                 jfrFile.toString(),
-                "-o", outputFile.toString(),
+                outputFile.toString(),
                 "--ignore-events=test.SimpleEvent"
         );
 
@@ -145,7 +148,7 @@ class WordsDiscoverCommandTest {
 
         int exitCode = cmd.execute(
                 jfrFile.toString(),
-                "-o", outputFile.toString()
+                outputFile.toString()
         );
 
         assertEquals(0, exitCode, "Command should succeed");
@@ -167,11 +170,15 @@ class WordsDiscoverCommandTest {
                 IP: 192.168.1.100
                 """);
 
-        int exitCode = cmd.execute(textFile.toString());
+        Path outputFile = tempDir.resolve("text-stdout-words.txt");
+
+        int exitCode = cmd.execute(textFile.toString(), outputFile.toString());
 
         assertEquals(0, exitCode, "Command should succeed");
 
-        String output = outContent.toString();
+        // Check the output file instead of stdout
+        assertThat(outputFile).exists();
+        String output = Files.readString(outputFile);
         assertThat(output).isNotEmpty();
     }
 
@@ -190,7 +197,7 @@ class WordsDiscoverCommandTest {
 
         int exitCode = cmd.execute(
                 textFile.toString(),
-                "-o", outputFile.toString()
+                outputFile.toString()
         );
 
         assertEquals(0, exitCode, "Command should succeed");
@@ -219,7 +226,7 @@ class WordsDiscoverCommandTest {
 
         int exitCode = cmd.execute(
                 textFile.toString(),
-                "-o", outputFile.toString()
+                outputFile.toString()
         );
 
         assertEquals(0, exitCode, "Command should succeed with large file");
@@ -239,7 +246,7 @@ class WordsDiscoverCommandTest {
 
         int exitCode = cmd.execute(
                 textFile.toString(),
-                "-o", outputFile.toString()
+                outputFile.toString()
         );
 
         assertEquals(0, exitCode, "Command should succeed even with empty file");
@@ -261,7 +268,7 @@ class WordsDiscoverCommandTest {
 
         int exitCode = cmd.execute(
                 textFile.toString(),
-                "-o", outputFile.toString()
+                outputFile.toString()
         );
 
         assertEquals(0, exitCode, "Command should succeed with special characters");
@@ -275,7 +282,9 @@ class WordsDiscoverCommandTest {
 
     @Test
     void testNonExistentFile() {
-        int exitCode = cmd.execute("nonexistent.jfr");
+        Path outputFile = tempDir.resolve("output.txt");
+
+        int exitCode = cmd.execute("nonexistent.jfr", outputFile.toString());
 
         assertEquals(1, exitCode, "Should fail when file doesn't exist");
 
@@ -320,7 +329,7 @@ class WordsDiscoverCommandTest {
 
         int exitCode = cmd.execute(
                 textFile.toString(),
-                "-o", outputFile.toString()
+                outputFile.toString()
         );
 
         assertEquals(0, exitCode, "Command should succeed");
@@ -338,7 +347,9 @@ class WordsDiscoverCommandTest {
                 .addSimpleEvent("Test", 1, true)
                 .build();
 
-        int exitCode = cmd.execute(jfrFile.toString());
+        Path outputFile = tempDir.resolve("stats-output.txt");
+
+        int exitCode = cmd.execute(jfrFile.toString(), outputFile.toString());
 
         assertEquals(0, exitCode, "Command should succeed");
 
@@ -353,8 +364,10 @@ class WordsDiscoverCommandTest {
                 .addSimpleEvent("Test", 1, true)
                 .build();
 
+        Path outputFile = tempDir.resolve("verbose-output.txt");
+
         // Check if verbose flag exists and use it
-        int exitCode = cmd.execute(jfrFile.toString(), "--verbose");
+        int exitCode = cmd.execute(jfrFile.toString(), outputFile.toString(), "--verbose");
 
         // Verbose mode might not be implemented yet, so accept either success or CLI error
         assertThat(exitCode).isIn(0, 2);
@@ -370,7 +383,7 @@ class WordsDiscoverCommandTest {
 
         int exitCode = cmd.execute(
                 jfrFile.toString(),
-                "--output", outputFile.toString(),
+                outputFile.toString(),
                 "--ignore-methods=false",
                 "--ignore-classes=false"
         );
@@ -389,7 +402,7 @@ class WordsDiscoverCommandTest {
 
         int exitCode = cmd.execute(
                 jfrFile.toString(),
-                "-o", outputFile.toString()
+                outputFile.toString()
         );
 
         assertEquals(0, exitCode, "Should accept short option names");

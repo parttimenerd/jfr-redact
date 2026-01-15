@@ -1,9 +1,10 @@
 package me.bechberger.jfrredact.words;
+import me.bechberger.jfrredact.util.GlobMatcher;
 import java.util.regex.Pattern;
 
 public class WordRedactionRule {
     public enum RuleType {
-        REDACT, KEEP, REPLACE, REDACT_PREFIX
+        REDACT, KEEP, REPLACE
     }
 
     private final RuleType type;
@@ -33,10 +34,6 @@ public class WordRedactionRule {
         return new WordRedactionRule(RuleType.REPLACE, pattern, replacement, isRegex);
     }
 
-    public static WordRedactionRule redactPrefix(String prefix) {
-        return new WordRedactionRule(RuleType.REDACT_PREFIX, prefix, null, false);
-    }
-
     public RuleType getType() { return type; }
     public String getPattern() { return pattern; }
     public String getReplacement() { return replacement; }
@@ -46,45 +43,60 @@ public class WordRedactionRule {
         if (isRegex) {
             // Use cached compiled pattern
             return compiledPattern.matcher(word).matches();
-        } else if (type == RuleType.REDACT_PREFIX) {
-            return word.startsWith(pattern);
         } else {
             return word.equals(pattern);
         }
     }
 
+    /**
+     * Process a pattern string and convert wildcards to regex if needed.
+     * Handles both /regex/ format and wildcard patterns with *.
+     *
+     * @return array where [0] is the processed pattern and [1] is "true"/"false" for isRegex
+     */
+    private static String[] processPattern(String pattern) {
+        pattern = pattern.trim();
+
+        // Check for explicit regex format: /pattern/
+        if (pattern.startsWith("/") && pattern.endsWith("/") && pattern.length() > 2) {
+            String regexPattern = pattern.substring(1, pattern.length() - 1);
+            return new String[]{regexPattern, "true"};
+        }
+
+        // Check for wildcard pattern and convert to regex
+        if (pattern.contains("*")) {
+            String regexPattern = GlobMatcher.globToRegex(pattern);
+            return new String[]{regexPattern, "true"};
+        }
+
+        // Plain literal pattern
+        return new String[]{pattern, "false"};
+    }
+
     public static WordRedactionRule parse(String line) {
         line = line.trim();
-        if (line.startsWith("-$")) {
-            String prefix = line.substring(2).trim();
-            return redactPrefix(prefix);
-        } else if (line.startsWith("-")) {
-            String pattern = line.substring(1).trim();
-            boolean isRegex = pattern.startsWith("/") && pattern.endsWith("/");
-            if (isRegex) {
-                pattern = pattern.substring(1, pattern.length() - 1);
-            }
-            return redact(pattern, isRegex);
+
+        if (line.startsWith("-")) {
+            String[] processed = processPattern(line.substring(1));
+            return redact(processed[0], Boolean.parseBoolean(processed[1]));
+
         } else if (line.startsWith("+")) {
-            String pattern = line.substring(1).trim();
-            boolean isRegex = pattern.startsWith("/") && pattern.endsWith("/");
-            if (isRegex) {
-                pattern = pattern.substring(1, pattern.length() - 1);
-            }
-            return keep(pattern, isRegex);
+            String[] processed = processPattern(line.substring(1));
+            return keep(processed[0], Boolean.parseBoolean(processed[1]));
+
         } else if (line.startsWith("!")) {
             String rest = line.substring(1).trim();
             int spaceIdx = rest.indexOf(' ');
             if (spaceIdx < 0) {
                 throw new IllegalArgumentException("Replace rule must have format: ! pattern replacement");
             }
-            String pattern = rest.substring(0, spaceIdx).trim();
+
+            String patternPart = rest.substring(0, spaceIdx);
             String replacement = rest.substring(spaceIdx + 1).trim();
-            boolean isRegex = pattern.startsWith("/") && pattern.endsWith("/");
-            if (isRegex) {
-                pattern = pattern.substring(1, pattern.length() - 1);
-            }
-            return replace(pattern, replacement, isRegex);
+            String[] processed = processPattern(patternPart);
+
+            return replace(processed[0], replacement, Boolean.parseBoolean(processed[1]));
+
         } else {
             // Unknown line format - return null to ignore
             return null;
@@ -96,10 +108,8 @@ public class WordRedactionRule {
             return "- " + patternStr;
         } else if (type == RuleType.KEEP) {
             return "+ " + patternStr;
-        } else if (type == RuleType.REPLACE) {
-            return "! " + patternStr + " " + replacement;
         } else {
-            return "-$ " + pattern;
+            return "! " + patternStr + " " + replacement;
         }
     }
     public String toString() {

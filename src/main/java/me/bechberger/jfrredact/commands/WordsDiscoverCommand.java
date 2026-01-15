@@ -22,16 +22,16 @@ import java.util.concurrent.Callable;
         "Examples:",
         "",
         "  Discover words from JFR file and save to file:",
-        "    jfr-redact words discover recording.jfr -o words.txt",
+        "    jfr-redact words discover recording.jfr words.txt",
         "",
         "  Discover words from text file:",
-        "    jfr-redact words discover application.log -o words.txt",
+        "    jfr-redact words discover application.log words.txt",
         "",
         "  Include method and class names (normally ignored):",
-        "    jfr-redact words discover recording.jfr --ignore-methods=false --ignore-classes=false",
+        "    jfr-redact words discover recording.jfr words.txt --ignore-methods=false --ignore-classes=false",
         "",
         "  Ignore specific event types:",
-        "    jfr-redact words discover recording.jfr --ignore-events=jdk.GarbageCollection,jdk.ThreadSleep"
+        "    jfr-redact words discover recording.jfr words.txt --ignore-events=jdk.GarbageCollection,jdk.ThreadSleep"
     }
 )
 public class WordsDiscoverCommand implements Callable<Integer> {
@@ -42,9 +42,9 @@ public class WordsDiscoverCommand implements Callable<Integer> {
     )
     private Path inputFile;
 
-    @CommandLine.Option(
-        names = {"-o", "--output"},
-        description = "Output file for discovered words (default: stdout)"
+    @CommandLine.Parameters(
+        index = "1",
+        description = "Output file for discovered words"
     )
     private Path outputFile;
 
@@ -140,21 +140,14 @@ public class WordsDiscoverCommand implements Callable<Integer> {
     }
 
     private static void writeOutput(WordDiscovery discovery, Path outputFile, PrintWriter out, PrintWriter err) throws Exception {
-        if (outputFile != null) {
-            try (PrintWriter fileOut = new PrintWriter(outputFile.toFile())) {
-                for (String word : discovery.getDiscoveredWords()) {
-                    fileOut.println(word);
-                }
-            }
-            err.println();
-            err.println("Successfully wrote " + discovery.getDiscoveredWords().size() + " words to:");
-            err.println("  " + outputFile.toAbsolutePath());
-            err.flush();
-        } else {
+        try (PrintWriter fileOut = new PrintWriter(outputFile.toFile())) {
             for (String word : discovery.getDiscoveredWords()) {
-                out.println(word);
+                fileOut.println(word);
             }
-            out.flush();
         }
+        err.println();
+        err.println("Successfully wrote " + discovery.getDiscoveredWords().size() + " words to:");
+        err.println("  " + outputFile.toAbsolutePath());
+        err.flush();
     }
 }

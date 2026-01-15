@@ -75,11 +75,11 @@ class PropertyBasedDiscoveryIntegrationTest {
             recording.start();
 
             UserEvent event1 = new UserEvent();
-            event1.userName = "i560383";
+            event1.userName = "i345345";
             event1.commit();
 
             UserEvent event2 = new UserEvent();
-            event2.userName = "i560383";  // Same user again
+            event2.userName = "i345345";  // Same user again
             event2.commit();
 
             UserEvent event3 = new UserEvent();
@@ -126,11 +126,11 @@ class PropertyBasedDiscoveryIntegrationTest {
 
         // Verify both usernames were discovered
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
-            .contains("i560383", "john.doe");
+            .contains("i345345", "john.doe");
 
-        assertEquals(2, patterns.get("i560383").getOccurrences());
+        assertEquals(2, patterns.get("i345345").getOccurrences());
         assertEquals(1, patterns.get("john.doe").getOccurrences());
-        assertEquals(DiscoveredPatterns.PatternType.USERNAME, patterns.get("i560383").getType());
+        assertEquals(DiscoveredPatterns.PatternType.USERNAME, patterns.get("i345345").getType());
     }
 
     @Test
@@ -455,12 +455,12 @@ class PropertyBasedDiscoveryIntegrationTest {
 
             KeyValueEvent event1 = new KeyValueEvent();
             event1.key = "user.name";
-            event1.value = "i560383";
+            event1.value = "i345345";
             event1.commit();
 
             KeyValueEvent event2 = new KeyValueEvent();
             event2.key = "user.name";
-            event2.value = "i560383";  // Same value
+            event2.value = "i345345";  // Same value
             event2.commit();
 
             KeyValueEvent event3 = new KeyValueEvent();
@@ -513,12 +513,12 @@ class PropertyBasedDiscoveryIntegrationTest {
 
         // Verify usernames were discovered from key-value pairs
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
-            .contains("i560383", "john.doe");
+            .contains("i345345", "john.doe");
         assertThat(patterns.getValues(1)).extracting(DiscoveredPatterns.DiscoveredValue::getValue)
             .doesNotContain("server01");
 
-        assertEquals(2, patterns.get("i560383").getOccurrences());
+        assertEquals(2, patterns.get("i345345").getOccurrences());
         assertEquals(1, patterns.get("john.doe").getOccurrences());
-        assertEquals(DiscoveredPatterns.PatternType.USERNAME, patterns.get("i560383").getType());
+        assertEquals(DiscoveredPatterns.PatternType.USERNAME, patterns.get("i345345").getType());
     }
 }

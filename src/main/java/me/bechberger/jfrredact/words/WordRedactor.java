@@ -17,7 +17,7 @@ public class WordRedactor {
     private static final Logger logger = LoggerFactory.getLogger(WordRedactor.class);
 
     // Pattern for valid words: alphanumeric, underscore, dash, plus, slash
-    private static final Pattern WORD_PATTERN = Pattern.compile("[a-zA-Z0-9_\\-+/]+");
+    private static final Pattern WORD_PATTERN = WordDiscovery.WORD_PATTERN;
     private static final Pattern HAS_LETTER = Pattern.compile(".*[a-zA-Z].*");
 
     private final List<WordRedactionRule> rules;
@@ -68,16 +68,14 @@ public class WordRedactor {
             String word = matcher.group();
 
             // Only process words that contain at least one letter
-            if (HAS_LETTER.matcher(word).matches()) {
-                // Append text before the word
-                result.append(text, lastEnd, matcher.start());
+            // Append text before the word
+            result.append(text, lastEnd, matcher.start());
 
-                // Apply rules to the word
-                String redactedWord = applyRulesToWord(word);
-                result.append(redactedWord);
+            // Apply rules to the word
+            String redactedWord = applyRulesToWord(word);
+            result.append(redactedWord);
 
-                lastEnd = matcher.end();
-            }
+            lastEnd = matcher.end();
         }
 
         // Append remaining text
@@ -130,12 +128,6 @@ public class WordRedactor {
             case REPLACE:
                 if (rule.matches(value)) {
                     return rule.getReplacement();
-                }
-                break;
-
-            case REDACT_PREFIX:
-                if (value.startsWith(rule.getPattern())) {
-                    return "***";
                 }
                 break;
         }
@@ -194,12 +186,6 @@ public class WordRedactor {
                     return rule.getReplacement();
                 }
                 break;
-
-            case REDACT_PREFIX:
-                if (value.startsWith(rule.getPattern())) {
-                    return "***";
-                }
-                break;
         }
 
         return value;
@@ -217,8 +203,8 @@ public class WordRedactor {
             .filter(v -> !v.equals("***"))
             .count();
 
-        return String.format("Processed %d unique values: %d redacted, %d replaced, %d kept",
-            redactionCache.size(), redacted, replaced,
+        return String.format("Processed %d unique values: %d redacted, %d kept",
+            redactionCache.size(), redacted,
             redactionCache.size() - redacted - replaced);
     }
 }

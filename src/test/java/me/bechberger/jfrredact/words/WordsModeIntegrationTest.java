@@ -53,7 +53,7 @@ class WordsModeIntegrationTest {
             WordRedactionRule.redact("jane_smith", false),
             WordRedactionRule.redact(".*/john_doe/.*", true),  // Match paths containing john_doe
             WordRedactionRule.redact(".*/jane_smith/.*", true), // Match paths containing jane_smith
-            WordRedactionRule.redactPrefix("secret_")
+            WordRedactionRule.parse("- secret_*")
         );
         WordRedactor redactor = new WordRedactor(rules);
         Path outputFile = tempDir.resolve("output.log");
@@ -122,21 +122,21 @@ class WordsModeIntegrationTest {
         Path inputFile = TextFileBuilder.create()
             .outputTo(tempDir.resolve("application.log"))
             .withLines(
-                "2024-01-01 10:00:00 User i560383 logged in",
+                "2024-01-01 10:00:00 User i345345 logged in",
                 "2024-01-01 10:01:00 Database: db-server-01 customer_db",
                 "2024-01-01 10:02:00 Cache hit on cache-01",
                 "2024-01-01 10:03:00 Admin performed backup",
-                "2024-01-01 10:04:00 User i560383 logged out"
+                "2024-01-01 10:04:00 User i345345 logged out"
             )
             .build();
         WordDiscovery discovery = new WordDiscovery();
         Files.readAllLines(inputFile).forEach(discovery::analyzeText);
         Set<String> discovered = discovery.getDiscoveredWords();
-        assertThat(discovered).contains("i560383", "db-server-01");
+        assertThat(discovered).contains("i345345", "db-server-01");
         List<WordRedactionRule> rules = List.of(
             WordRedactionRule.keep("Admin", false),
             WordRedactionRule.keep("customer_db", false),
-            WordRedactionRule.redact("i560383", false),
+            WordRedactionRule.redact("i345345", false),
             WordRedactionRule.replace("db-server-01", "DB_SERVER", false),
             WordRedactionRule.replace("cache-01", "CACHE_SERVER", false)
         );
@@ -149,7 +149,7 @@ class WordsModeIntegrationTest {
         String redactedContent = Files.readString(outputFile);
 
         // Verify redactions happened
-        assertThat(redactedContent).doesNotContain("i560383"); // User ID redacted
+        assertThat(redactedContent).doesNotContain("i345345"); // User ID redacted
         assertThat(redactedContent).contains("***", "Admin", "customer_db", "DB_SERVER", "CACHE_SERVER");
     }
 
@@ -171,27 +171,5 @@ class WordsModeIntegrationTest {
         Files.readAllLines(inputFile).forEach(redactor::redactText);
         String stats = redactor.getStatistics();
         assertThat(stats).contains("unique");
-    }
-
-    @Test
-    void testPrefixRedaction() throws Exception {
-        Path inputFile = TextFileBuilder.create()
-            .outputTo(tempDir.resolve("input.txt"))
-            .withLines(
-                "secret_api_key found",
-                "secret_password is here",
-                "public_key is safe"
-            )
-            .build();
-        List<WordRedactionRule> rules = List.of(
-            WordRedactionRule.redactPrefix("secret_")
-        );
-        WordRedactor redactor = new WordRedactor(rules);
-        List<String> output = Files.readAllLines(inputFile).stream()
-            .map(redactor::redactText)
-            .toList();
-        assertThat(output.get(0)).contains("***");
-        assertThat(output.get(1)).contains("***");
-        assertThat(output.get(2)).contains("public_key");
     }
 }

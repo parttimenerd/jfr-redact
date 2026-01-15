@@ -73,7 +73,7 @@ public class GlobMatcher {
      * @param glob The glob pattern
      * @return The equivalent regex pattern
      */
-    private static String globToRegex(String glob) {
+    public static String globToRegex(String glob) {
         StringBuilder regex = new StringBuilder("^");
 
         for (int i = 0; i < glob.length(); i++) {

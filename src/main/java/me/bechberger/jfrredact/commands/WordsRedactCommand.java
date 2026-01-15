@@ -27,9 +27,12 @@ import java.util.concurrent.Callable;
         "  - prefix*           Redact all words starting with 'prefix'",
         "  - *suffix           Redact all words ending with 'suffix'",
         "  - *contains*        Redact all words containing 'contains'",
+        "  - *any*glob*        Redact all words matching the '.*any.*glob.*' pattern with globs",
+        "  - /regex/           Redact all words matching the given regex pattern",
+        "  ! pattern repl      Replace the redaction pattern with 'repl' instead of ***",
         "  # comment           Comment line (ignored)",
         "  (empty lines)       Ignored",
-        "  other lines         Ignored (no - or + prefix)",
+        "  other lines         Ignored (no -, +, or ! prefix)",
         "",
         "Examples:",
         "",
@@ -49,7 +52,9 @@ import java.util.concurrent.Callable;
         "    ",
         "    # Keep safe words (whitelist)",
         "    + localhost",
-        "    + example.com"
+        "    + example.com",
+        "    # Ignore everything else",
+        "    nonlocalhost.corp.com"
     }
 )
 public class WordsRedactCommand implements Callable<Integer> {

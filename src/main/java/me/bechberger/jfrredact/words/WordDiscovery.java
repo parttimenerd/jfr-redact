@@ -10,16 +10,16 @@ import java.util.regex.Pattern;
 
 /**
  * Discovers distinct words/strings in JFR events
- * Pattern: [:alnum:_-+/]+ (must contain at least one letter)
+ * Pattern: [:alnum:_-+/]+ (must contain at least two letters)
  */
 public class WordDiscovery {
 
     private static final Logger logger = LoggerFactory.getLogger(WordDiscovery.class);
 
     // Pattern for valid words: alphanumeric, underscore, dash, plus, slash
-    // Must contain at least one letter
-    private static final Pattern WORD_PATTERN = Pattern.compile("[a-zA-Z0-9_\\-+/]+");
-    private static final Pattern HAS_LETTER = Pattern.compile(".*[a-zA-Z].*");
+    // Must contain at least two letters
+    static final Pattern WORD_PATTERN = Pattern.compile("[a-zA-Z0-9_\\-+/]+(\\.[a-zA-Z0-9-+/]+)*");
+    private static final Pattern HAS_LETTERS = Pattern.compile(".*[a-zA-Z].*");
     // Pattern to detect hexadecimal values (0x followed by hex digits)
     private static final Pattern HEX_PATTERN = Pattern.compile("^0[xX][0-9a-fA-F]+$");
 
@@ -111,8 +111,8 @@ public class WordDiscovery {
         while (matcher.find()) {
             String word = matcher.group();
 
-            // Must contain at least one letter
-            if (!HAS_LETTER.matcher(word).matches()) {
+            // Must contain at least two letters
+            if (!HAS_LETTERS.matcher(word).matches()) {
                 continue;
             }
 

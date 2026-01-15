@@ -57,7 +57,7 @@ class WordRedactorTextTest {
     @Test
     void testRedactTextWithPaths() {
         List<WordRedactionRule> rules = List.of(
-            WordRedactionRule.redact("/Users/john/document", false)  // Note: dots are not in word pattern
+            WordRedactionRule.redact("/Users/john/document.txt", false)  // Note: dots are not in word pattern
         );
 
         WordRedactor redactor = new WordRedactor(rules);
@@ -65,7 +65,7 @@ class WordRedactorTextTest {
         String text = "File: /Users/john/document.txt";
         String redacted = redactor.redactText(text);
 
-        assertEquals("File: ***.txt", redacted);
+        assertEquals("File: ***", redacted);
     }
 
     @Test
@@ -114,7 +114,7 @@ class WordRedactorTextTest {
     @Test
     void testRedactTextWithPrefix() {
         List<WordRedactionRule> rules = List.of(
-            WordRedactionRule.redactPrefix("secret")
+            WordRedactionRule.parse("- secret*")
         );
 
         WordRedactor redactor = new WordRedactor(rules);
@@ -137,7 +137,7 @@ class WordRedactorTextTest {
         String redacted = redactor.redactText(text);
 
         // Numbers-only words are not redacted (must contain letters)
-        assertEquals("Port: 12345, Code: 12345", redacted);
+        assertEquals("Port: ***, Code: ***", redacted);
     }
 
     @Test
@@ -201,7 +201,7 @@ class WordRedactorTextTest {
     void testRedactTextComplexLine() {
         List<WordRedactionRule> rules = List.of(
             WordRedactionRule.redact("john_doe", false),
-            WordRedactionRule.redactPrefix("secret_")
+            WordRedactionRule.parse("- secret_*")
         );
 
         WordRedactor redactor = new WordRedactor(rules);

@@ -62,7 +62,7 @@ That's it! The tool will automatically redact:
   - Configurable minimum occurrences and whitelists to reduce false positives
   - Use `--discovery-mode=fast` for single-pass (faster), `--discovery-mode=default` for two-pass (more thorough)
 - **Words Mode**: Discover and redact specific words/identifiers
-  - Discover all distinct words in a file: `jfr-redact words discover recording.jfr`
+  - Discover all distinct words in a file: `jfr-redact words discover recording.jfr words.txt`
   - Create rules to keep or redact specific words
   - Apply rules: `jfr-redact words redact app.log redacted.log -r rules.txt`
 - **Network Redaction**: Redact ports and addresses from SocketRead/SocketWrite events
@@ -170,7 +170,7 @@ Discover and redact specific words/identifiers manually.
 
 ```bash
 # Discover all distinct words in a file
-java -jar jfr-redact.jar words discover recording.jfr -o words.txt
+java -jar jfr-redact.jar words discover recording.jfr words.txt
 
 # Review words.txt and mark sensitive words with '-' prefix:
 #   - secretpassword
@@ -563,11 +563,12 @@ Commands:
 ```
 Usage: jfr-redact words discover [-hV] [--ignore-classes] [--ignore-methods]
                                  [--ignore-modules] [--ignore-packages]
-                                 [-o=<outputFile>]
                                  [--ignore-events=<ignoreEventTypes>[,
                                  <ignoreEventTypes>...]]... <inputFile>
+                                 <outputFile>
 Discover all distinct strings in JFR events or text files
       <inputFile>         Input JFR file or text file to analyze
+      <outputFile>        Output file for discovered words
   -h, --help              Show this help message and exit.
       --ignore-classes    Ignore class names (default: true)
       --ignore-events=<ignoreEventTypes>[,<ignoreEventTypes>...]
@@ -575,25 +576,21 @@ Discover all distinct strings in JFR events or text files
       --ignore-methods    Ignore method names (default: true)
       --ignore-modules    Ignore module names (default: true)
       --ignore-packages   Ignore package names (default: true)
-  -o, --output=<outputFile>
-                          Output file for discovered words (default: stdout)
   -V, --version           Print version information and exit.
 
 Examples:
 
   Discover words from JFR file and save to file:
-    jfr-redact words discover recording.jfr -o words.txt
+    jfr-redact words discover recording.jfr words.txt
 
   Discover words from text file:
-    jfr-redact words discover application.log -o words.txt
+    jfr-redact words discover application.log words.txt
 
   Include method and class names (normally ignored):
-    jfr-redact words discover recording.jfr --ignore-methods=false
---ignore-classes=false
+    jfr-redact words discover recording.jfr words.txt --ignore-methods=false --ignore-classes=false
 
   Ignore specific event types:
-    jfr-redact words discover recording.jfr --ignore-events=jdk.
-GarbageCollection,jdk.ThreadSleep
+    jfr-redact words discover recording.jfr words.txt --ignore-events=jdk.GarbageCollection,jdk.ThreadSleep
 ```
 <!-- END help_words_discover -->
 
