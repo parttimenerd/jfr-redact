@@ -101,7 +101,7 @@ Use jfr-redact as a library to programmatically redact JFR files in your own app
 <dependency>
   <groupId>me.bechberger</groupId>
   <artifactId>jfr-redact</artifactId>
-  <version>0.1.2</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
@@ -210,9 +210,9 @@ If you need to redact the combined file, run the `redact` command on the output 
 <!-- BEGIN help_redact -->
 ```
 Usage: jfr-redact redact [-hiqvV] [--debug] [--dry-run] [--pseudonymize]
-                         [--stats] [--config=<file|url>]
+                         [--stats] [--config=<preset|file|url>]
                          [--decisions-file=<file>] [--discovery-mode=<mode>]
-                         [--min-occurrences=<count>] [--preset=<preset>]
+                         [--min-occurrences=<count>]
                          [--pseudonymize-mode=<mode>] [--seed=<seed>]
                          [--add-redaction-regex=<pattern>]...
                          [--exclude-categories=<filter>]...
@@ -221,102 +221,103 @@ Usage: jfr-redact redact [-hiqvV] [--debug] [--dry-run] [--pseudonymize]
                          [--include-categories=<filter>]...
                          [--include-events=<filter>]...
                          [--include-threads=<filter>]...
-                         [--remove-event=<type>]... <input.jfr> [<output.jfr>]
+                         [--remove-event=<type>]... <input-file> [<output-file>]
 Redact sensitive information from Java Flight Recorder (JFR) recordings
-      <input.jfr>           Input JFR file to redact
-      [<output.jfr>]        Output JFR file with redacted data (default:
-                              <input>.redacted.jfr)
+      <input-file>      Input file to redact
+      [<output-file>]   Output file with redacted data (default: auto-generated)
       --add-redaction-regex=<pattern>
-                            Add a custom regular expression pattern for string
-                              redaction. This option can be specified multiple
-                              times to add multiple patterns. Patterns are
-                              applied to string fields in events.
-      --config=<file|url>   Load configuration from a YAML file or URL
-      --debug               Enable debug output (DEBUG level logging)
+                        Add a custom regular expression pattern for string
+                          redaction. This option can be specified multiple
+                          times to add multiple patterns.
+      --config=<preset|file|url>
+                        Load configuration from a preset name (default, strict,
+                          hserr), YAML file, or URL. If not specified, uses the
+                          default preset. You can also create a config file
+                          that inherits from a preset using 'parent:
+                          <preset-name>'.
+      --debug           Enable debug output (DEBUG level logging)
       --decisions-file=<file>
-                            Path to file for storing interactive decisions
-                              (default: <input>.decisions.yaml)
+                        Path to file for storing interactive decisions
+                          (default: <input>.decisions.yaml)
       --discovery-mode=<mode>
-                            Pattern discovery mode. Valid values: none (no
-                              discovery, single-pass), fast (on-the-fly
-                              discovery), default (two-pass, reads file twice
-                              for complete discovery). Default: default
-                              (two-pass). Note: Per-pattern discovery is
-                              configured in the config file via
-                              enable_discovery.
-      --dry-run             Process the file without writing output, useful for
-                              testing configuration with --stats
+                        Pattern discovery mode. Valid values: none (no
+                          discovery, single-pass), fast (on-the-fly discovery),
+                          default (two-pass, reads file twice for complete
+                          discovery). Default: default (two-pass). Note:
+                          Per-pattern discovery is configured in the config
+                          file via enable_discovery.
+      --dry-run         Process the file without writing output, useful for
+                          testing configuration with --stats
       --exclude-categories=<filter>
-                            Exclude events matching a category name
-                              (comma-separated list, supports glob patterns).
-                              Similar to jfr scrub --exclude-categories.
+                        Exclude events matching a category name
+                          (comma-separated list, supports glob patterns).
+                          Similar to jfr scrub --exclude-categories.
       --exclude-events=<filter>
-                            Exclude events matching an event name
-                              (comma-separated list, supports glob patterns).
-                              Similar to jfr scrub --exclude-events.
+                        Exclude events matching an event name (comma-separated
+                          list, supports glob patterns). Similar to jfr scrub
+                          --exclude-events.
       --exclude-threads=<filter>
-                            Exclude events matching a thread name
-                              (comma-separated list, supports glob patterns).
-                              Similar to jfr scrub --exclude-threads.
-  -h, --help                Show this help message and exit.
-  -i, --interactive         Enable interactive mode. Prompts for decisions
-                              about discovered usernames, hostnames, folders,
-                              and custom patterns. Decisions are saved to a
-                              file for future automatic use. Note: Ignores the
-                              'ignore' list from config in interactive mode.
+                        Exclude events matching a thread name (comma-separated
+                          list, supports glob patterns). Similar to jfr scrub
+                          --exclude-threads.
+  -h, --help            Show this help message and exit.
+  -i, --interactive     Enable interactive mode. Prompts for decisions about
+                          discovered usernames, hostnames, folders, and custom
+                          patterns. Decisions are saved to a file for future
+                          automatic use. Note: Ignores the 'ignore' list from
+                          config in interactive mode.
       --include-categories=<filter>
-                            Select events matching a category name
-                              (comma-separated list, supports glob patterns).
-                              Similar to jfr scrub --include-categories.
+                        Select events matching a category name (comma-separated
+                          list, supports glob patterns). Similar to jfr scrub
+                          --include-categories.
       --include-events=<filter>
-                            Select events matching an event name
-                              (comma-separated list, supports glob patterns).
-                              Similar to jfr scrub --include-events.
+                        Select events matching an event name (comma-separated
+                          list, supports glob patterns). Similar to jfr scrub
+                          --include-events.
       --include-threads=<filter>
-                            Select events matching a thread name
-                              (comma-separated list, supports glob patterns).
-                              Similar to jfr scrub --include-threads.
+                        Select events matching a thread name (comma-separated
+                          list, supports glob patterns). Similar to jfr scrub
+                          --include-threads.
       --min-occurrences=<count>
-                            Minimum occurrences required to redact a discovered
-                              value (prevents false positives, default: 1)
-      --preset=<preset>     Use a predefined configuration preset. Valid
-                              values: default, strict, hserr (default: default)
-      --pseudonymize        Enable pseudonymization mode. When enabled, the
-                              same sensitive value always maps to the same
-                              pseudonym (e.g., &lt;redacted:a1b2c3&gt;),
-                              preserving relationships across events. Without
-                              this flag, all values are redacted to ***.
+                        Minimum occurrences required to redact a discovered
+                          value (prevents false positives, default: 1)
+      --pseudonymize    Enable pseudonymization mode. When enabled, the same
+                          sensitive value always maps to the same pseudonym (e.
+                          g., <redacted:a1b2c3>), preserving relationships.
+                          Without this flag, all values are redacted to ***.
       --pseudonymize-mode=<mode>
-                            Pseudonymization mode (requires --pseudonymize).
-                              Valid values: hash (default, stateless
-                              deterministic), counter (sequential numbers),
-                              realistic (plausible alternatives like
-                              alice@example.com)
-  -q, --quiet               Minimize output (only show errors and completion
-                              message)
-      --remove-event=<type> Remove an additional event type from the output.
-                              This option can be specified multiple times to
-                              remove multiple event types.
-      --seed=<seed>         Seed for reproducible pseudonymization (only with
-                              --pseudonymize)
-      --stats               Show statistics after redaction (events processed,
-                              removed, redactions applied)
-  -v, --verbose             Enable verbose output (INFO level logging)
-  -V, --version             Print version information and exit.
+                        Pseudonymization mode (requires --pseudonymize). Valid
+                          values: hash (default, stateless deterministic),
+                          counter (sequential numbers), realistic (plausible
+                          alternatives like alice@example.com)
+  -q, --quiet           Minimize output (only show errors and completion
+                          message)
+      --remove-event=<type>
+                        Remove an additional event type from the output. This
+                          option can be specified multiple times to remove
+                          multiple event types.
+      --seed=<seed>     Seed for reproducible pseudonymization (only with
+                          --pseudonymize)
+      --stats           Show statistics after redaction
+  -v, --verbose         Enable verbose output (INFO level logging)
+  -V, --version         Print version information and exit.
 
 Examples:
 
-  Simple redaction with default preset:
+  Simple redaction with default config:
     jfr-redact redact recording.jfr
-    (creates recording.redacted.jfr)
+    (creates recording.redacted.jfr using default preset)
 
   Specify output file:
     jfr-redact redact recording.jfr output.jfr
 
-  Strict preset with pseudonymization:
-    jfr-redact redact recording.jfr --preset strict --pseudonymize
+  Use strict preset:
+    jfr-redact redact recording.jfr --config strict
 
-  Custom config with additional event removal:
+  Use strict preset with pseudonymization:
+    jfr-redact redact recording.jfr --config strict --pseudonymize
+
+  Custom config file with additional event removal:
     jfr-redact redact recording.jfr --config my-config.yaml --remove-event jdk.
 CustomEvent
 
@@ -333,57 +334,57 @@ CustomEvent
 <!-- BEGIN help_redact_text -->
 ```
 Usage: jfr-redact redact-text [-hqvV] [--debug] [--pseudonymize] [--stats]
-                              [--config=<file|url>] [--preset=<preset>]
+                              [--config=<preset|file|url>]
                               [--pseudonymize-mode=<mode>] [--seed=<seed>]
                               [--add-redaction-regex=<pattern>]... <input-file>
                               [<output-file>]
 Redact sensitive information from text files, especially hserr files, but also
 logs, configuration files, etc.
-      <input-file>          Input text file to redact
-      [<output-file>]       Output file with redacted data (default: <input>.
-                              redacted.<ext>)
+      <input-file>      Input file to redact
+      [<output-file>]   Output file with redacted data (default: auto-generated)
       --add-redaction-regex=<pattern>
-                            Add a custom regular expression pattern for string
-                              redaction. This option can be specified multiple
-                              times to add multiple patterns.
-      --config=<file|url>   Load configuration from a YAML file or URL
-      --debug               Enable debug output (DEBUG level logging)
-  -h, --help                Show this help message and exit.
-      --preset=<preset>     Use a predefined configuration preset. Valid
-                              values: default, strict, hserr (default: hserr)
-      --pseudonymize        Enable pseudonymization mode. When enabled, the
-                              same sensitive value always maps to the same
-                              pseudonym (e.g., &lt;redacted:a1b2c3&gt;),
-                              preserving relationships across lines. Without
-                              this flag, all values are redacted to ***.
+                        Add a custom regular expression pattern for string
+                          redaction. This option can be specified multiple
+                          times to add multiple patterns.
+      --config=<preset|file|url>
+                        Load configuration from a preset name (default, strict,
+                          hserr), YAML file, or URL. If not specified, uses the
+                          default preset. You can also create a config file
+                          that inherits from a preset using 'parent:
+                          <preset-name>'.
+      --debug           Enable debug output (DEBUG level logging)
+  -h, --help            Show this help message and exit.
+      --pseudonymize    Enable pseudonymization mode. When enabled, the same
+                          sensitive value always maps to the same pseudonym (e.
+                          g., <redacted:a1b2c3>), preserving relationships.
+                          Without this flag, all values are redacted to ***.
       --pseudonymize-mode=<mode>
-                            Pseudonymization mode (requires --pseudonymize).
-                              Valid values: hash (default, stateless
-                              deterministic), counter (sequential numbers),
-                              realistic (plausible alternatives like
-                              alice@example.com)
-  -q, --quiet               Minimize output (only show errors and completion
-                              message)
-      --seed=<seed>         Seed for reproducible pseudonymization (only with
-                              --pseudonymize)
-      --stats               Show statistics after redaction
-  -v, --verbose             Enable verbose output (INFO level logging)
-  -V, --version             Print version information and exit.
+                        Pseudonymization mode (requires --pseudonymize). Valid
+                          values: hash (default, stateless deterministic),
+                          counter (sequential numbers), realistic (plausible
+                          alternatives like alice@example.com)
+  -q, --quiet           Minimize output (only show errors and completion
+                          message)
+      --seed=<seed>     Seed for reproducible pseudonymization (only with
+                          --pseudonymize)
+      --stats           Show statistics after redaction
+  -v, --verbose         Enable verbose output (INFO level logging)
+  -V, --version         Print version information and exit.
 
 Examples:
 
-  Redact a log file with default preset:
+  Redact a log file with default config (hserr preset):
     jfr-redact redact-text application.log
     (creates application.redacted.log)
 
-  Use hserr preset for Java crash reports:
+  Redact Java crash reports (uses hserr preset by default):
     jfr-redact redact-text hs_err_pid12345.log
 
   Read from stdin, write to stdout:
     cat hs_err_pid12345.log | jfr-redact redact-text - -
 
   Use strict preset:
-    jfr-redact redact-text application.log --preset strict
+    jfr-redact redact-text app.log --config strict
 
   Custom config with pseudonymization:
     jfr-redact redact-text app.log --config my-config.yaml --pseudonymize
@@ -401,19 +402,20 @@ Examples:
 <!-- BEGIN help_generate_config -->
 ```
 Usage: jfr-redact generate-config [-hqvV] [--debug] [--minimal] [-o=<file>]
-                                  [--preset=<preset>] [<output.yaml>]
+                                  [<preset|output.yaml>]
 Generate a configuration template for JFR redaction
-      [<output.yaml>]     Output file for the configuration (default: stdout)
-      --debug             Enable debug output (DEBUG level logging)
-  -h, --help              Show this help message and exit.
-      --minimal           Generate minimal configuration template
-  -o, --output=<file>     Output file for the configuration
-      --preset=<preset>   Base the configuration on a preset. Valid values:
-                            default, strict, hserr
-  -q, --quiet             Minimize output (only show errors and completion
-                            message)
-  -v, --verbose           Enable verbose output (INFO level logging)
-  -V, --version           Print version information and exit.
+      [<preset|output.yaml>]
+                        Preset name to generate config from (default, strict,
+                          hserr), or output file path. If not specified or is a
+                          preset name, generates full template.
+      --debug           Enable debug output (DEBUG level logging)
+  -h, --help            Show this help message and exit.
+      --minimal         Generate minimal configuration template
+  -o, --output=<file>   Output file for the configuration
+  -q, --quiet           Minimize output (only show errors and completion
+                          message)
+  -v, --verbose         Enable verbose output (INFO level logging)
+  -V, --version         Print version information and exit.
 
 Examples:
 
@@ -423,11 +425,16 @@ Examples:
   Generate template to file:
     jfr-redact generate-config -o my-config.yaml
 
-  Generate from preset:
-    jfr-redact generate-config --preset strict -o my-config.yaml
+  Generate config from a preset (default, strict, or hserr):
+    jfr-redact generate-config default -o my-config.yaml
+    jfr-redact generate-config strict -o strict.yaml
 
   Generate minimal config:
     jfr-redact generate-config --minimal -o minimal-config.yaml
+
+  Quick way to use a preset:
+    echo 'parent: strict' > strict.yaml
+    jfr-redact redact recording.jfr --config strict.yaml
 ```
 <!-- END help_generate_config -->
 
@@ -438,34 +445,37 @@ Examples:
 
 <!-- BEGIN help_test -->
 ```
-Usage: jfr-redact test [-hqvV] [--debug] [--pseudonymize] [--config=<file|url>]
-                       [--event=<type>] [--preset=<preset>] [--property=<name>]
-                       [--pseudonymize-mode=<mode>] [--seed=<seed>]
-                       [--thread=<name>] [--value=<value>]
+Usage: jfr-redact test [-hqvV] [--debug] [--pseudonymize]
+                       [--config=<preset|file|url>] [--event=<type>]
+                       [--property=<name>] [--pseudonymize-mode=<mode>]
+                       [--seed=<seed>] [--thread=<name>] [--value=<value>]
 Test configuration by showing how specific values would be redacted
 Also validates configuration when run without test values
-      --config=<file|url>   Load configuration from a YAML file or URL
-      --debug               Enable debug output (DEBUG level logging)
-      --event=<type>        Event type to test (e.g., jdk.JavaMonitorEnter)
-  -h, --help                Show this help message and exit.
-      --preset=<preset>     Use a predefined configuration preset. Valid
-                              values: default, strict, hserr (default: default)
-      --property=<name>     Property/field name to test (e.g., address, message)
-      --pseudonymize        Enable pseudonymization mode
+      --config=<preset|file|url>
+                          Load configuration from a preset name (default,
+                            strict, hserr), YAML file, or URL. If not
+                            specified, uses the default preset. You can also
+                            create a config file that inherits from a preset
+                            using 'parent: <preset-name>'.
+      --debug             Enable debug output (DEBUG level logging)
+      --event=<type>      Event type to test (e.g., jdk.JavaMonitorEnter)
+  -h, --help              Show this help message and exit.
+      --property=<name>   Property/field name to test (e.g., address, message)
+      --pseudonymize      Enable pseudonymization mode
       --pseudonymize-mode=<mode>
-                            Pseudonymization mode (requires --pseudonymize).
-                              Valid values: hash (default, stateless
-                              deterministic), counter (sequential numbers),
-                              realistic (plausible alternatives like
-                              alice@example.com)
-  -q, --quiet               Minimize output (only show errors and completion
-                              message)
-      --seed=<seed>         Seed for reproducible pseudonymization (only with
-                              --pseudonymize)
-      --thread=<name>       Thread name to test filtering
-  -v, --verbose             Enable verbose output (INFO level logging)
-  -V, --version             Print version information and exit.
-      --value=<value>       Value to test redaction on
+                          Pseudonymization mode (requires --pseudonymize).
+                            Valid values: hash (default, stateless
+                            deterministic), counter (sequential numbers),
+                            realistic (plausible alternatives like
+                            alice@example.com)
+  -q, --quiet             Minimize output (only show errors and completion
+                            message)
+      --seed=<seed>       Seed for reproducible pseudonymization (only with
+                            --pseudonymize)
+      --thread=<name>     Thread name to test filtering
+  -v, --verbose           Enable verbose output (INFO level logging)
+  -V, --version           Print version information and exit.
+      --value=<value>     Value to test redaction on
 
 Examples:
 
@@ -481,7 +491,7 @@ Examples:
     jfr-redact test --config my-config.yaml --thread 'MyThread-1'
 
   Test string redaction:
-    jfr-redact test --preset strict --value 'user@example.com'
+    jfr-redact test --config strict --value 'user@example.com'
 ```
 <!-- END help_test -->
 
@@ -587,10 +597,12 @@ Examples:
     jfr-redact words discover application.log words.txt
 
   Include method and class names (normally ignored):
-    jfr-redact words discover recording.jfr words.txt --ignore-methods=false --ignore-classes=false
+    jfr-redact words discover recording.jfr words.txt --ignore-methods=false
+--ignore-classes=false
 
   Ignore specific event types:
-    jfr-redact words discover recording.jfr words.txt --ignore-events=jdk.GarbageCollection,jdk.ThreadSleep
+    jfr-redact words discover recording.jfr words.txt --ignore-events=jdk.
+GarbageCollection,jdk.ThreadSleep
 ```
 <!-- END help_words_discover -->
 
@@ -610,9 +622,13 @@ Rule Format (one rule per line):
   - prefix*           Redact all words starting with 'prefix'
   - *suffix           Redact all words ending with 'suffix'
   - *contains*        Redact all words containing 'contains'
+  - *any*glob*        Redact all words matching the '.*any.*glob.*' pattern
+with globs
+  - /regex/           Redact all words matching the given regex pattern
+  ! pattern repl      Replace the redaction pattern with 'repl' instead of ***
   # comment           Comment line (ignored)
   (empty lines)       Ignored
-  other lines         Ignored (no - or + prefix)
+  other lines         Ignored (no -, +, or ! prefix)
 
 Examples:
 
@@ -633,6 +649,8 @@ Examples:
     # Keep safe words (whitelist)
     + localhost
     + example.com
+    # Ignore everything else
+    nonlocalhost.corp.com
 ```
 <!-- END help_words_redact -->
 
