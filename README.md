@@ -59,7 +59,7 @@ That's it! The tool will automatically redact:
 - **Two-Pass Discovery**: Automatically discover sensitive values and redact them everywhere
   - First pass: Extract usernames, hostnames, and other values from patterns (e.g., extract `johndoe` from `/Users/johndoe`)
   - Second pass: Redact discovered values wherever they appear in the file
-  - Configurable minimum occurrences and whitelists to reduce false positives
+  - Configurable minimum occurrences and allowlists to reduce false positives
   - Use `--discovery-mode=fast` for single-pass (faster), `--discovery-mode=default` for two-pass (more thorough)
 - **Words Mode**: Discover and redact specific words/identifiers
   - Discover all distinct words in a file: `jfr-redact words discover recording.jfr words.txt`
@@ -101,7 +101,7 @@ Use jfr-redact as a library to programmatically redact JFR files in your own app
 <dependency>
   <groupId>me.bechberger</groupId>
   <artifactId>jfr-redact</artifactId>
-  <version>0.2.0</version>
+  <version>0.2.1</version>
 </dependency>
 ```
 
@@ -618,7 +618,7 @@ Apply word redaction rules to JFR events or text files
 
 Rule Format (one rule per line):
   - word              Redact this word (replace with ***)
-  + word              Keep this word (whitelist, don't redact)
+  + word              Keep this word (allowlist, don't redact)
   - prefix*           Redact all words starting with 'prefix'
   - *suffix           Redact all words ending with 'suffix'
   - *contains*        Redact all words containing 'contains'
@@ -646,7 +646,7 @@ Examples:
     # Redact all words starting with 'secret'
     - secret*
 
-    # Keep safe words (whitelist)
+    # Keep safe words (allowlist)
     + localhost
     + example.com
     # Ignore everything else
@@ -677,7 +677,7 @@ Configuration
 # Pattern Discovery - Automatically discover and redact sensitive values
 # ============================================================================
 # Discovery mode controls HOW discovery is performed (globally)
-# Per-pattern settings (min_occurrences, case_sensitive, whitelist) are configured
+# Per-pattern settings (min_occurrences, case_sensitive, allowlist) are configured
 # individually for each pattern type under strings.patterns
 discovery:
   mode: default  # Options: none, fast, default (two-pass)
@@ -714,8 +714,8 @@ discovery:
   #   value_pattern: ".*@company\\.com"    # Only extract @company.com emails
   #   type: EMAIL_LOCAL_PART
 
-  # Note: Whitelists are handled by discovery_whitelist in strings.patterns
-  # The property extractor respects the same whitelist as the pattern type
+  # Note: Allowlists are handled by discovery_allowlist in strings.patterns
+  # The property extractor respects the same allowlist as the pattern type
 
   # Custom extraction patterns - define your own patterns to discover
   # These are independent from strings.patterns and can extract any type of value
@@ -729,7 +729,7 @@ discovery:
   #   type: USERNAME           # Categorize as USERNAME (options: USERNAME, HOSTNAME, EMAIL_LOCAL_PART, CUSTOM)
   #   case_sensitive: false    # Treat "Alice", "alice", "ALICE" as same
   #   min_occurrences: 2       # Only redact if appears 2+ times
-  #   whitelist:               # Never redact these usernames
+  #   allowlist:               # Never redact these usernames
   #     - root
   #     - admin
   #     - git
@@ -743,7 +743,7 @@ discovery:
   #   type: USERNAME
   #   case_sensitive: false
   #   min_occurrences: 1
-  #   whitelist:
+  #   allowlist:
   #     - jenkins
   #   enabled: true
 
@@ -755,7 +755,7 @@ discovery:
   #   type: HOSTNAME
   #   case_sensitive: false
   #   min_occurrences: 1
-  #   whitelist:
+  #   allowlist:
   #     - localhost
   #     - example.com
   #   enabled: true
@@ -878,9 +878,9 @@ strings:
         # If false, "Alice", "alice", and "ALICE" are treated as the same value
         case_sensitive: false
 
-        # Whitelist of values that should NEVER be discovered/redacted by this pattern
+        # Allowlist of values that should NEVER be discovered/redacted by this pattern
         # Useful for common/generic usernames
-        whitelist:
+        allowlist:
           - root
           - admin
           - test

@@ -1,5 +1,0 @@
-# TODO
-
-
-fix
-java -jar target/jfr-redact.jar concat ../condensed-data/benchmark/renaissance-all_gc_details_*.jfr -o bla.jfr -i -v
