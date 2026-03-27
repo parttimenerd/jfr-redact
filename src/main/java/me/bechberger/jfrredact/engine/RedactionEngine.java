@@ -316,12 +316,17 @@ public class RedactionEngine {
 
         // Hostname patterns (for hs_err files)
         if (patterns.getHostnames().isEnabled()) {
+            IgnoreLists hostnameIgnore = new IgnoreLists(
+                patterns.getHostnames().getIgnoreExact(),
+                patterns.getHostnames().getIgnore(),
+                patterns.getHostnames().getIgnoreAfter()
+            );
             for (int i = 0; i < patterns.getHostnames().getPatterns().size(); i++) {
                 String regex = patterns.getHostnames().getPatterns().get(i);
-                addPattern(PatternKind.HOSTNAME, "hostname_" + i, regex);
+                String key = "hostname_" + i;
+                addPattern(PatternKind.HOSTNAME, key, regex);
+                ignoreListCache.put(key, hostnameIgnore);
             }
-            // Note: hostnames use getIgnoreExact() for safe hostnames
-            // handled separately in replaceHostnameMatches
         }
 
         // Internal URL patterns
@@ -840,8 +845,8 @@ public class RedactionEngine {
         // Internal URL patterns BEFORE hostnames (URLs may contain hostnames)
         context.checkPattern(PatternKind.INTERNAL_URL, this::replaceMatches);
 
-        // Hostname patterns (with safe hostname filtering)
-        context.checkPattern(PatternKind.HOSTNAME, this::replaceHostnameMatches);
+        // Hostname patterns (uses standard ignore list handling)
+        context.checkPattern(PatternKind.HOSTNAME, this::replaceMatches);
 
         // UUID patterns (less common)
         context.checkPattern(PatternKind.UUID, this::replaceMatches);

@@ -89,6 +89,9 @@ strings:
         - '\b(?:[1-9][0-9]{0,2}\.(?:[0-9]{1,3}\.){2}[0-9]{1,3})\b'
         - '\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b'
       # Ignore compiler version numbers that look like IPs
+      ignore:
+        # Avoid matching C++ scope fragments (e.g. RuntimeStub::new_array_blob)
+        - '[A-Za-z_][A-Za-z0-9_]*::[A-Za-z0-9_]*'
       ignore_after:
         - 'clang-[0-9]*'      # clang version numbers like clang-1403.0.22.14.1
         - 'gcc-[0-9]*'        # gcc version numbers
@@ -104,6 +107,9 @@ strings:
         min_occurrences: 1
         allowlist:
           - localhost
+      ignore:
+        # Avoid redacting module/version-style tokens in stack traces (e.g. java.base@27-internal)
+        - '[a-zA-Z0-9_-]+@[0-9][a-zA-Z0-9-]*'
       patterns:
         - 'ssh://([a-zA-Z0-9.-]+)'
         - '(?:ssh|sftp)://(?:[^@]+@)?([a-zA-Z0-9.-]+)'
@@ -117,6 +123,9 @@ strings:
         enabled: true
         capture_group: 0
         min_occurrences: 1
+      ignore:
+        # Avoid redacting Java package/class/method references in stack traces
+        - '(?:[a-z_][a-z0-9_]*\.)+[A-Z][A-Za-z0-9_$]*(?:\.[a-zA-Z_$][A-Za-z0-9_$]*)*'
       patterns:
         - '(?<=Host:\s)[a-zA-Z0-9][a-zA-Z0-9._-]*'
         - '(?<=Darwin\s)[a-zA-Z][a-zA-Z0-9._-]+(?=\s+\d)'
