@@ -101,7 +101,7 @@ Use jfr-redact as a library to programmatically redact JFR files in your own app
 <dependency>
   <groupId>me.bechberger</groupId>
   <artifactId>jfr-redact</artifactId>
-  <version>0.2.1</version>
+  <version>0.2.2</version>
 </dependency>
 ```
 
