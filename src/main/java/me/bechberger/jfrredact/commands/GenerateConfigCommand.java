@@ -34,7 +34,7 @@ import java.util.concurrent.Callable;
         "  Generate template to file:",
         "    jfr-redact generate-config -o my-config.yaml",
         "",
-        "  Generate config from a preset (default, strict, or hserr):",
+        "  Generate config from a preset (default or strict):",
         "    jfr-redact generate-config default -o my-config.yaml",
         "    jfr-redact generate-config strict -o strict.yaml",
         "",
@@ -54,7 +54,7 @@ public class GenerateConfigCommand implements Callable<Integer> {
 
     @Parameters(
         index = "0",
-        description = "Preset name to generate config from (default, strict, hserr), or output file path. " +
+        description = "Preset name to generate config from (default, strict), or output file path. " +
                      "If not specified or is a preset name, generates full template.",
         paramLabel = "<preset|output.yaml>",
         arity = "0..1"

@@ -1,20 +1,6 @@
 # yaml-language-server: $schema=../../../config-schema.json
-# hs_err preset - optimized for redacting Java crash reports (hs_err_pid*.log)
+# hs_err preset - previously used for Java crash reports (hs_err_pid*.log), but it doesn't work well
 # Version: 1.0.0
-#
-# This preset is specifically designed for JDK developers who need to share
-# hs_err files in bug reports while protecting sensitive information.
-#
-# hs_err files contain:
-# - Hostname and OS information
-# - User home directories and paths
-# - Environment variables (potentially containing secrets)
-# - Command line arguments (may contain passwords/tokens)
-# - Process and system information
-#
-# Usage:
-#   jfr-redact redact-text hs_err_pid12345.log
-#
 parent: default
 
 # Discovery configuration - use fast mode for text files

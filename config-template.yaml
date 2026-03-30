@@ -12,7 +12,7 @@
 #   jfr-redact redact recording.jfr --config strict
 #   jfr-redact redact-text app.log --config default
 #
-# Available presets: default, strict, hserr
+# Available presets: default, strict
 #
 # Or inherit from a preset and override specific options using 'parent':
 #   parent: strict

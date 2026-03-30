@@ -31,9 +31,6 @@ java -jar jfr-redact.jar redact recording.jfr redacted.jfr
 **Redact a Java error log (hs_err_pid*.log):**
 ```bash
 java -jar jfr-redact.jar redact-text hs_err_pid12345.log hs_err_redacted.log
-
-# Use the hserr preset optimized for crash reports:
-java -jar jfr-redact.jar redact-text hs_err_pid12345.log --config hserr
 ```
 
 That's it! The tool will automatically redact:
@@ -152,7 +149,6 @@ not the `redact` command which only works with JFR files.
 
 ```bash
 # Redact a Java error log file (hs_err_pid*.log)
-# Uses the preset hserr by default
 java -jar jfr-redact.jar redact-text hs_err_pid12345.log hs_err_pid12345.redacted.log
 
 # Redact any text file with pseudonymization
@@ -230,8 +226,8 @@ Redact sensitive information from Java Flight Recorder (JFR) recordings
                           redaction. This option can be specified multiple
                           times to add multiple patterns.
       --config=<preset|file|url>
-                        Load configuration from a preset name (default, strict,
-                          hserr), YAML file, or URL. If not specified, uses the
+                        Load configuration from a preset name (default, strict),
+                          YAML file, or URL. If not specified, uses the
                           default preset. You can also create a config file
                           that inherits from a preset using 'parent:
                           <preset-name>'.
@@ -338,8 +334,8 @@ Usage: jfr-redact redact-text [-hqvV] [--debug] [--pseudonymize] [--stats]
                               [--pseudonymize-mode=<mode>] [--seed=<seed>]
                               [--add-redaction-regex=<pattern>]... <input-file>
                               [<output-file>]
-Redact sensitive information from text files, especially hserr files, but also
-logs, configuration files, etc.
+Redact sensitive information from text files, such as logs, configuration files,
+error dumps, etc.
       <input-file>      Input file to redact
       [<output-file>]   Output file with redacted data (default: auto-generated)
       --add-redaction-regex=<pattern>
@@ -347,8 +343,8 @@ logs, configuration files, etc.
                           redaction. This option can be specified multiple
                           times to add multiple patterns.
       --config=<preset|file|url>
-                        Load configuration from a preset name (default, strict,
-                          hserr), YAML file, or URL. If not specified, uses the
+                        Load configuration from a preset name (default, strict),
+                          YAML file, or URL. If not specified, uses the
                           default preset. You can also create a config file
                           that inherits from a preset using 'parent:
                           <preset-name>'.
@@ -373,11 +369,11 @@ logs, configuration files, etc.
 
 Examples:
 
-  Redact a log file with default config (hserr preset):
+  Redact a log file with default config:
     jfr-redact redact-text application.log
     (creates application.redacted.log)
 
-  Redact Java crash reports (uses hserr preset by default):
+  Redact Java crash reports:
     jfr-redact redact-text hs_err_pid12345.log
 
   Read from stdin, write to stdout:
@@ -405,8 +401,8 @@ Usage: jfr-redact generate-config [-hqvV] [--debug] [--minimal] [-o=<file>]
                                   [<preset|output.yaml>]
 Generate a configuration template for JFR redaction
       [<preset|output.yaml>]
-                        Preset name to generate config from (default, strict,
-                          hserr), or output file path. If not specified or is a
+                        Preset name to generate config from (default, strict),
+                          or output file path. If not specified or is a
                           preset name, generates full template.
       --debug           Enable debug output (DEBUG level logging)
   -h, --help            Show this help message and exit.
@@ -425,7 +421,7 @@ Examples:
   Generate template to file:
     jfr-redact generate-config -o my-config.yaml
 
-  Generate config from a preset (default, strict, or hserr):
+  Generate config from a preset (default or strict):
     jfr-redact generate-config default -o my-config.yaml
     jfr-redact generate-config strict -o strict.yaml
 
@@ -453,7 +449,7 @@ Test configuration by showing how specific values would be redacted
 Also validates configuration when run without test values
       --config=<preset|file|url>
                           Load configuration from a preset name (default,
-                            strict, hserr), YAML file, or URL. If not
+                            strict), YAML file, or URL. If not
                             specified, uses the default preset. You can also
                             create a config file that inherits from a preset
                             using 'parent: <preset-name>'.
@@ -659,7 +655,7 @@ Examples:
 Configuration
 -------------
 
-- Preset names: [`default`](src/main/resources/presets/default.yaml), [`strict`](src/main/resources/presets/strict.yaml), [`hserr`](src/main/resources/presets/hserr.yaml)
+- Preset names: [`default`](src/main/resources/presets/default.yaml), [`strict`](src/main/resources/presets/strict.yaml)
 - File paths: `./my-parent-config.yaml`, `/absolute/path/to/config.yaml`
 - URLs: `https://example.com/configs/base.yaml`, `file:///path/to/config.yaml`
 

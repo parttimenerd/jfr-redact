@@ -56,7 +56,7 @@ public class TestCommand implements Callable<Integer> {
 
     @Option(
             names = {"--config"},
-            description = "Load configuration from a preset name (default, strict, hserr), YAML file, or URL. " +
+            description = "Load configuration from a preset name (default, strict), YAML file, or URL. " +
                           "If not specified, uses the default preset. " +
                           "You can also create a config file that inherits from a preset using 'parent: <preset-name>'.",
             paramLabel = "<preset|file|url>",

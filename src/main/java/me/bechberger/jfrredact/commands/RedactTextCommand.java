@@ -19,17 +19,17 @@ import java.io.OutputStream;
  */
 @Command(
     name = "redact-text",
-    description = "Redact sensitive information from text files, especially hserr files, but also logs, configuration files, etc.",
+    description = "Redact sensitive information from text files, such as logs, configuration files, error dumps, etc.",
     mixinStandardHelpOptions = true,
     version = Version.FULL_VERSION,
     footerHeading = "%nExamples:%n",
     footer = {
         "",
-        "  Redact a log file with default config (hserr preset):",
+        "  Redact a log file with default config:",
         "    jfr-redact redact-text application.log",
         "    (creates application.redacted.log)",
         "",
-        "  Redact Java crash reports (uses hserr preset by default):",
+        "  Redact Java crash reports:",
         "    jfr-redact redact-text hs_err_pid12345.log",
         "",
         "  Read from stdin, write to stdout:",
@@ -57,7 +57,7 @@ public class RedactTextCommand extends BaseRedactCommand {
 
     @Override
     protected Preset getDefaultPreset() {
-        return Preset.HSERR;
+        return Preset.DEFAULT;
     }
 
     @Override
