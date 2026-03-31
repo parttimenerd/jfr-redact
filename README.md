@@ -9,6 +9,8 @@ __We don't provide any guarantees regarding functionality or security.__
 A tool to redact sensitive information from Java Flight Recorder (JFR) recordings and text files,
 replacing it with `***`.
 
+__For redacting hserr files, please use [jhserr](https://github.com/parttimenerd/jhserr) ([web version](https://parttimenerd.github.io/jhserr/)) instead.__
+
 ## Table of Contents
 
 - [Quick Start](#quick-start)

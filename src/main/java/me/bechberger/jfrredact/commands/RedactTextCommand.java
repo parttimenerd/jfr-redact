@@ -29,11 +29,8 @@ import java.io.OutputStream;
         "    jfr-redact redact-text application.log",
         "    (creates application.redacted.log)",
         "",
-        "  Redact Java crash reports:",
-        "    jfr-redact redact-text hs_err_pid12345.log",
-        "",
         "  Read from stdin, write to stdout:",
-        "    cat hs_err_pid12345.log | jfr-redact redact-text - -",
+        "    cat app.log | jfr-redact redact-text - -",
         "",
         "  Use strict preset:",
         "    jfr-redact redact-text app.log --config strict",
@@ -43,7 +40,8 @@ import java.io.OutputStream;
         "",
         "  Add custom redaction pattern:",
         "    jfr-redact redact-text app.log --add-redaction-regex '\\b[A-Z]{3}-\\d{6}\\b'",
-        ""
+        "",
+        "  Don't use it for redacting hserr files, use hserr (https://github.com/parttimenerd/jhserr) instead."
     }
 )
 public class RedactTextCommand extends BaseRedactCommand {
@@ -125,6 +123,11 @@ public class RedactTextCommand extends BaseRedactCommand {
             redactor.redactStream(in, out);
 
         } else {
+            if (inputFile.getName().startsWith("hs") && inputFile.getName().endsWith(".log")) {
+                getLogger().warn("It looks like you're trying to redact an hserr file. " +
+                        "Please use jhserr (https://github.com/parttimenerd/jhserr) instead.");
+            }
+
             redactor.redactFile(inputFile, outputFile);
 
             getLogger().info("✓ Redaction complete!");
