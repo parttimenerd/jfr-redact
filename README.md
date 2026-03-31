@@ -100,7 +100,7 @@ Use jfr-redact as a library to programmatically redact JFR files in your own app
 <dependency>
   <groupId>me.bechberger</groupId>
   <artifactId>jfr-redact</artifactId>
-  <version>0.2.2</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
@@ -228,9 +228,9 @@ Redact sensitive information from Java Flight Recorder (JFR) recordings
                           redaction. This option can be specified multiple
                           times to add multiple patterns.
       --config=<preset|file|url>
-                        Load configuration from a preset name (default, strict),
-                          YAML file, or URL. If not specified, uses the
-                          default preset. You can also create a config file
+                        Load configuration from a preset name (default,
+                          strict), YAML file, or URL. If not specified, uses
+                          the default preset. You can also create a config file
                           that inherits from a preset using 'parent:
                           <preset-name>'.
       --debug           Enable debug output (DEBUG level logging)
@@ -336,8 +336,8 @@ Usage: jfr-redact redact-text [-hqvV] [--debug] [--pseudonymize] [--stats]
                               [--pseudonymize-mode=<mode>] [--seed=<seed>]
                               [--add-redaction-regex=<pattern>]... <input-file>
                               [<output-file>]
-Redact sensitive information from text files, such as logs, configuration files,
-error dumps, etc.
+Redact sensitive information from text files, such as logs, configuration
+files, error dumps, etc.
       <input-file>      Input file to redact
       [<output-file>]   Output file with redacted data (default: auto-generated)
       --add-redaction-regex=<pattern>
@@ -345,9 +345,9 @@ error dumps, etc.
                           redaction. This option can be specified multiple
                           times to add multiple patterns.
       --config=<preset|file|url>
-                        Load configuration from a preset name (default, strict),
-                          YAML file, or URL. If not specified, uses the
-                          default preset. You can also create a config file
+                        Load configuration from a preset name (default,
+                          strict), YAML file, or URL. If not specified, uses
+                          the default preset. You can also create a config file
                           that inherits from a preset using 'parent:
                           <preset-name>'.
       --debug           Enable debug output (DEBUG level logging)
@@ -375,11 +375,8 @@ Examples:
     jfr-redact redact-text application.log
     (creates application.redacted.log)
 
-  Redact Java crash reports:
-    jfr-redact redact-text hs_err_pid12345.log
-
   Read from stdin, write to stdout:
-    cat hs_err_pid12345.log | jfr-redact redact-text - -
+    cat app.log | jfr-redact redact-text - -
 
   Use strict preset:
     jfr-redact redact-text app.log --config strict
@@ -389,6 +386,9 @@ Examples:
 
   Add custom redaction pattern:
     jfr-redact redact-text app.log --add-redaction-regex '\b[A-Z]{3}-\d{6}\b'
+
+  Don't use it for redacting hserr files, use hserr (https://github.
+com/parttimenerd/jhserr) instead.
 ```
 <!-- END help_redact_text -->
 
@@ -404,8 +404,8 @@ Usage: jfr-redact generate-config [-hqvV] [--debug] [--minimal] [-o=<file>]
 Generate a configuration template for JFR redaction
       [<preset|output.yaml>]
                         Preset name to generate config from (default, strict),
-                          or output file path. If not specified or is a
-                          preset name, generates full template.
+                          or output file path. If not specified or is a preset
+                          name, generates full template.
       --debug           Enable debug output (DEBUG level logging)
   -h, --help            Show this help message and exit.
       --minimal         Generate minimal configuration template
@@ -451,10 +451,10 @@ Test configuration by showing how specific values would be redacted
 Also validates configuration when run without test values
       --config=<preset|file|url>
                           Load configuration from a preset name (default,
-                            strict), YAML file, or URL. If not
-                            specified, uses the default preset. You can also
-                            create a config file that inherits from a preset
-                            using 'parent: <preset-name>'.
+                            strict), YAML file, or URL. If not specified, uses
+                            the default preset. You can also create a config
+                            file that inherits from a preset using 'parent:
+                            <preset-name>'.
       --debug             Enable debug output (DEBUG level logging)
       --event=<type>      Event type to test (e.g., jdk.JavaMonitorEnter)
   -h, --help              Show this help message and exit.
