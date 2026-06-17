@@ -113,10 +113,9 @@ public class TextFileRedactor {
                 // Analyze for discovery
                 discoveryEngine.analyzeLine(line);
 
-                // Update discovered patterns periodically
-                if (linesProcessed % 100 == 0) {
-                    redactionEngine.setDiscoveredPatterns(discoveryEngine.getDiscoveredPatterns());
-                }
+                // Update discovered patterns after every line so newly discovered values
+                // are immediately used for redacting subsequent lines
+                redactionEngine.setDiscoveredPatterns(discoveryEngine.getDiscoveredPatterns());
 
                 // Redact the line
                 String redactedLine = redactLine(line);
