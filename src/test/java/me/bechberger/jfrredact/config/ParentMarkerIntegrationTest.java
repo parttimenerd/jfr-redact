@@ -127,21 +127,6 @@ public class ParentMarkerIntegrationTest {
     }
 
     @Test
-    public void testHserrPreset_UsesParentCorrectly() throws IOException {
-        ConfigLoader loader = new ConfigLoader();
-        RedactionConfig config = loader.load("hserr");
-
-        // hserr inherits from default, verify inheritance works
-        List<String> patterns = config.getProperties().getPatterns();
-
-        // Should have patterns from both default and hserr
-        assertThat(patterns).as("Should have inherited patterns").isNotEmpty();
-
-        // Verify some default patterns are present (inherited)
-        assertThat(patterns.stream().anyMatch(p -> p.contains("pass"))).as("Should contain password-related pattern from default").isTrue();
-    }
-
-    @Test
     public void testParentMarkerInFilteringLists() throws IOException {
         ConfigLoader loader = new ConfigLoader();
         RedactionConfig config = loader.load("src/test/resources/test-parent-marker.yaml");

@@ -5,8 +5,7 @@ package me.bechberger.jfrredact;
  */
 public enum Preset {
     DEFAULT("default", "Balanced security and utility (recommended for most cases)"),
-    STRICT("strict", "Maximum redaction for highly sensitive data"),
-    HSERR_OLD("hserr", "Previously used for Java crash reports (hs_err_pid*.log), but it doesn't work well");
+    STRICT("strict", "Maximum redaction for highly sensitive data");
 
     private final String name;
     private final String description;

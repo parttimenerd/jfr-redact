@@ -127,7 +127,7 @@ strings:
 
     # Internal URLs
     internal_urls:
-      enabled: false  # Disabled by default, enable with hserr preset
+      enabled: false  # Disabled by default, enable in custom config or strict preset
       patterns:
         - 'https?://[a-zA-Z0-9.-]*(?:artifactory|nexus|repo|repository)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'
         - 'https?://[a-zA-Z0-9.-]*(?:git|gitlab|github|bitbucket)[a-zA-Z0-9.-]*(?:/[^\s"'']*)?'

@@ -27,14 +27,6 @@ public class RedactionEngineTest {
         }
     }
 
-    private RedactionConfig loadHsErrConfig() {
-        try {
-            return new ConfigLoader().load("hserr");
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load hserr config", e);
-        }
-    }
-
     private RedactionEngine createDefaultEngine() {
         return new RedactionEngine(loadDefaultConfig());
     }
@@ -496,7 +488,7 @@ public class RedactionEngineTest {
         "v  ~RuntimeStub::new_array_blob (C2 runtime) 0x00007fff7b44fb38"
     })
     public void testHsErrJavaStackFrameLineIsNotRedacted(String input) {
-        RedactionEngine engine = new RedactionEngine(loadHsErrConfig());
+        RedactionEngine engine = new RedactionEngine(loadDefaultConfig());
         String result = engine.redact("text", input);
 
         assertEquals(input, result, "Java stack frame/module notation should remain unchanged");

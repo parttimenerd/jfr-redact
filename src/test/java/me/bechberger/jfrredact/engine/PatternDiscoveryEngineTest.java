@@ -26,15 +26,6 @@ class PatternDiscoveryEngineTest {
         }
     }
 
-    // Helper method to load hserr config (for hs_err file tests)
-    private RedactionConfig loadHsErrConfig() {
-        try {
-            return new ConfigLoader().load("hserr");
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load hserr config", e);
-        }
-    }
-
     @Test
     void testUsernameDiscoveryFromMacPath() {
         RedactionConfig config = loadDefaultConfig();
@@ -187,7 +178,7 @@ class PatternDiscoveryEngineTest {
 
     @Test
     void testHostnameDiscoveryFromHsErr() {
-        RedactionConfig config = loadHsErrConfig();
+        RedactionConfig config = loadDefaultConfig();
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
 
@@ -213,11 +204,11 @@ class PatternDiscoveryEngineTest {
 
     @Test
     void testHostnameDiscoveryFromHsErrWithMultipleOccurrences() {
-        RedactionConfig config = loadHsErrConfig();
+        RedactionConfig config = loadDefaultConfig();
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
 
-        // Configure exactly like hserr.yaml preset
+        // Configure for hostname discovery
         var hostnames = stringConfig.getPatterns().getHostnames();
         hostnames.setEnabled(true);
         hostnames.setEnableDiscovery(true);
@@ -439,7 +430,7 @@ class PatternDiscoveryEngineTest {
 
     @Test
     void testMultiplePatternTypesWithDifferentSettings() {
-        RedactionConfig config = loadHsErrConfig();  // Use hserr for single-word hostname support
+        RedactionConfig config = loadDefaultConfig();  
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
 
@@ -579,11 +570,11 @@ class PatternDiscoveryEngineTest {
 
     @Test
     void testHsErrRealWorldExample() {
-        RedactionConfig config = loadHsErrConfig();
+        RedactionConfig config = loadDefaultConfig();
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
 
-        // Configure like hserr.yaml preset
+        // Configure for hostname discovery
         var hostnames = stringConfig.getPatterns().getHostnames();
         hostnames.setEnabled(true);
         hostnames.setEnableDiscovery(true);
@@ -659,7 +650,7 @@ class PatternDiscoveryEngineTest {
     @Test
     void testHsErrHostLineWithContext() {
         // Test that mimics real hs_err file content with hostname in multiple places
-        RedactionConfig config = loadHsErrConfig();
+        RedactionConfig config = loadDefaultConfig();
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
 
@@ -713,7 +704,7 @@ class PatternDiscoveryEngineTest {
     @Test
     void testHsErrCompleteScenario() {
         // Complete test simulating discovery and redaction with a real hs_err scenario
-        RedactionConfig config = loadHsErrConfig();
+        RedactionConfig config = loadDefaultConfig();
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
 
@@ -952,7 +943,7 @@ class PatternDiscoveryEngineTest {
     @Test
     void testRedactionDoesNotAffectAllowlistedValues() {
         // Test that allowlisted values are not redacted
-        RedactionConfig config = loadHsErrConfig();  // Use hserr for single-word hostname support
+        RedactionConfig config = loadDefaultConfig();  
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
 
@@ -1058,11 +1049,11 @@ class PatternDiscoveryEngineTest {
     @Test
     void testDiscoveryWithRedactionEngine_HsErrScenario() {
         // Test complete hs_err scenario with discovery and redaction
-        RedactionConfig config = loadHsErrConfig();
+        RedactionConfig config = loadDefaultConfig();
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         StringConfig stringConfig = config.getStrings();
 
-        // Configure like hserr preset
+        // Configure for hostname discovery
         var hostnames = stringConfig.getPatterns().getHostnames();
         hostnames.setEnabled(true);
         hostnames.setEnableDiscovery(true);
@@ -1197,7 +1188,7 @@ class PatternDiscoveryEngineTest {
     @Test
     void testDiscoveryWithTextFileRedactor_TwoPass() throws Exception {
         // Test using TextFileRedactor with two-pass discovery
-        RedactionConfig config = loadHsErrConfig();  // Use hserr for single-word hostname support
+        RedactionConfig config = loadDefaultConfig();  
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         discoveryConfig.setMode(DiscoveryConfig.DiscoveryMode.TWO_PASS);
 
@@ -1255,7 +1246,7 @@ class PatternDiscoveryEngineTest {
     @Test
     void testDiscoveryWithTextFileRedactor_FastMode() throws Exception {
         // Test using TextFileRedactor with fast (single-pass) discovery
-        RedactionConfig config = loadHsErrConfig();  // Use hserr for single-word hostname support
+        RedactionConfig config = loadDefaultConfig();  
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         discoveryConfig.setMode(DiscoveryConfig.DiscoveryMode.FAST);
 
@@ -1362,7 +1353,7 @@ class PatternDiscoveryEngineTest {
     @Test
     void testDiscoveryWithMinOccurrences_Integration() throws Exception {
         // Test that min_occurrences threshold works in integrated scenario
-        RedactionConfig config = loadHsErrConfig();  // Use hserr for single-word hostname support
+        RedactionConfig config = loadDefaultConfig();  
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         discoveryConfig.setMode(DiscoveryConfig.DiscoveryMode.TWO_PASS);
 
@@ -1412,7 +1403,7 @@ class PatternDiscoveryEngineTest {
     @Test
     void testDiscoveryWithAllowlist_Integration() throws Exception {
         // Test that allowlist works in integrated scenario
-        RedactionConfig config = loadHsErrConfig();  // Use hserr for single-word hostname support
+        RedactionConfig config = loadDefaultConfig();  
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         discoveryConfig.setMode(DiscoveryConfig.DiscoveryMode.TWO_PASS);
 
@@ -1463,7 +1454,7 @@ class PatternDiscoveryEngineTest {
     @Test
     void testDiscoveryMultiplePatternTypes_Integration() throws Exception {
         // Test discovery and redaction with multiple pattern types simultaneously
-        RedactionConfig config = loadHsErrConfig();  // Use hserr for single-word hostname support
+        RedactionConfig config = loadDefaultConfig();  
         DiscoveryConfig discoveryConfig = config.getDiscovery();
         discoveryConfig.setMode(DiscoveryConfig.DiscoveryMode.TWO_PASS);
 
